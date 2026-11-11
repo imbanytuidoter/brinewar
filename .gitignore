@@ -7,3 +7,4 @@ target/
 *.sqlite-*
 dist/
 coverage/
+.playwright-mcp/
