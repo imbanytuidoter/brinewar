@@ -3,11 +3,14 @@ import { makeCaller, makeViewer } from "@/lib/chain";
 import type { AppConfig } from "@/lib/config";
 import { ensureGuest, GuestError } from "@/lib/guest";
 import { fetchEvidence } from "@/lib/proofs";
+import { equippedSkin, ownedSkins, skinLook } from "@/lib/skins";
 import { browserStorage } from "@/lib/storage";
+import type { ShipLook } from "@/scene/types";
 import { GameSession, type Snapshot } from "./session";
 
 const BATTLE_POLL_MS = 1500;
 const HARBOUR_POLL_MS = 8000;
+const OFFLINE_POLL_MS = 5000;
 
 export type Boot =
   | { readonly kind: "boarding" }
@@ -51,7 +54,7 @@ export function useSession(session: GameSession): Snapshot {
   const subscribe = useCallback((fn: () => void) => session.subscribe(fn), [session]);
   const snap = useSyncExternalStore(subscribe, () => session.snapshot);
   const inBattle = snap.gameId !== null && snap.step?.kind !== "done";
-  const delay = inBattle ? BATTLE_POLL_MS : HARBOUR_POLL_MS;
+  const delay = snap.offline ? OFFLINE_POLL_MS : inBattle ? BATTLE_POLL_MS : HARBOUR_POLL_MS;
   useEffect(() => {
     let alive = true;
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -79,4 +82,22 @@ export function useReducedMotion(): boolean {
     return () => query.removeEventListener("change", on);
   }, [query]);
   return reduced;
+}
+
+export function useEquippedLook(cfg: AppConfig, accountId: string): ShipLook | null {
+  const [look, setLook] = useState<ShipLook | null>(null);
+  useEffect(() => {
+    let alive = true;
+    const viewer = makeViewer(cfg.rpcUrl, cfg.contractId);
+    const store = browserStorage();
+    (async () => {
+      const { owned } = await ownedSkins(viewer, accountId);
+      const name = equippedSkin(store, accountId, owned);
+      if (alive) setLook(name ? skinLook(name) : null);
+    })().catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, [cfg, accountId]);
+  return look;
 }

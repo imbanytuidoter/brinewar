@@ -1,6 +1,6 @@
 import { answerArgs, decodeBoard, encodeBoard, newBoard, revealArgs, rootHex, type Board } from "@/lib/board";
 import type { Caller, CallResult, Viewer } from "@/lib/chain";
-import type { GameView, ModelView, ShotView } from "@/lib/contract";
+import type { GameView, ModelView, PlayerView, ShipStatsView, ShotView } from "@/lib/contract";
 import { isLegalFleet, ships } from "@/lib/fleet";
 import { boardKey } from "@/lib/guest";
 import { buildTree, fromHex, toHex } from "@/lib/merkle";
@@ -31,6 +31,32 @@ export interface Snapshot {
   readonly lastTx: string | null;
   readonly offline: boolean;
   readonly enemyFleet: readonly (readonly number[])[] | null;
+  readonly enemyRevealTx: string | null;
+  readonly captain: Captain | null;
+  readonly rewards: Rewards | null;
+}
+
+export interface Captain {
+  readonly player: PlayerView;
+  readonly ship: ShipStatsView | null;
+}
+
+export interface Rewards {
+  readonly gold: bigint;
+  readonly xp: number;
+  readonly rankFrom: string | null;
+  readonly rankTo: string | null;
+}
+
+export function rewardsBetween(before: Captain, after: Captain): Rewards {
+  const from = before.ship?.rank ?? null;
+  const to = after.ship?.rank ?? null;
+  return {
+    gold: BigInt(after.player.gold) - BigInt(before.player.gold),
+    xp: (after.ship?.xp ?? 0) - (before.ship?.xp ?? 0),
+    rankFrom: from !== to ? from : null,
+    rankTo: from !== to ? to : null,
+  };
 }
 
 export interface SessionDeps {
@@ -66,13 +92,14 @@ export class GameSession {
   #model: ModelView | null | undefined;
   #nauarchShots = -1;
   #evidenceTries = 0;
+  #settled: number | null = null;
 
   constructor(d: SessionDeps) {
     this.#d = d;
     this.#now = d.now ?? Date.now;
     this.#snap = {
       accountId: d.accountId, gameId: null, game: null, history: [], marks: EMPTY_MARKS, step: null,
-      board: null, lines: [], busy: null, error: null, lastTx: null, offline: false, enemyFleet: null,
+      board: null, lines: [], busy: null, error: null, lastTx: null, offline: false, enemyFleet: null, enemyRevealTx: null, captain: null, rewards: null,
     };
   }
 
@@ -148,10 +175,12 @@ export class GameSession {
       this.#set({ error: "This browser cannot store your board (private mode or full storage), so you could not answer with proofs." });
       return false;
     }
+    const before = await this.#captain().catch(() => null);
     const created = await this.#send("Opening a battle", "new_game_vs_nauarch", {});
     const id = typeof created.value === "number" ? created.value : null;
     if (!created.ok || id === null) return false;
     this.#adoptPending(id);
+    if (before) this.#saveBaseline(id, before);
     this.#resetGame(id, board);
     await this.#once(`commit:${id}`, "Sealing your board", "commit_board", () => ({ game_id: id, root: rootHex(board) }));
     await this.tick();
@@ -161,7 +190,55 @@ export class GameSession {
   #resetGame(id: number | null, board: Board | null): void {
     this.#nauarchShots = -1;
     this.#evidenceTries = 0;
-    this.#set({ gameId: id, game: null, history: [], marks: EMPTY_MARKS, step: null, board, lines: [], error: null, enemyFleet: null });
+    this.#settled = null;
+    this.#set({ gameId: id, game: null, history: [], marks: EMPTY_MARKS, step: null, board, lines: [], error: null, enemyFleet: null, enemyRevealTx: null, rewards: null });
+  }
+
+  async #captain(): Promise<Captain | null> {
+    const player = await this.#d.viewer.view<PlayerView | null>("get_player", { account_id: this.#d.accountId });
+    if (!player) return null;
+    const ship = await this.#d.viewer.view<ShipStatsView | null>("get_ship", { token_id: player.flagship }).catch(() => null);
+    const captain = { player, ship };
+    this.#set({ captain });
+    return captain;
+  }
+
+  async rename(nickname: string): Promise<boolean> {
+    const r = await this.#send("Renaming your captain", "set_nickname", { nickname });
+    if (r.ok) await this.#captain().catch(() => null);
+    return r.ok;
+  }
+
+  #baselineKey(gameId: number): string {
+    return `brinewar.baseline.${this.#d.accountId}.${gameId}`;
+  }
+
+  #saveBaseline(gameId: number, c: Captain): void {
+    try {
+      this.#d.store.set(this.#baselineKey(gameId), JSON.stringify({ gold: c.player.gold, xp: c.ship?.xp ?? 0, rank: c.ship?.rank ?? null }));
+    } catch {
+      return;
+    }
+  }
+
+  #loadBaseline(gameId: number, now: Captain): Captain | null {
+    try {
+      const v = JSON.parse(this.#d.store.get(this.#baselineKey(gameId)) ?? "null") as { gold?: unknown; xp?: unknown; rank?: unknown } | null;
+      if (!v || typeof v.gold !== "string" || !/^\d+$/.test(v.gold) || typeof v.xp !== "number") return null;
+      const ship = now.ship ? { ...now.ship, xp: v.xp, rank: typeof v.rank === "string" ? v.rank : now.ship.rank } : null;
+      return { player: { ...now.player, gold: v.gold }, ship };
+    } catch {
+      return null;
+    }
+  }
+
+  async #settle(gameId: number): Promise<void> {
+    if (this.#settled === gameId) return;
+    this.#settled = gameId;
+    const after = await this.#captain().catch(() => null);
+    const before = after ? this.#loadBaseline(gameId, after) : null;
+    if (after && before) this.#set({ rewards: rewardsBetween(before, after) });
+    this.#d.store.remove(this.#baselineKey(gameId));
   }
 
   async fire(index: number): Promise<boolean> {
@@ -197,6 +274,7 @@ export class GameSession {
 
   async tick(): Promise<void> {
     const me = this.#d.accountId;
+    if (this.#snap.captain === null) await this.#captain().catch(() => null);
     let id = this.#snap.gameId;
     if (id === null) {
       id = await this.#d.viewer.view<number | null>("active_game_of", { account_id: me });
@@ -217,6 +295,7 @@ export class GameSession {
     this.#set({ game, history, marks: marksFrom(history, me), step, board });
     await this.#act(game, step, board);
     await this.#refreshEvidence(game, history).catch(() => undefined);
+    if (step.kind === "done" && game.revealed_a && game.revealed_b) await this.#settle(game.id);
   }
 
   async #act(g: GameView, step: Step, board: Board | null): Promise<void> {
@@ -242,7 +321,7 @@ export class GameSession {
     this.#nauarchShots = nauarchShots.length;
     if (wantFleet && ev.reveal && g.root_b) {
       const fleet = verifiedFleet(ev.reveal.cells, ev.reveal.salts, g.root_b);
-      if (fleet) this.#set({ enemyFleet: fleet });
+      if (fleet) this.#set({ enemyFleet: fleet, enemyRevealTx: ev.reveal.tx });
     }
     if (this.#model === undefined) this.#model = await this.#d.viewer.view<ModelView | null>("model").catch(() => undefined);
     const lines = bindMoves(ev.moves, nauarchShots, g.id, this.#model ?? null).flatMap((b): NauarchLine[] =>

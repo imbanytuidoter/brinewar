@@ -6,6 +6,7 @@ import { Account, actions, KeyPair, KeyPairSigner, nearToYocto, teraToGas, type 
 import { it } from "vitest";
 import { Admiral } from "../src/admiral/admiral.js";
 import { buildApp } from "../src/api/app.js";
+import { sample } from "../src/api/sampler.js";
 import { Store } from "../src/lib/db.js";
 import { blockHeight, NearCaller, NearViewer, provider } from "../src/lib/near.js";
 import { Vault } from "../src/lib/vault.js";
@@ -79,7 +80,12 @@ it("runs a local stack for the web app until killed", async () => {
   const out = process.env.DEV_STACK_FILE ?? join(dir, "devstack.json");
   writeFileSync(out, JSON.stringify({ rpcUrl: sb.rpcUrl, contractId, apiUrl: `http://127.0.0.1:${port}` }), { mode: 0o600 });
   console.log(`DEVSTACK READY ${out}`);
+  let lastSample = 0;
   for (;;) {
+    if (Date.now() - lastSample > 3000) {
+      lastSample = Date.now();
+      await sample(viewer, store, () => blockHeight(rpc, 15_000)).catch((e: unknown) => console.log("SAMPLE", e instanceof Error ? e.message : String(e)));
+    }
     await admiral.tick().catch((e: unknown) => console.log("TICK", e instanceof Error ? e.message : String(e)));
     await new Promise((r) => setTimeout(r, 400));
   }

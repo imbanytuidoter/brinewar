@@ -9,6 +9,8 @@ use near_sdk::{
 pub const GOLD: &str = "gold";
 pub const SHIP_PREFIX: &str = "ship:";
 pub const SKIN_PREFIX: &str = "skin:";
+pub const STARTER_SKIN: &str = "skin:brine";
+const MAX_SKINS_LISTED: usize = 100;
 const GAS_FOR_RESOLVE: Gas = Gas::from_tgas(15);
 const GAS_FOR_ON_TRANSFER: Gas = Gas::from_tgas(30);
 const MAX_BATCH: usize = 16;
@@ -201,6 +203,10 @@ impl Brinewar {
             .collect()
     }
 
+    pub fn skins(&self) -> Vec<String> {
+        self.skins.iter().take(MAX_SKINS_LISTED).cloned().collect()
+    }
+
     pub fn mint_skin(&mut self, name: String, receiver_id: AccountId, amount: U128) {
         require!(
             env::predecessor_account_id() == self.owner,
@@ -244,7 +250,11 @@ impl Brinewar {
         amount: u128,
         memo: Option<&str>,
     ) {
-        let supply = self.supply.get(token_id).copied().unwrap_or(0);
+        let known = self.supply.get(token_id).copied();
+        if let (None, Some(name)) = (known, token_id.strip_prefix(SKIN_PREFIX)) {
+            self.skins.push(name.to_string());
+        }
+        let supply = known.unwrap_or(0);
         self.supply.insert(token_id.to_string(), supply + amount);
         let bal = self.balance(token_id, to);
         self.set_balance(token_id, to, bal + amount);
@@ -265,7 +275,7 @@ impl Brinewar {
         let amount = amount.min(bal);
         self.set_balance(token_id, from, bal - amount);
         let supply = self.supply.get(token_id).copied().unwrap_or(0);
-        if supply <= amount && token_id != GOLD {
+        if supply <= amount && token_id != GOLD && !token_id.starts_with(SKIN_PREFIX) {
             self.supply.remove(token_id);
         } else {
             self.supply

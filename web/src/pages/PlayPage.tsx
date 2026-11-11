@@ -3,7 +3,7 @@ import { lazy, Suspense, useCallback, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { outcome } from "@/game/engine";
 import type { GameSession } from "@/game/session";
-import { useReducedMotion, useSession } from "@/game/useGame";
+import { useEquippedLook, useReducedMotion, useSession } from "@/game/useGame";
 import type { AppConfig } from "@/lib/config";
 import { txLink } from "@/lib/config";
 import { cryptoRng, placeFleet, ships } from "@/lib/fleet";
@@ -12,6 +12,7 @@ import { EndCard } from "@/ui/EndCard";
 import { FireByName } from "@/ui/FireByName";
 import { Harbour } from "@/ui/Harbour";
 import { NauarchBubble } from "@/ui/NauarchBubble";
+import { RevealSeal } from "@/ui/RevealSeal";
 import { TopBar } from "@/ui/TopBar";
 
 const SeaScene = lazy(() => import("@/scene/SeaScene").then((m) => ({ default: m.SeaScene })));
@@ -26,6 +27,7 @@ interface PlayPageProps {
 export function PlayPage({ cfg, session }: PlayPageProps) {
   const snap = useSession(session);
   const reducedMotion = useReducedMotion();
+  const myLook = useEquippedLook(cfg, snap.accountId);
   const [draft, setDraft] = useState<number[]>(() => placeFleet(cryptoRng()));
   const inBattle = snap.gameId !== null;
   const cells = inBattle ? snap.board?.cells ?? null : draft;
@@ -58,8 +60,11 @@ export function PlayPage({ cfg, session }: PlayPageProps) {
           canFire={step === "fire" && snap.busy === null}
           reducedMotion={reducedMotion}
           onFire={onFire}
+          myLook={myLook}
         />
       </Suspense>
+
+      <RevealSeal show={inBattle && result !== null && snap.enemyFleet !== null} tx={snap.enemyRevealTx} txHref={txLink(cfg, snap.enemyRevealTx)} reducedMotion={reducedMotion} />
 
       <TopBar myHits={g?.hits_on_a ?? 0} enemyHits={g?.hits_on_b ?? 0} showScore={inBattle} verifyHref={verifyHref} />
 
@@ -82,7 +87,7 @@ export function PlayPage({ cfg, session }: PlayPageProps) {
           </p>
         )}
         {!inBattle && <Harbour busy={snap.busy !== null} onShuffle={() => setDraft(placeFleet(cryptoRng()))} onSail={sail} />}
-        {inBattle && result && verifyHref && <EndCard outcome={result} reason={g?.finish_reason ?? null} verifyHref={verifyHref} done={step === "done"} onAgain={again} />}
+        {inBattle && result && verifyHref && <EndCard outcome={result} reason={g?.finish_reason ?? null} verifyHref={verifyHref} done={step === "done"} onAgain={again} rewards={snap.rewards} />}
         {inBattle && step === "lost-board" && (
           <div className="grid max-w-[280px] gap-2 rounded-2xl border border-line bg-glass p-3 text-[13px] backdrop-blur-md">
             <p className="m-0">This browser lost the board of your open battle, so it cannot answer the Nauarch with proofs.</p>

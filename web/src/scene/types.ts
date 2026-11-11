@@ -2,6 +2,11 @@ export type Mark = "hit" | "miss";
 
 export type Side = "mine" | "enemy";
 
+export interface ShipLook {
+  readonly sail: string;
+  readonly flag: string;
+}
+
 export interface SeaSceneProps {
   readonly myShips: readonly (readonly number[])[];
   readonly myMarks: ReadonlyMap<number, Mark>;
@@ -11,4 +16,5 @@ export interface SeaSceneProps {
   readonly canFire: boolean;
   readonly reducedMotion: boolean;
   readonly onFire: (index: number) => void;
+  readonly myLook?: ShipLook | null;
 }

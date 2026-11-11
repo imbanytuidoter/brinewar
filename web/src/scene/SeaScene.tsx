@@ -11,7 +11,7 @@ import { Picker } from "./Picker";
 import { createRuntime, RuntimeContext, useRuntime, type SceneRuntime } from "./runtime";
 import { Sea } from "./Sea";
 import { FOG_FAR, FOG_NEAR, SEA_FOG } from "./seaMaterial";
-import type { Mark, SeaSceneProps, Side } from "./types";
+import type { Mark, SeaSceneProps, ShipLook, Side } from "./types";
 import { useMarkFlights } from "./useMarkFlights";
 import { useReveal } from "./useReveal";
 
@@ -55,12 +55,13 @@ interface BoardProps {
   readonly side: Side;
   readonly ships: readonly (readonly number[])[];
   readonly marks: ReadonlyMap<number, Mark>;
+  readonly look?: ShipLook | null;
 }
 
-function Board({ side, ships, marks }: BoardProps) {
+function Board({ side, ships, marks, look = null }: BoardProps) {
   const landed = useMarkFlights(side, marks);
   const sunk = useMemo(() => sunkShips(ships, landed), [ships, landed]);
-  return <Fleet side={side} ships={ships} sunk={sunk} />;
+  return <Fleet side={side} ships={ships} sunk={sunk} look={look} />;
 }
 
 function World(props: SeaSceneProps) {
@@ -77,7 +78,7 @@ function World(props: SeaSceneProps) {
       <Picker marks={props.enemyMarks} aiming={props.aiming} canFire={props.canFire} onFire={props.onFire} />
       <Suspense fallback={null}>
         <Effects />
-        <Board side="mine" ships={props.myShips} marks={props.myMarks} />
+        <Board side="mine" ships={props.myShips} marks={props.myMarks} look={props.myLook ?? null} />
         <Board side="enemy" ships={props.enemyShips ?? NO_SHIPS} marks={props.enemyMarks} />
       </Suspense>
     </>

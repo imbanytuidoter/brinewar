@@ -1,5 +1,6 @@
 import { ShieldCheck } from "lucide-react";
 import { SHIP_CELLS } from "@/lib/contract";
+import { Nav } from "./Nav";
 
 interface TopBarProps {
   readonly myHits: number;
@@ -15,6 +16,7 @@ export function TopBar({ myHits, enemyHits, showScore, verifyHref }: TopBarProps
         Brinewar
         <small className="mt-1 block font-sans text-[11px] font-medium tracking-[0.14em] text-muted uppercase max-sm:hidden">naval battle · every shot proven</small>
       </a>
+      <Nav compact className="pointer-events-auto" />
       <div className="pointer-events-auto flex flex-wrap items-center justify-end gap-2">
         {showScore && (
           <>

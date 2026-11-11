@@ -1,5 +1,5 @@
 use near_sdk::json_types::U128;
-use near_sdk::store::{Lazy, LookupMap};
+use near_sdk::store::{Lazy, LookupMap, Vector};
 use near_sdk::{env, near, require, AccountId, PanicOnDefault};
 use serde_json::json;
 
@@ -52,6 +52,7 @@ pub struct Brinewar {
     model: Option<ModelKey>,
     guests_day: u64,
     guests_today: u32,
+    skins: Vector<String>,
 }
 
 #[near(serializers = [json])]
@@ -104,6 +105,7 @@ impl Brinewar {
             model: None,
             guests_day: 0,
             guests_today: 0,
+            skins: Vector::new(b"k"),
         };
         c.supply.insert(GOLD.to_string(), 0);
         if initial_treasury.0 > 0 {

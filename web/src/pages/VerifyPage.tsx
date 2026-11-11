@@ -7,6 +7,7 @@ import type { GameView, ModelView, ShotView } from "@/lib/contract";
 import { fetchEvidence } from "@/lib/proofs";
 import { cellName, short } from "@/lib/utils";
 import { MiniBoard } from "@/ui/MiniBoard";
+import { Nav } from "@/ui/Nav";
 
 interface VerifyPageProps {
   readonly cfg: AppConfig;
@@ -41,10 +42,13 @@ export function VerifyPage({ cfg, gameId }: VerifyPageProps) {
     <main className="min-h-full bg-[radial-gradient(120%_80%_at_50%_0%,#174b61,#0b2230_60%)] px-4 pt-[calc(20px+env(safe-area-inset-top))] pb-16">
       <div className="mx-auto grid max-w-4xl gap-8">
         <header className="grid gap-2">
-          <a href="/" className="inline-flex items-center gap-1.5 text-xs text-muted hover:text-ink">
-            <ArrowLeft className="size-3.5" aria-hidden />
-            Back to sea
-          </a>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <a href="/" className="inline-flex items-center gap-1.5 text-xs text-muted hover:text-ink">
+              <ArrowLeft className="size-3.5" aria-hidden />
+              Back to sea
+            </a>
+            <Nav />
+          </div>
           <h1 className="m-0 font-display text-4xl leading-none font-bold sm:text-5xl">Battle #{gameId}, proven</h1>
           <p className="m-0 max-w-2xl text-muted">
             Nothing here needs trust in our server. Your browser reads the game straight from the contract, recomputes every Merkle proof against the roots the

@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { seaHeight, seaTilt, type Wave } from "./gerstner";
 import { BOARD_ORIGIN, cellCenter, isHorizontal, revealRise, shipCenter, type Point2 } from "./grid";
-import type { Side } from "./types";
+import type { ShipLook, Side } from "./types";
 
 const SAIL = /sail|flag/;
 const FLAG = /flag/;
@@ -37,6 +37,9 @@ export class ShipActor {
   rise: number;
   readonly #sails: Sail[] = [];
   readonly #materials: THREE.Material[] = [];
+  readonly #sailMats: THREE.MeshStandardMaterial[] = [];
+  readonly #flagMats: THREE.MeshStandardMaterial[] = [];
+  readonly #sailBase = new THREE.Color();
 
   constructor(proto: THREE.Object3D, cells: readonly number[], side: Side, risen: boolean) {
     this.cells = cells;
@@ -53,7 +56,13 @@ export class ShipActor {
       o.material = mat;
       if (!(mat instanceof THREE.MeshStandardMaterial)) return;
       if (enemy && SAIL.test(o.name)) mat.color.set(FLAG.test(o.name) ? ENEMY_FLAG : ENEMY_SAIL);
-      if (!enemy && FLAG.test(o.name)) mat.color.set(MY_FLAG);
+      if (!enemy && FLAG.test(o.name)) {
+        mat.color.set(MY_FLAG);
+        this.#flagMats.push(mat);
+      } else if (!enemy && SAIL.test(o.name)) {
+        this.#sailBase.copy(mat.color);
+        this.#sailMats.push(mat);
+      }
     });
     const n = cells.length;
     const box = new THREE.Box3().setFromObject(model);
@@ -76,6 +85,11 @@ export class ShipActor {
     model.traverse((o) => {
       if (SAIL.test(o.name)) this.#sails.push({ o, base: o.scale.clone(), phase: Math.random() * 6 });
     });
+  }
+
+  setLook(look: ShipLook | null): void {
+    for (const m of this.#sailMats) m.color.copy(look ? new THREE.Color(look.sail) : this.#sailBase);
+    for (const m of this.#flagMats) m.color.set(look ? look.flag : MY_FLAG);
   }
 
   get gone(): boolean {

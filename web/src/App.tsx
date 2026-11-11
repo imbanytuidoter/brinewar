@@ -4,6 +4,9 @@ import { Button } from "@/components/ui/button";
 import { useBoot } from "@/game/useGame";
 import { readConfig, type AppConfig } from "@/lib/config";
 import { PlayPage } from "@/pages/PlayPage";
+import { AdmiraltyPage } from "@/pages/AdmiraltyPage";
+import { FleetPage } from "@/pages/FleetPage";
+import { TreasuryPage } from "@/pages/TreasuryPage";
 import { VerifyPage } from "@/pages/VerifyPage";
 
 export function App() {
@@ -17,6 +20,10 @@ export function App() {
   if (cfg instanceof Error) return <Shell title="Harbour closed" text={`Configuration error: ${cfg.message}`} />;
   const verify = /^\/verify\/(\d{1,15})\/?$/.exec(window.location.pathname);
   if (verify) return <VerifyPage cfg={cfg} gameId={Number(verify[1])} />;
+  const path = window.location.pathname.replace(/\/+$/, "");
+  if (path === "/admiralty") return <AdmiraltyPage cfg={cfg} />;
+  if (path === "/treasury") return <TreasuryPage cfg={cfg} />;
+  if (path === "/fleet") return <FleetPage cfg={cfg} />;
   return <Play cfg={cfg} />;
 }
 

@@ -733,3 +733,6 @@ fn open_games_are_capped_and_freed_on_finish() {
 
 #[path = "tests_stage3.rs"]
 mod stage3;
+
+#[path = "tests_stage6.rs"]
+mod stage6;

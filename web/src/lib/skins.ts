@@ -1,0 +1,51 @@
+import type { ShipLook } from "@/scene/types";
+import type { Viewer } from "./chain";
+import type { KeyValue } from "./storage";
+
+const LOOKS: Readonly<Record<string, ShipLook & { readonly title: string }>> = {
+  brine: { title: "Brine", sail: "#e8f3f2", flag: "#3fb6c9" },
+  coral: { title: "Coral", sail: "#f2a58e", flag: "#ff6a3d" },
+  gilded: { title: "Gilded", sail: "#f3d27a", flag: "#b02a6b" },
+  ghost: { title: "Ghost", sail: "#9fb4bd", flag: "#f4f7f8" },
+  "night-watch": { title: "Night watch", sail: "#2c3e57", flag: "#ffcf5a" },
+};
+
+function hueOf(name: string): number {
+  let h = 0;
+  for (const ch of name) h = (h * 31 + ch.charCodeAt(0)) % 360;
+  return h;
+}
+
+export function skinLook(name: string): ShipLook & { readonly title: string } {
+  const known = LOOKS[name];
+  if (known) return known;
+  const h = hueOf(name);
+  return { title: name.replace(/-/g, " "), sail: `hsl(${h} 45% 78%)`, flag: `hsl(${(h + 180) % 360} 70% 55%)` };
+}
+
+const slot = (accountId: string): string => `brinewar.skin.${accountId}`;
+
+export function equippedSkin(store: KeyValue, accountId: string, owned: readonly string[]): string | null {
+  const name = store.get(slot(accountId));
+  return name && owned.includes(name) ? name : null;
+}
+
+export function equipSkin(store: KeyValue, accountId: string, name: string | null): void {
+  try {
+    if (name) store.set(slot(accountId), name);
+    else store.remove(slot(accountId));
+  } catch {
+    return;
+  }
+}
+
+export const BALANCE_BATCH = 16;
+
+export async function ownedSkins(viewer: Viewer, accountId: string): Promise<{ readonly all: string[]; readonly owned: string[] }> {
+  const all = [...new Set(await viewer.view<string[]>("skins"))];
+  const chunks: string[][] = [];
+  for (let i = 0; i < all.length; i += BALANCE_BATCH) chunks.push(all.slice(i, i + BALANCE_BATCH));
+  const balances = (await Promise.all(chunks.map((c) => viewer.view<string[]>("mt_batch_balance_of", { account_id: accountId, token_ids: c.map((n) => `skin:${n}`) })))).flat();
+  const owned = all.filter((_, i) => /^\d+$/.test(balances[i] ?? "") && BigInt(balances[i] as string) > 0n);
+  return { all, owned };
+}

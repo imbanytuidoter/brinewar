@@ -11,7 +11,7 @@ import { boardKey } from "@/lib/guest";
 import { fromHex, rootFromProof, toHex } from "@/lib/merkle";
 import { signedText } from "@/lib/nauarch";
 import { memoryStorage } from "@/lib/storage";
-import { GameSession, verifiedFleet } from "./session";
+import { GameSession, rewardsBetween, verifiedFleet } from "./session";
 import { newBoard, revealArgs } from "@/lib/board";
 
 const ME = "p-0011223344556677.brinewar.testnet";
@@ -27,6 +27,8 @@ class FakeContract implements Viewer, Caller {
   moves: PublicMove[] = [];
   enemy = placeFleet(seededRng(99));
   failNext: string | null = null;
+  gold = "100";
+  xp = 0;
 
   async view<T>(method: string, args: Record<string, unknown> = {}): Promise<T> {
     const out: Record<string, unknown> = {
@@ -34,6 +36,8 @@ class FakeContract implements Viewer, Caller {
       get_game: this.game && args.game_id === this.game.id ? { ...this.game } : null,
       get_history: this.history.map((s) => ({ ...s })),
       model: { model: MODEL, public_key: bytesToHex(ed25519.getPublicKey(this.secret)) },
+      get_player: { account_id: ME, nickname: null, display_name: "Captain", gold: this.gold, games_vs_nauarch: 0, wins: 0, losses: 0, last_result: null, fav_zone: null, flagship: "ship:1" },
+      get_ship: { token_id: "ship:1", owner_id: ME, captain: ME, class: "c", rank: this.xp >= 100 ? "Lieutenant" : "Ensign", xp: this.xp, next_rank_xp: 100, wins: 0, losses: 0, sunk: 0, frozen: false },
     };
     return out[method] as T;
   }
@@ -281,5 +285,34 @@ describe("GameSession", () => {
     const fresh = new GameSession({ accountId: ME, viewer: chain, caller: chain, store, evidence: chain.evidence });
     await fresh.tick();
     expect(fresh.snapshot.step).toEqual({ kind: "lost-board" });
+  });
+});
+
+describe("rewards after a battle", () => {
+  it("survive a reload between the start and the end of the battle", async () => {
+    const { chain, store, session } = setup();
+    await session.start(placeFleet(seededRng(7)));
+    const fresh = new GameSession({ accountId: ME, viewer: chain, caller: chain, store, evidence: chain.evidence });
+    await fresh.tick();
+    await fresh.resign();
+    chain.gold = "90";
+    chain.xp = 120;
+    (chain.game as GameView).revealed_b = true;
+    await fresh.tick();
+    expect(fresh.snapshot.step).toEqual({ kind: "done" });
+    expect(fresh.snapshot.rewards).toEqual({ gold: -10n, xp: 120, rankFrom: "Ensign", rankTo: "Lieutenant" });
+    expect(store.get(`brinewar.baseline.${ME}.4`)).toBeNull();
+  });
+});
+
+describe("rewards", () => {
+  const cap = (gold: string, xp: number, rank: string) => ({
+    player: { account_id: ME, nickname: null, display_name: "x", gold, games_vs_nauarch: 0, wins: 0, losses: 0, last_result: null, fav_zone: null, flagship: "ship:1" },
+    ship: { token_id: "ship:1", owner_id: ME, captain: ME, class: "c", rank, xp, next_rank_xp: null, wins: 0, losses: 0, sunk: 0, frozen: false },
+  });
+
+  it("reports gold, xp and a promotion between two snapshots", () => {
+    expect(rewardsBetween(cap("90", 40, "Ensign"), cap("115", 190, "Lieutenant"))).toEqual({ gold: 25n, xp: 150, rankFrom: "Ensign", rankTo: "Lieutenant" });
+    expect(rewardsBetween(cap("100", 0, "Ensign"), cap("90", 30, "Ensign"))).toEqual({ gold: -10n, xp: 30, rankFrom: null, rankTo: null });
   });
 });

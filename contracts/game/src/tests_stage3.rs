@@ -739,7 +739,7 @@ fn failed_guest_creation_rolls_back_registration() {
     assert_eq!(gold(&c, &account), 0);
     assert_eq!(c.mt_supply(GOLD.into()).unwrap().0, supply - 100);
     assert!(c.mt_supply(ship_token(1)).is_none());
-    assert_eq!(events("mt_burn").len(), 2);
+    assert_eq!(events("mt_burn").len(), 3);
     chain.act(&registrar());
     let _ = c.create_guest(key, None);
     assert!(c.get_player(account).is_some());

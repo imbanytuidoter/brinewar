@@ -36,11 +36,14 @@ export interface ShotView {
 
 export interface PlayerView {
   account_id: string;
+  nickname: string | null;
   display_name: string;
   gold: string;
   games_vs_nauarch: number;
   wins: number;
   losses: number;
+  last_result: string | null;
+  fav_zone: string | null;
   flagship: string;
 }
 
@@ -82,3 +85,47 @@ export interface ProofsView {
 }
 
 export const SHIP_CELLS = 20;
+
+export interface TreasuryView {
+  account: string;
+  balance: string;
+  entry: string;
+  bounty: string;
+  threshold: string;
+}
+
+export interface AdmiraltyView {
+  heat: number[];
+  boards_counted: number;
+  day: number;
+}
+
+export interface ShipStatsView {
+  token_id: string;
+  owner_id: string;
+  captain: string;
+  class: string;
+  rank: string;
+  xp: number;
+  next_rank_xp: number | null;
+  wins: number;
+  losses: number;
+  sunk: number;
+  frozen: boolean;
+}
+
+export interface EconomySettings {
+  base_entry: string;
+  entry_threshold: string;
+  bounty_bps: number;
+  bounty_cap: string;
+  bounties_per_day: number;
+}
+
+export interface ConfigView {
+  owner: string;
+  nauarch: string;
+  games: number;
+  players: number;
+  settings: EconomySettings & Record<string, unknown>;
+}
