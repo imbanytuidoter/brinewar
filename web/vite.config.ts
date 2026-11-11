@@ -60,6 +60,7 @@ export default defineConfig(({ mode }) => ({
   test: {
     environment: "jsdom",
     include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
+    exclude: ["e2e/**", "node_modules/**"],
     coverage: { include: ["src/lib/**", "src/game/**"], reporter: ["text-summary", "text"] },
   },
 }));

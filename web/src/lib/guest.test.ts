@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { ensureGuest, GuestError, loadOrCreateKey, validGuestAccount } from "./guest";
 import { memoryStorage } from "./storage";
-import { checkUrl, readConfig, txLink } from "./config";
+import { accountLink, checkUrl, networkOf, readConfig, txLink } from "./config";
 import { resultFromResponse } from "./chain";
 
 const CONTRACT = "brinewar.testnet";
@@ -70,6 +70,10 @@ describe("config", () => {
     expect(txLink(cfg, "7Hq3kDxTmJ9vQ2pYbZr1sNcEwF5uLgA8oKiR4tVh6Mn")).toBe("https://testnet.nearblocks.io/txns/7Hq3kDxTmJ9vQ2pYbZr1sNcEwF5uLgA8oKiR4tVh6Mn");
     expect(txLink(cfg, "javascript:alert(1)")).toBeNull();
     expect(txLink(cfg, null)).toBeNull();
+    expect(accountLink({ ...cfg, explorerAccountUrl: "https://testnet.nearblocks.io/address" }, CONTRACT)).toBe("https://testnet.nearblocks.io/address/brinewar.testnet");
+    expect(accountLink(cfg, CONTRACT)).toBeNull();
+    expect(networkOf("brinewar.testnet")).toBe("NEAR testnet");
+    expect(networkOf("brinewar.test.near")).toBe("local sandbox");
   });
 });
 

@@ -6,6 +6,7 @@ import { readConfig, type AppConfig } from "@/lib/config";
 import { PlayPage } from "@/pages/PlayPage";
 import { AdmiraltyPage } from "@/pages/AdmiraltyPage";
 import { FleetPage } from "@/pages/FleetPage";
+import { JudgesPage } from "@/pages/JudgesPage";
 import { TreasuryPage } from "@/pages/TreasuryPage";
 import { VerifyPage } from "@/pages/VerifyPage";
 
@@ -24,6 +25,7 @@ export function App() {
   if (path === "/admiralty") return <AdmiraltyPage cfg={cfg} />;
   if (path === "/treasury") return <TreasuryPage cfg={cfg} />;
   if (path === "/fleet") return <FleetPage cfg={cfg} />;
+  if (path === "/judges") return <JudgesPage cfg={cfg} />;
   return <Play cfg={cfg} />;
 }
 

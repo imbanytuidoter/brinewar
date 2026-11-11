@@ -36,6 +36,8 @@ export function PlayPage({ cfg, session }: PlayPageProps) {
   const g = snap.game;
   const result = g ? outcome(g, snap.accountId) : null;
   const line = snap.lines.at(-1) ?? null;
+  const lastHis = g ? snap.history.filter((s) => s.by === g.b).at(-1) : undefined;
+  const note = lastHis?.source === "Deterministic" ? "Last shot without the model: deterministic fallback by the contract." : lastHis?.source === "ModelFallback" ? "The model's cell was invalid, so the contract chose this shot." : null;
   const verifyHref = snap.gameId !== null ? `/verify/${snap.gameId}` : null;
   const txHref = useCallback((h: string | null) => txLink(cfg, h), [cfg]);
 
@@ -76,7 +78,7 @@ export function PlayPage({ cfg, session }: PlayPageProps) {
       )}
 
       <div className="fixed bottom-[calc(16px+env(safe-area-inset-bottom))] left-[max(16px,env(safe-area-inset-left))] z-10 max-sm:bottom-[calc(140px+env(safe-area-inset-bottom))]">
-        <NauarchBubble line={line} thinking={step === "thinking"} fallback={GREETING} txHref={txHref} />
+        <NauarchBubble line={line} thinking={step === "thinking"} fallback={GREETING} txHref={txHref} note={note} />
       </div>
 
       <div className="fixed right-[max(16px,env(safe-area-inset-right))] bottom-[calc(16px+env(safe-area-inset-bottom))] z-10 grid justify-items-end gap-2 max-sm:left-[max(16px,env(safe-area-inset-left))]">

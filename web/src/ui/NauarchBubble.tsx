@@ -8,9 +8,10 @@ interface NauarchBubbleProps {
   readonly thinking: boolean;
   readonly fallback: string;
   readonly txHref: (hash: string | null) => string | null;
+  readonly note?: string | null;
 }
 
-export function NauarchBubble({ line, thinking, fallback, txHref }: NauarchBubbleProps) {
+export function NauarchBubble({ line, thinking, fallback, txHref, note = null }: NauarchBubbleProps) {
   const href = line ? txHref(line.tx) : null;
   return (
     <section aria-live="polite" aria-label="The Nauarch" className="grid max-w-[min(420px,calc(100vw-32px))] grid-cols-[52px_minmax(0,1fr)] items-end gap-2.5">
@@ -25,6 +26,7 @@ export function NauarchBubble({ line, thinking, fallback, txHref }: NauarchBubbl
       </div>
       <div key={line?.at ?? "idle"} className="grid min-w-0 animate-rise gap-1 rounded-[14px_14px_14px_4px] border border-line bg-glass px-3 py-2.5 backdrop-blur-md">
         <p className="m-0 break-words">{thinking ? "The Nauarch is studying the sea…" : line ? line.text : fallback}</p>
+        {note && !thinking && <p className="m-0 text-[11px] text-muted">{note}</p>}
         {line && !thinking && (
           <Popover>
             <PopoverTrigger className="justify-self-start font-mono text-[11px] text-muted hover:text-ink">

@@ -1,4 +1,4 @@
-import { Anchor, Coins, Map as MapIcon, Ship } from "lucide-react";
+import { Anchor, Coins, Gavel, Map as MapIcon, Ship } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const LINKS = [
@@ -6,6 +6,7 @@ const LINKS = [
   { href: "/admiralty", label: "Admiralty", icon: MapIcon },
   { href: "/fleet", label: "Fleet", icon: Ship },
   { href: "/treasury", label: "Treasury", icon: Coins },
+  { href: "/judges", label: "For judges", icon: Gavel },
 ] as const;
 
 export function Nav({ className, compact = false }: { readonly className?: string; readonly compact?: boolean }) {
