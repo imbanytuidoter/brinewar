@@ -9,14 +9,15 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run --exclude test/e2e.test.ts",
-    "coverage": "vitest run --coverage --exclude test/e2e.test.ts",
+    "test": "vitest run --exclude test/e2e.test.ts --exclude test/devstack.test.ts",
+    "coverage": "vitest run --coverage --exclude test/e2e.test.ts --exclude test/devstack.test.ts",
     "e2e": "(cd ../contracts/game && cargo near build non-reproducible-wasm >/dev/null) && vitest run test/e2e.test.ts",
     "admiral": "node --disable-warning=ExperimentalWarning dist/admiral/main.js",
     "api": "node --disable-warning=ExperimentalWarning dist/api/main.js",
     "bot": "node --disable-warning=ExperimentalWarning dist/scripts/bot.js",
     "seed": "node --disable-warning=ExperimentalWarning dist/scripts/seed.js",
-    "keygen": "node dist/scripts/keygen.js"
+    "keygen": "node dist/scripts/keygen.js",
+    "devstack": "(cd ../contracts/game && cargo near build non-reproducible-wasm >/dev/null) && vitest run test/devstack.test.ts"
   },
   "dependencies": {
     "@fastify/rate-limit": "11.2.1",
