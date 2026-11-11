@@ -52,6 +52,15 @@ pub enum FinishReason {
     Cancelled,
 }
 
+#[near(serializers = [borsh, json])]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ShotSource {
+    Player,
+    Model,
+    ModelFallback,
+    Deterministic,
+}
+
 #[near(serializers = [borsh])]
 #[derive(Clone, Debug)]
 pub struct Shot {
@@ -59,6 +68,7 @@ pub struct Shot {
     pub index: u8,
     pub result: ShotResult,
     pub block: u64,
+    pub source: ShotSource,
 }
 
 #[near(serializers = [borsh])]
@@ -86,6 +96,9 @@ pub struct Game {
     pub revealed_b: bool,
     pub created_block: u64,
     pub stake: u128,
+    pub dossier: String,
+    pub hot: Vec<(u8, u8)>,
+    pub farewell_said: bool,
 }
 
 impl Game {
@@ -173,6 +186,20 @@ impl Game {
         }
     }
 
+    pub fn answered_by(&self, side: Side) -> usize {
+        self.shots
+            .iter()
+            .filter(|s| s.by != side && s.result != ShotResult::Pending)
+            .count()
+    }
+
+    pub fn sank_fleet(&self) -> bool {
+        matches!(
+            self.finish_reason,
+            Some(FinishReason::FleetSunk) | Some(FinishReason::IllegalFleet)
+        )
+    }
+
     pub fn pending_shot(&self) -> Option<&Shot> {
         self.shots
             .last()
@@ -200,6 +227,8 @@ pub struct GameView {
     pub revealed_a: bool,
     pub revealed_b: bool,
     pub created_block: u64,
+    pub stake: near_sdk::json_types::U128,
+    pub farewell_said: bool,
 }
 
 #[near(serializers = [json])]
@@ -209,6 +238,7 @@ pub struct ShotView {
     pub index: u8,
     pub result: ShotResult,
     pub block: u64,
+    pub source: ShotSource,
 }
 
 impl From<&Game> for GameView {
@@ -232,6 +262,8 @@ impl From<&Game> for GameView {
             revealed_a: g.revealed_a,
             revealed_b: g.revealed_b,
             created_block: g.created_block,
+            stake: near_sdk::json_types::U128(g.stake),
+            farewell_said: g.farewell_said,
         }
     }
 }

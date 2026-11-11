@@ -1,18 +1,32 @@
-use near_sdk::store::LookupMap;
+use near_sdk::json_types::U128;
+use near_sdk::store::{Lazy, LookupMap};
 use near_sdk::{env, near, require, AccountId, PanicOnDefault};
 use serde_json::json;
 
+pub mod admiralty;
 pub mod codec;
 mod events;
 pub mod fleet;
 pub mod game;
 pub mod merkle;
+pub mod nauarch;
+pub mod players;
+pub mod settings;
+pub mod tokens;
+pub mod treasury;
 
+use admiralty::AdmiraltyMap;
 use codec::{cells_to_string, parse_cells, parse_hash, parse_proof, parse_salts};
 use events::emit;
-use fleet::{validate_fleet, CELLS, SHIP_CELLS};
-use game::{FinishReason, Game, GameView, Mode, Shot, ShotResult, ShotView, Side, Status};
+use fleet::{ships, validate_fleet, CELLS, SHIP_CELLS};
+use game::{
+    FinishReason, Game, GameView, Mode, Shot, ShotResult, ShotSource, ShotView, Side, Status,
+};
 use merkle::{board_root, root_from_proof};
+use nauarch::ModelKey;
+use players::{display_name, fav_zone, Player, ShipStats, XP_HIT, XP_SUNK, XP_WIN, ZONES};
+use settings::Settings;
+use tokens::GOLD;
 
 pub const MAX_MISSES: u8 = (CELLS - SHIP_CELLS) as u8;
 
@@ -21,22 +35,33 @@ pub const MAX_MISSES: u8 = (CELLS - SHIP_CELLS) as u8;
 pub struct Brinewar {
     owner: AccountId,
     nauarch: AccountId,
-    move_timeout_blocks: u64,
+    registrar: AccountId,
+    settings: Settings,
     games: LookupMap<u64, Game>,
     next_game_id: u64,
     active_game: LookupMap<AccountId, u64>,
-    max_open_games: u32,
     open_games: u32,
+    players: LookupMap<AccountId, Player>,
+    ships: LookupMap<u64, ShipStats>,
+    next_ship_id: u64,
+    balances: LookupMap<(String, AccountId), u128>,
+    supply: LookupMap<String, u128>,
+    map: Lazy<AdmiraltyMap>,
+    heat_day: LookupMap<AccountId, u64>,
+    model: Option<ModelKey>,
+    guests_day: u64,
+    guests_today: u32,
 }
 
 #[near(serializers = [json])]
 pub struct ConfigView {
     pub owner: AccountId,
     pub nauarch: AccountId,
-    pub move_timeout_blocks: u64,
+    pub registrar: AccountId,
+    pub settings: Settings,
     pub games: u64,
-    pub max_open_games: u32,
     pub open_games: u32,
+    pub players: u64,
 }
 
 fn fail(msg: &str) -> ! {
@@ -54,40 +79,62 @@ impl Brinewar {
     pub fn new(
         owner: AccountId,
         nauarch: AccountId,
-        move_timeout_blocks: u64,
-        max_open_games: u32,
+        registrar: AccountId,
+        settings: Settings,
+        initial_treasury: U128,
     ) -> Self {
-        require!(
-            move_timeout_blocks > 0,
-            "move_timeout_blocks must be positive"
-        );
-        Self {
+        settings.check();
+        let mut c = Self {
             owner,
-            nauarch,
-            move_timeout_blocks,
+            nauarch: nauarch.clone(),
+            registrar,
+            settings,
             games: LookupMap::new(b"g"),
             next_game_id: 0,
             active_game: LookupMap::new(b"a"),
-            max_open_games,
             open_games: 0,
+            players: LookupMap::new(b"p"),
+            ships: LookupMap::new(b"s"),
+            next_ship_id: 0,
+            balances: LookupMap::new(b"b"),
+            supply: LookupMap::new(b"t"),
+            map: Lazy::new(b"m", AdmiraltyMap::default()),
+            heat_day: LookupMap::new(b"h"),
+            model: None,
+            guests_day: 0,
+            guests_today: 0,
+        };
+        c.supply.insert(GOLD.to_string(), 0);
+        if initial_treasury.0 > 0 {
+            c.mint(GOLD, &nauarch, initial_treasury.0, Some("treasury"));
         }
+        c
     }
 
     pub fn new_game_vs_nauarch(&mut self) -> u64 {
         let player = env::predecessor_account_id();
         require!(player != self.nauarch, "the Nauarch cannot play itself");
         require!(
+            self.players.contains_key(&player),
+            "not a registered player"
+        );
+        require!(
             !self.active_game.contains_key(&player),
             "finish your current game first"
         );
         require!(
-            self.open_games < self.max_open_games,
+            self.open_games < self.settings.max_open_games,
             "the Nauarch is busy, try again soon"
         );
+        self.count_game_today(&player);
         self.open_games += 1;
         let id = self.next_game_id;
         self.next_game_id += 1;
         let now = env::block_height();
+        let stake = self.take_stake(&player);
+        let dossier = self.dossier(&player);
+        let map = self.map.get();
+        let hot = map.hot_cells(self.settings.min_heat_boards);
         let game = Game {
             id,
             mode: Mode::VsNauarch,
@@ -103,20 +150,23 @@ impl Brinewar {
             misses_on_a: 0,
             misses_on_b: 0,
             turn: Side::A,
-            deadline_block: now + self.move_timeout_blocks,
+            deadline_block: now + self.settings.move_timeout_blocks,
             status: Status::Placing,
             winner: None,
             finish_reason: None,
             revealed_a: false,
             revealed_b: false,
             created_block: now,
-            stake: 0,
+            stake,
+            dossier,
+            hot,
+            farewell_said: false,
         };
         self.active_game.insert(player.clone(), id);
         self.games.insert(id, game);
         emit(
             "game_created",
-            json!({"game_id": id, "mode": "VsNauarch", "a": player, "b": self.nauarch}),
+            json!({"game_id": id, "mode": "VsNauarch", "a": player, "b": self.nauarch, "stake": U128(stake)}),
         );
         id
     }
@@ -136,20 +186,24 @@ impl Brinewar {
         if game.root_a.is_some() && game.root_b.is_some() {
             game.status = Status::Playing;
             game.turn = Side::A;
-            game.deadline_block = env::block_height() + self.move_timeout_blocks;
+            game.deadline_block = env::block_height() + self.settings.move_timeout_blocks;
             emit(
                 "game_started",
                 json!({"game_id": game_id, "first": game.a, "deadline_block": game.deadline_block}),
             );
         }
-        self.games.insert(game_id, game);
+        self.store(game);
     }
 
     pub fn fire(&mut self, game_id: u64, index: u8) {
         let mut game = self.load(game_id);
         let side = self.caller_side(&game);
-        self.record_shot(&mut game, side, index);
-        self.games.insert(game_id, game);
+        require!(
+            !(game.mode == Mode::VsNauarch && side == Side::B),
+            "the Nauarch fires through submit_ai_move or nauarch_fallback"
+        );
+        self.record_shot(&mut game, side, index, ShotSource::Player);
+        self.store(game);
     }
 
     pub fn answer(&mut self, game_id: u64, index: u8, cell: u8, salt: String, proof: Vec<String>) {
@@ -194,7 +248,7 @@ impl Brinewar {
             game.winner = Some(shot.by);
             game.finish_reason = Some(FinishReason::FleetSunk);
             game.turn = shot.by;
-            game.deadline_block = env::block_height() + self.move_timeout_blocks;
+            game.deadline_block = env::block_height() + self.settings.move_timeout_blocks;
             emit(
                 "reveal_started",
                 json!({"game_id": game_id, "winner": game.account(shot.by), "deadline_block": game.deadline_block}),
@@ -204,15 +258,15 @@ impl Brinewar {
             game.winner = Some(shot.by);
             game.finish_reason = Some(FinishReason::IllegalFleet);
             game.turn = shot.by;
-            game.deadline_block = env::block_height() + self.move_timeout_blocks;
+            game.deadline_block = env::block_height() + self.settings.move_timeout_blocks;
             emit(
                 "reveal_started",
                 json!({"game_id": game_id, "winner": game.account(shot.by), "deadline_block": game.deadline_block}),
             );
         } else {
-            game.deadline_block = env::block_height() + self.move_timeout_blocks;
+            game.deadline_block = env::block_height() + self.settings.move_timeout_blocks;
         }
-        self.games.insert(game_id, game);
+        self.store(game);
     }
 
     pub fn reveal(&mut self, game_id: u64, cells: String, salts: Vec<String>) {
@@ -251,12 +305,23 @@ impl Brinewar {
             Err("revealed board contradicts earlier answers")
         };
         game.set_revealed(side);
+        let mut counted = false;
+        if fleet.is_ok() && game.mode == Mode::VsNauarch {
+            match side {
+                Side::A => {
+                    let account = game.a.clone();
+                    self.add_zones(&account, &cells);
+                    counted = self.count_board(&game, &cells);
+                }
+                Side::B => self.award_sunk(&game, &cells),
+            }
+        }
         emit(
             "board_revealed",
             json!({
                 "game_id": game_id, "account": game.account(side),
                 "cells": cells_to_string(&cells),
-                "valid": fleet.is_ok(), "error": fleet.err(),
+                "valid": fleet.is_ok(), "error": fleet.err(), "heat_counted": counted,
             }),
         );
         if decides {
@@ -266,7 +331,7 @@ impl Brinewar {
                 Err(_) => self.finish(&mut game, Some(side.other()), FinishReason::IllegalFleet),
             }
         }
-        self.games.insert(game_id, game);
+        self.store(game);
     }
 
     pub fn claim_timeout(&mut self, game_id: u64) {
@@ -287,7 +352,7 @@ impl Brinewar {
             }
             Status::Finished => fail("game already finished"),
         }
-        self.games.insert(game_id, game);
+        self.store(game);
     }
 
     pub fn resign(&mut self, game_id: u64) {
@@ -298,7 +363,7 @@ impl Brinewar {
             Status::Playing => self.finish(&mut game, Some(side.other()), FinishReason::Resigned),
             Status::Revealing | Status::Finished => fail("game is already decided"),
         }
-        self.games.insert(game_id, game);
+        self.store(game);
     }
 
     pub fn get_game(&self, game_id: u64) -> Option<GameView> {
@@ -318,6 +383,7 @@ impl Brinewar {
                 index: s.index,
                 result: s.result,
                 block: s.block,
+                source: s.source,
             })
             .collect()
     }
@@ -330,16 +396,25 @@ impl Brinewar {
         ConfigView {
             owner: self.owner.clone(),
             nauarch: self.nauarch.clone(),
-            move_timeout_blocks: self.move_timeout_blocks,
+            registrar: self.registrar.clone(),
+            settings: self.settings.clone(),
             games: self.next_game_id,
-            max_open_games: self.max_open_games,
             open_games: self.open_games,
+            players: self.next_ship_id,
         }
     }
 }
 
 impl Brinewar {
-    fn load(&self, game_id: u64) -> Game {
+    pub(crate) fn store(&mut self, game: Game) {
+        if game.finish_reason == Some(FinishReason::Cancelled) {
+            self.games.remove(&game.id);
+        } else {
+            self.games.insert(game.id, game);
+        }
+    }
+
+    pub(crate) fn load(&self, game_id: u64) -> Game {
         self.games
             .get(&game_id)
             .cloned()
@@ -358,7 +433,7 @@ impl Brinewar {
         );
     }
 
-    fn record_shot(&self, game: &mut Game, side: Side, index: u8) {
+    pub(crate) fn record_shot(&self, game: &mut Game, side: Side, index: u8, source: ShotSource) {
         require!(game.status == Status::Playing, "game is not in play");
         self.require_before_deadline(game);
         require!(game.turn == side, "not your turn");
@@ -375,14 +450,15 @@ impl Brinewar {
             index,
             result: ShotResult::Pending,
             block,
+            source,
         });
         game.turn = side.other();
-        game.deadline_block = block + self.move_timeout_blocks;
+        game.deadline_block = block + self.settings.move_timeout_blocks;
         emit(
             "shot_fired",
             json!({
                 "game_id": game.id, "n": game.shots.len() - 1,
-                "by": game.account(side), "index": index,
+                "by": game.account(side), "index": index, "source": source,
             }),
         );
     }
@@ -390,6 +466,11 @@ impl Brinewar {
     fn finish(&mut self, game: &mut Game, winner: Option<Side>, reason: FinishReason) {
         if game.mode == Mode::VsNauarch {
             self.open_games = self.open_games.saturating_sub(1);
+            game.finish_reason = Some(reason);
+            self.settle(game, winner, reason);
+            if winner.is_some() {
+                self.record_result(game, winner == Some(Side::A));
+            }
         }
         game.status = Status::Finished;
         game.winner = winner;
@@ -408,6 +489,93 @@ impl Brinewar {
                 "reason": reason,
                 "hits_on_a": game.hits_on_a, "hits_on_b": game.hits_on_b,
             }),
+        );
+    }
+}
+
+impl Brinewar {
+    fn dossier(&self, player: &AccountId) -> String {
+        let Some(p) = self.players.get(player) else {
+            return String::new();
+        };
+        let name = display_name(player, &p.nickname);
+        if p.games == 0 {
+            return format!("{name}: first battle against you.");
+        }
+        let days =
+            (env::block_height().saturating_sub(p.last_game_block)) / self.settings.blocks_per_day;
+        let when = match days {
+            0 => "today".to_string(),
+            1 => "yesterday".to_string(),
+            d => format!("{d} days ago"),
+        };
+        let last = if p.last_won == Some(true) {
+            "won"
+        } else {
+            "lost"
+        };
+        let zone = fav_zone(&p.zones)
+            .map(|z| format!(", usually hides ships in the {}", ZONES[z]))
+            .unwrap_or_default();
+        format!(
+            "{name}: {} games vs you, {} wins, last game {last} {when}{zone}.",
+            p.games, p.wins
+        )
+    }
+
+    fn record_result(&mut self, game: &Game, player_won: bool) {
+        let now = env::block_height();
+        if let Some(p) = self.players.get_mut(&game.a) {
+            p.games += 1;
+            if player_won {
+                p.wins += 1;
+            } else {
+                p.losses += 1;
+            }
+            p.last_won = Some(player_won);
+            p.last_game_block = now;
+        }
+        let Some(ship) = self.active_flagship(&game.a) else {
+            return;
+        };
+        let win_xp = if player_won && game.sank_fleet() {
+            XP_WIN
+        } else {
+            0
+        };
+        let xp = game.hits_on_b as u64 * XP_HIT + win_xp;
+        if let Some(s) = self.ships.get_mut(&ship) {
+            s.xp += xp;
+            if player_won {
+                s.wins += 1;
+            } else {
+                s.losses += 1;
+            }
+        }
+        emit(
+            "ship_progress",
+            json!({"game_id": game.id, "token_id": tokens::ship_token(ship), "xp_gained": xp}),
+        );
+    }
+
+    fn award_sunk(&mut self, game: &Game, nauarch_cells: &[u8; CELLS]) {
+        let sunk = ships(nauarch_cells)
+            .iter()
+            .filter(|ship| ship.iter().all(|&c| game.has_fired(Side::A, c as u8)))
+            .count() as u32;
+        if sunk == 0 {
+            return;
+        }
+        let Some(ship) = self.active_flagship(&game.a) else {
+            return;
+        };
+        if let Some(s) = self.ships.get_mut(&ship) {
+            s.sunk += sunk;
+            s.xp += sunk as u64 * XP_SUNK;
+        }
+        emit(
+            "ship_progress",
+            json!({"game_id": game.id, "token_id": tokens::ship_token(ship), "sunk": sunk, "xp_gained": sunk as u64 * XP_SUNK}),
         );
     }
 }

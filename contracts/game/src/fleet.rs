@@ -51,6 +51,17 @@ pub fn validate_fleet(cells: &[u8; CELLS]) -> Result<(), FleetError> {
     }
 }
 
+pub fn ships(cells: &[u8; CELLS]) -> Vec<Vec<usize>> {
+    let mut seen = [false; CELLS];
+    let mut out = Vec::new();
+    for start in 0..CELLS {
+        if cells[start] == 1 && !seen[start] {
+            out.push(collect_component(cells, start, &mut seen));
+        }
+    }
+    out
+}
+
 fn collect_component(cells: &[u8; CELLS], start: usize, seen: &mut [bool; CELLS]) -> Vec<usize> {
     let mut stack = vec![start];
     let mut out = Vec::new();
