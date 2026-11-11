@@ -1,0 +1,34 @@
+{
+  "name": "@brinewar/server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run --exclude test/e2e.test.ts",
+    "coverage": "vitest run --coverage --exclude test/e2e.test.ts",
+    "e2e": "(cd ../contracts/game && cargo near build non-reproducible-wasm >/dev/null) && vitest run test/e2e.test.ts",
+    "admiral": "node --disable-warning=ExperimentalWarning dist/admiral/main.js",
+    "api": "node --disable-warning=ExperimentalWarning dist/api/main.js",
+    "bot": "node --disable-warning=ExperimentalWarning dist/scripts/bot.js",
+    "seed": "node --disable-warning=ExperimentalWarning dist/scripts/seed.js",
+    "keygen": "node dist/scripts/keygen.js"
+  },
+  "dependencies": {
+    "@fastify/rate-limit": "11.2.1",
+    "fastify": "5.12.8",
+    "near-api-js": "7.4.0",
+    "pino": "10.4.0"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.4",
+    "@vitest/coverage-v8": "5.0.5",
+    "typescript": "5.9.3",
+    "vite": "8.3.4",
+    "vitest": "5.0.5"
+  }
+}

@@ -28,6 +28,7 @@ use players::{display_name, fav_zone, Player, ShipStats, XP_HIT, XP_SUNK, XP_WIN
 use settings::Settings;
 use tokens::GOLD;
 
+pub const MAX_PAGE: u32 = 100;
 pub const MAX_MISSES: u8 = (CELLS - SHIP_CELLS) as u8;
 
 #[near(contract_state)]
@@ -385,6 +386,13 @@ impl Brinewar {
                 block: s.block,
                 source: s.source,
             })
+            .collect()
+    }
+
+    pub fn games_since(&self, from_id: u64, limit: u32) -> Vec<GameView> {
+        (from_id..self.next_game_id)
+            .take(limit.min(MAX_PAGE) as usize)
+            .filter_map(|id| self.games.get(&id).map(GameView::from))
             .collect()
     }
 

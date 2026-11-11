@@ -107,6 +107,15 @@ mod tests {
     }
 
     #[test]
+    fn root_matches_the_cross_language_vector() {
+        let root = board_root(&cells(), &salts(1));
+        assert_eq!(
+            hex::encode(root),
+            "8ab7b3f47076706dafea77fdc8f17be3a0d5c88ea848b3c3849b9c1d3ff7df48"
+        );
+    }
+
+    #[test]
     fn leaf_matches_reference_sha256() {
         let salt = [7u8; 32];
         let mut h = Sha256::new();

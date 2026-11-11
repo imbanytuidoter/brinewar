@@ -778,3 +778,24 @@ fn hot_cells_wait_for_enough_boards() {
     assert!(request.contains("no data yet"), "{request}");
     assert!(request.contains("Battle #1."), "{request}");
 }
+
+#[test]
+fn games_since_pages_and_skips_cancelled() {
+    let mut chain = Chain { height: 100 };
+    let mut c = contract(&mut chain);
+    chain.act(&registrar());
+    c.register_player(acc("p-2.brinewar.testnet"), None);
+    chain.act(&player());
+    let first = c.new_game_vs_nauarch();
+    c.resign(first);
+    let second = c.new_game_vs_nauarch();
+    chain.act(&acc("p-2.brinewar.testnet"));
+    let third = c.new_game_vs_nauarch();
+    let page = c.games_since(0, 10);
+    assert_eq!(
+        page.iter().map(|g| g.id).collect::<Vec<_>>(),
+        vec![second, third]
+    );
+    assert_eq!(c.games_since(third, 10).len(), 1);
+    assert_eq!(c.games_since(0, 1).len(), 0);
+}
