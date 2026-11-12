@@ -6,6 +6,7 @@ import type { AdmiraltyView, GameView, PlayerView, ShotView, TreasuryView } from
 import { GUEST_GAS_TGAS } from "../lib/contract.js";
 import type { Store } from "../lib/db.js";
 import { buildLeaderboard, Snapshots } from "../lib/leaderboard.js";
+import { registerChat } from "./chat.js";
 import type { Caller, Viewer } from "../lib/near.js";
 
 const HOUR = 3_600_000;
@@ -161,6 +162,8 @@ export async function buildApp(o: AppOptions) {
       };
     }),
   );
+
+  await app.register(async (scope) => registerChat(scope, o.viewer, o.store, now));
 
   app.setErrorHandler((err: FastifyError, req, reply) => {
     req.log.error({ err: err.message }, "request failed");

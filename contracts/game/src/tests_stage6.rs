@@ -417,3 +417,22 @@ fn owner_sets_the_move_timeout_within_bounds() {
     assert!(stranger.is_err());
     assert_eq!(c.config().settings.move_timeout_blocks, 600);
 }
+
+#[test]
+fn duels_run_on_their_own_shorter_clock() {
+    let mut d = Duel::joined();
+    assert_eq!(d.c.duel_timeout(), TIMEOUT);
+    d.chain.act(&player());
+    let msg = panics(|| d.c.set_duel_timeout(40));
+    assert!(msg.contains("only the owner"), "{msg}");
+    d.chain.act(&acc("brinewar.testnet"));
+    d.c.set_duel_timeout(25);
+    assert_eq!(d.c.duel_timeout(), 25);
+    d.commit();
+    let g = d.c.get_game(d.id).unwrap();
+    assert_eq!(g.deadline_block, d.chain.height + 25);
+    d.chain.skip(26);
+    d.chain.act(&friend());
+    d.c.claim_timeout(d.id);
+    assert_eq!(d.c.get_game(d.id).unwrap().winner, Some(friend()));
+}

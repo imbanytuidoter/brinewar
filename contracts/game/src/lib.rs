@@ -277,7 +277,7 @@ impl Brinewar {
         env::storage_remove(&invite_key(game_id));
         game.b = joiner.clone();
         game.status = Status::Placing;
-        game.deadline_block = env::block_height() + self.settings.move_timeout_blocks;
+        game.deadline_block = env::block_height() + self.timeout_for(&game);
         self.active_game.insert(joiner.clone(), game_id);
         emit(
             "game_joined",
@@ -309,7 +309,7 @@ impl Brinewar {
         if game.root_a.is_some() && game.root_b.is_some() {
             game.status = Status::Playing;
             game.turn = Side::A;
-            game.deadline_block = env::block_height() + self.settings.move_timeout_blocks;
+            game.deadline_block = env::block_height() + self.timeout_for(&game);
             emit(
                 "game_started",
                 json!({"game_id": game_id, "first": game.a, "deadline_block": game.deadline_block}),
@@ -371,7 +371,7 @@ impl Brinewar {
             game.winner = Some(shot.by);
             game.finish_reason = Some(FinishReason::FleetSunk);
             game.turn = shot.by;
-            game.deadline_block = env::block_height() + self.settings.move_timeout_blocks;
+            game.deadline_block = env::block_height() + self.timeout_for(&game);
             emit(
                 "reveal_started",
                 json!({"game_id": game_id, "winner": game.account(shot.by), "deadline_block": game.deadline_block}),
@@ -381,7 +381,7 @@ impl Brinewar {
             game.winner = Some(shot.by);
             game.finish_reason = Some(FinishReason::IllegalFleet);
             game.turn = shot.by;
-            game.deadline_block = env::block_height() + self.settings.move_timeout_blocks;
+            game.deadline_block = env::block_height() + self.timeout_for(&game);
             emit(
                 "reveal_started",
                 json!({"game_id": game_id, "winner": game.account(shot.by), "deadline_block": game.deadline_block}),
@@ -390,7 +390,7 @@ impl Brinewar {
             if hit {
                 game.turn = shot.by;
             }
-            game.deadline_block = env::block_height() + self.settings.move_timeout_blocks;
+            game.deadline_block = env::block_height() + self.timeout_for(&game);
         }
         self.store(game);
     }
@@ -594,7 +594,7 @@ impl Brinewar {
             source,
         });
         game.turn = side.other();
-        game.deadline_block = block + self.settings.move_timeout_blocks;
+        game.deadline_block = block + self.timeout_for(game);
         emit(
             "shot_fired",
             json!({

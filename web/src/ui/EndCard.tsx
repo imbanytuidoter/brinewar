@@ -26,15 +26,19 @@ export function EndCard({ outcome, reason, verifyHref, done, onAgain, rewards, o
   const won = outcome === "won";
   return (
     <div className="grid animate-rise gap-2 rounded-2xl border border-line bg-glass p-3 backdrop-blur-md sm:w-[320px]">
-      <p className="m-0 font-display text-2xl leading-tight font-bold">{won ? "Victory, Captain." : opponent ? `${opponent} wins the duel.` : "The Nauarch prevails."}</p>
+      <p className={`m-0 font-display text-2xl leading-tight font-bold uppercase ${won ? "text-brass" : "text-hit"}`}>{won ? "Victory, Captain." : opponent ? `${opponent} wins the duel.` : "The Nauarch prevails."}</p>
       {reason && <p className="m-0 text-xs text-muted">{REASONS[reason] ?? reason}</p>}
       {!done && <p className="m-0 text-xs text-muted">Both fleets are being revealed and checked on chain…</p>}
       {rewards && (
         <p className="m-0 text-sm font-semibold">
-          <span className={rewards.gold >= 0n ? "text-brass" : "text-hit"}>
-            {rewards.gold >= 0n ? "+" : "−"}
-            {(rewards.gold < 0n ? -rewards.gold : rewards.gold).toString()} gold
-          </span>
+          {opponent && rewards.gold === 0n ? (
+            <span className="text-muted">Friendly duel, no gold</span>
+          ) : (
+            <span className={rewards.gold >= 0n ? "text-brass" : "text-hit"}>
+              {rewards.gold >= 0n ? "+" : "−"}
+              {(rewards.gold < 0n ? -rewards.gold : rewards.gold).toString()} gold
+            </span>
+          )}
           {rewards.xp > 0 && <span className="text-ink"> · +{rewards.xp} XP</span>}
           {rewards.rankTo && (
             <span className="text-ok">

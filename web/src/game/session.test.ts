@@ -315,6 +315,19 @@ describe("GameSession", () => {
     expect(other.store.get(boardKey(ME, 4))).not.toBeNull();
   });
 
+  it("drops a shot that never reached the chain instead of waiting on it forever", async () => {
+    const { chain, session } = setup();
+    await session.start(placeFleet(seededRng(7)));
+    expect(session.snapshot.step).toEqual({ kind: "fire" });
+    chain.failNext = "rate limited";
+    expect(await session.fire(5)).toBe(false);
+    expect(session.snapshot.step).toEqual({ kind: "fire" });
+    expect(session.snapshot.marks.aiming).toBeNull();
+    await session.tick();
+    expect(session.snapshot.step).toEqual({ kind: "fire" });
+    expect(await session.fire(5)).toBe(true);
+  });
+
   it("reopens a left battle from the browser before any chain read and forgets it once the battle ends", async () => {
     const { chain, store, session } = setup();
     await session.start(placeFleet(seededRng(7)));

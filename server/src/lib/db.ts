@@ -10,6 +10,8 @@ CREATE TABLE IF NOT EXISTS guests (id INTEGER PRIMARY KEY AUTOINCREMENT, ip TEXT
 CREATE TABLE IF NOT EXISTS samples (kind TEXT NOT NULL, at INTEGER NOT NULL, block INTEGER NOT NULL, data TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS kv (k TEXT PRIMARY KEY, v TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS sunk (game_id INTEGER NOT NULL, cells TEXT NOT NULL, at INTEGER NOT NULL, PRIMARY KEY (game_id, cells));
+CREATE TABLE IF NOT EXISTS chat (n INTEGER PRIMARY KEY AUTOINCREMENT, game_id INTEGER NOT NULL, account TEXT NOT NULL, text TEXT NOT NULL, signed_at INTEGER NOT NULL, at INTEGER NOT NULL, UNIQUE (game_id, account, signed_at));
+CREATE INDEX IF NOT EXISTS chat_game ON chat (game_id, n);
 CREATE INDEX IF NOT EXISTS guests_ip_at ON guests (ip, at);
 CREATE INDEX IF NOT EXISTS samples_kind_at ON samples (kind, at);
 `;
@@ -59,6 +61,19 @@ export class Store {
 
   close(): void {
     this.db.close();
+  }
+
+  addChat(gameId: number, account: string, text: string, signedAt: number): number | null {
+    const r = this.db.prepare("INSERT OR IGNORE INTO chat (game_id, account, text, signed_at, at) VALUES (?, ?, ?, ?, ?)").run(gameId, account, text, signedAt, this.now());
+    return r.changes > 0 ? Number(r.lastInsertRowid) : null;
+  }
+
+  chat(gameId: number, after: number, limit: number): { n: number; account: string; text: string; at: number }[] {
+    return this.db.prepare("SELECT n, account, text, at FROM chat WHERE game_id = ? AND n > ? ORDER BY n LIMIT ?").all(gameId, after, limit) as { n: number; account: string; text: string; at: number }[];
+  }
+
+  chatCountSince(account: string, since: number): number {
+    return (this.db.prepare("SELECT COUNT(*) AS c FROM chat WHERE account = ? AND at > ?").get(account, since) as { c: number }).c;
   }
 
   saveBoard(gameId: number, root: string, sealed: string): void {

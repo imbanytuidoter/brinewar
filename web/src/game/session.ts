@@ -95,12 +95,14 @@ export function inviteKey(accountId: string, gameId: number): string {
 
 const EMPTY_MARKS: Marks = { mine: new Map(), enemy: new Map(), aiming: null };
 const BACKOFF_BASE_MS = 1500;
-const BACKOFF_MAX_MS = 60_000;
+const BACKOFF_MAX_MS = 8_000;
 const REVEAL_TRIES = 6;
 const EVIDENCE_TRIES = 8;
 const OUT_OF_FUEL = /NotEnoughBalance|LackBalance|not enough balance/i;
 const REFUEL_GAP_MS = 60_000;
 const CLAIM_AFTER_MS = 150_000;
+const CLAIM_MARGIN_MS = 2_500;
+const TIMED_STEPS: ReadonlySet<string> = new Set(["fire", "answer", "commit", "reveal", "thinking", "wait"]);
 const FINAL = /invite link is not valid|board already committed|board already revealed|board not committed|index does not match|no shot to answer|game is not/;
 
 interface Attempt {
@@ -125,6 +127,7 @@ export class GameSession {
   #settled: number | null = null;
   #hitsSeen = 0;
   #hitRetries = 0;
+  #chainHistory = 0;
 
   constructor(d: SessionDeps) {
     this.#d = d;
@@ -141,6 +144,7 @@ export class GameSession {
     if (!saved) return;
     const { game, history } = saved;
     const board = this.#boardFor(game.id);
+    this.#chainHistory = history.length;
     this.#snap = { ...this.#snap, gameId: game.id, game, history: [...history], marks: marksFrom(history, this.#d.accountId), board, step: nextStep(game, this.#d.accountId, board !== null) };
   }
 
@@ -271,6 +275,7 @@ export class GameSession {
     this.#nauarchShots = -1;
     this.#evidenceTries = 0;
     this.#settled = null;
+    this.#chainHistory = 0;
     clearBattle(this.#d.store, this.#d.accountId);
     this.#set({ gameId: id, game: null, history: [], marks: EMPTY_MARKS, step: null, board, lines: [], error: null, enemyFleet: null, enemyRevealTx: null, rewards: null, opponentName: null, invite: null, deadlineAt: null, announcedSunk: [] });
   }
@@ -325,9 +330,11 @@ export class GameSession {
   async fire(index: number): Promise<boolean> {
     const g = this.#snap.game;
     if (!g || this.#snap.step?.kind !== "fire" || this.#snap.busy !== null || !canTarget(index, this.#snap.marks)) return false;
+    const before = { history: this.#snap.history, marks: this.#snap.marks, step: this.#snap.step };
     const history = [...this.#snap.history, { n: g.shots, by: this.#d.accountId, index, result: "Pending" as const, block: 0, source: "Player" as const }];
     this.#set({ history, marks: marksFrom(history, this.#d.accountId), step: { kind: "wait" } });
     const r = await this.#send("Firing", "fire", { game_id: g.id, index });
+    if (!r.ok && this.#snap.history === history) this.#set(before);
     await this.tick();
     return r.ok;
   }
@@ -383,7 +390,8 @@ export class GameSession {
       this.#set({ gameId: null, game: null, step: null });
       return false;
     }
-    if (isStale(game, this.#snap.game) || (this.#snap.game?.id === game.id && history.length < this.#snap.history.length)) return false;
+    if (isStale(game, this.#snap.game) || (this.#snap.game?.id === game.id && history.length < this.#chainHistory)) return false;
+    this.#chainHistory = history.length;
     const board = this.#boardFor(id) ?? (game.status === "Placing" ? this.#adoptPending(id) : null);
     const planned = nextStep(game, me, board !== null);
     const step: Step = planned.kind === "reveal" && this.#given.has(`reveal:${id}`) ? { kind: "done" } : planned;
@@ -401,8 +409,8 @@ export class GameSession {
   }
 
   async #deadline(g: GameView, step: Step): Promise<number | null> {
-    const mine = step.kind === "fire" || step.kind === "answer" || step.kind === "commit" || step.kind === "reveal";
-    if (!mine || !this.#d.height) return null;
+    const timed = TIMED_STEPS.has(step.kind) && g.status !== "Waiting" && g.status !== "Finished";
+    if (!timed || !this.#d.height) return null;
     const known = this.#snap.deadlineAt;
     if (known !== null && this.#snap.game?.deadline_block === g.deadline_block) return known;
     const h = await this.#d.height().catch(() => null);
@@ -427,7 +435,8 @@ export class GameSession {
       this.#stall = { key, since: this.#now() };
       return;
     }
-    if (this.#now() - this.#stall.since < CLAIM_AFTER_MS) return;
+    const due = this.#snap.deadlineAt;
+    if (due !== null ? this.#now() < due + CLAIM_MARGIN_MS : this.#now() - this.#stall.since < CLAIM_AFTER_MS) return;
     await this.#once(`claim:${key}`, "Claiming the late move", "claim_timeout", () => ({ game_id: g.id }));
   }
 

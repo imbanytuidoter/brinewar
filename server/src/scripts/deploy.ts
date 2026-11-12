@@ -53,9 +53,12 @@ if (step === "deploy") {
   const key = await attestedKey();
   console.log(JSON.stringify({ step: "attestation", model: cfg.model.name, key }));
   await send("set_model", [actions.functionCall("set_model", { model: cfg.model.name, public_key_hex: key }, teraToGas(INIT_GAS_TGAS), 0n)]);
+} else if (step === "set-duel-timeout") {
+  const blocks = Number(need("DUEL_TIMEOUT_BLOCKS"));
+  await send("set_duel_timeout", [actions.functionCall("set_duel_timeout", { blocks }, teraToGas(INIT_GAS_TGAS), 0n)]);
 } else if (step === "set-timeout") {
   const blocks = Number(need("MOVE_TIMEOUT_BLOCKS"));
   await send("set_move_timeout", [actions.functionCall("set_move_timeout", { blocks }, teraToGas(INIT_GAS_TGAS), 0n)]);
 } else {
-  throw new Error("usage: deploy.ts deploy | upgrade | set-model | set-timeout");
+  throw new Error("usage: deploy.ts deploy | upgrade | set-model | set-timeout | set-duel-timeout");
 }

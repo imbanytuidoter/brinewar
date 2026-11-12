@@ -14,6 +14,7 @@ import { EncounterCard, type BattleMode } from "@/world/EncounterCard";
 import { useMapCaptains } from "@/world/useMapCaptains";
 import { WorldMap, type Encounter } from "@/world/WorldMap";
 import { layoutForBattle, randomLayout } from "@/scene/layoutChoice";
+import { loadOrCreateKey } from "@/lib/guest";
 import { browserStorage } from "@/lib/storage";
 import { FleetTray } from "@/ui/FleetTray";
 import { clearWater, confirmedSunk, mergeSunk } from "@/lib/sunk";
@@ -28,6 +29,8 @@ import { Setup } from "@/ui/Setup";
 import { NauarchBubble } from "@/ui/NauarchBubble";
 import { RevealSeal } from "@/ui/RevealSeal";
 import { TopBar } from "@/ui/TopBar";
+import { DuelChat } from "@/ui/DuelChat";
+import { ResultSplash } from "@/ui/ResultSplash";
 import { turnOf, TurnBanner } from "@/ui/TurnBanner";
 
 const SeaScene = lazy(() => import("@/scene/SeaScene").then((m) => ({ default: m.SeaScene })));
@@ -101,6 +104,7 @@ export function PlayPage({ cfg, session, stats, landing, onEnter }: PlayPageProp
   const captains = useMapCaptains(cfg, snap.accountId);
   const [layoutPick, setLayoutPick] = useState(() => randomLayout());
   const layout = useMemo(() => layoutForBattle(browserStorage(), snap.gameId, layoutPick), [snap.gameId, layoutPick]);
+  const chatKey = useMemo(() => loadOrCreateKey(browserStorage()).secretKey, []);
   const again = useCallback(() => {
     session.leave();
     setDraft(placeFleet(cryptoRng()));
@@ -165,6 +169,7 @@ export function PlayPage({ cfg, session, stats, landing, onEnter }: PlayPageProp
       )}
 
       <CalloutBanner callout={feed.callout} />
+      <ResultSplash gameId={snap.gameId} outcome={result} reason={g?.finish_reason ?? null} opponent={duel ? (rival ?? "Your friend") : "The Nauarch"} reducedMotion={reducedMotion} />
 
       {inBattle && step !== "invite" && step !== "lost-board" && (
         <div className="fixed top-[calc(76px+env(safe-area-inset-top))] left-[max(16px,env(safe-area-inset-left))] z-10 w-[268px] max-md:hidden">
@@ -185,7 +190,11 @@ export function PlayPage({ cfg, session, stats, landing, onEnter }: PlayPageProp
       )}
 
       <div className={cn("fixed bottom-[calc(16px+env(safe-area-inset-bottom))] left-[max(16px,env(safe-area-inset-left))] z-10 max-sm:bottom-[calc(140px+env(safe-area-inset-bottom))]", (showLanding || onChart || step === "invite") && "hidden")}>
-        <NauarchBubble mood={moodOf(feed.last)} line={line} thinking={step === "thinking"} fallback={GREETING} txHref={txHref} note={note} opponent={duel ? (rival ?? "Your friend") : null} inviting={step === "invite"} />
+        {duel && snap.gameId !== null && step !== "lost-board" ? (
+          <DuelChat apiUrl={cfg.apiUrl} gameId={snap.gameId} me={snap.accountId} secretKey={chatKey} rival={rival ?? "Your friend"} />
+        ) : (
+          <NauarchBubble mood={moodOf(feed.last)} line={line} thinking={step === "thinking"} fallback={GREETING} txHref={txHref} note={note} opponent={duel ? (rival ?? "Your friend") : null} inviting={step === "invite"} />
+        )}
       </div>
 
       <div className="fixed right-[max(16px,env(safe-area-inset-right))] bottom-[calc(16px+env(safe-area-inset-bottom))] z-10 grid justify-items-end gap-2 max-sm:left-[max(16px,env(safe-area-inset-left))]">

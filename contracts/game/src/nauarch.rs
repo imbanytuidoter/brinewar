@@ -297,6 +297,7 @@ pub fn signed_text(model: &str, request: &str, response: &str) -> String {
 
 const MIN_MOVE_TIMEOUT: u64 = 20;
 const MAX_MOVE_TIMEOUT: u64 = 6000;
+const DUEL_TIMEOUT_KEY: &[u8] = b"duel_timeout";
 
 #[near]
 impl Brinewar {
@@ -311,6 +312,26 @@ impl Brinewar {
         );
         self.settings.move_timeout_blocks = blocks;
         emit("move_timeout_set", json!({ "blocks": blocks }));
+    }
+
+    pub fn set_duel_timeout(&mut self, blocks: u64) {
+        require!(
+            env::predecessor_account_id() == self.owner,
+            "only the owner sets the duel timeout"
+        );
+        require!(
+            (MIN_MOVE_TIMEOUT..=MAX_MOVE_TIMEOUT).contains(&blocks),
+            "move timeout must be 20 to 6000 blocks"
+        );
+        env::storage_write(DUEL_TIMEOUT_KEY, &blocks.to_le_bytes());
+        emit("duel_timeout_set", json!({ "blocks": blocks }));
+    }
+
+    pub fn duel_timeout(&self) -> u64 {
+        env::storage_read(DUEL_TIMEOUT_KEY)
+            .and_then(|b| <[u8; 8]>::try_from(b.as_slice()).ok())
+            .map(u64::from_le_bytes)
+            .unwrap_or(self.settings.move_timeout_blocks)
     }
 
     pub fn set_model(&mut self, model: String, public_key_hex: String) {
@@ -451,6 +472,15 @@ impl Brinewar {
                 require!(game.status == Status::Finished, "game is not finished");
                 require!(!game.farewell_said, "farewell already said");
             }
+        }
+    }
+}
+
+impl Brinewar {
+    pub(crate) fn timeout_for(&self, game: &Game) -> u64 {
+        match game.mode {
+            Mode::PvP => self.duel_timeout(),
+            Mode::VsNauarch => self.settings.move_timeout_blocks,
         }
     }
 }

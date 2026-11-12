@@ -9,6 +9,7 @@ import { GameSession, type Snapshot } from "./session";
 const BATTLE_POLL_MS = 1500;
 const HARBOUR_POLL_MS = 8000;
 const OFFLINE_POLL_MS = 5000;
+const HIDDEN_POLL_MS = 4000;
 
 export type Boot =
   | { readonly kind: "boarding" }
@@ -58,15 +59,25 @@ export function useSession(session: GameSession): Snapshot {
   useEffect(() => {
     let alive = true;
     let timer: ReturnType<typeof setTimeout> | undefined;
+    let running = false;
     const loop = async (): Promise<void> => {
-      if (!alive) return;
-      if (!document.hidden) await session.poll();
-      if (alive) timer = setTimeout(() => void loop(), delay);
+      if (!alive || running) return;
+      running = true;
+      await session.poll();
+      running = false;
+      if (alive) timer = setTimeout(() => void loop(), document.hidden ? Math.max(delay, HIDDEN_POLL_MS) : delay);
+    };
+    const wake = (): void => {
+      if (document.hidden || !alive || running) return;
+      clearTimeout(timer);
+      void loop();
     };
     void loop();
+    document.addEventListener("visibilitychange", wake);
     return () => {
       alive = false;
       clearTimeout(timer);
+      document.removeEventListener("visibilitychange", wake);
     };
   }, [session, delay]);
   return snap;
