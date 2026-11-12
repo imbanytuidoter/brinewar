@@ -16,7 +16,7 @@ const CHAPTERS = "/demo/chapters.json";
 const STACK = ["near-sdk 5.30.1", "near-api-js 7.4.0", "NEP-245", "NEP-297", "NEAR AI Cloud · TEE", "ed25519_verify", "React Three Fiber 9"];
 
 const DOORS = [
-  { href: "/replay", icon: Clapperboard, title: "Watch a finished battle", line: "A real battle the Nauarch won, replayed from the chain in about 40 seconds, with his signed lines and his fleet rising at the end." },
+  { href: "/replay", icon: Clapperboard, title: "Watch a finished battle", line: "A real battle the Nauarch won, replayed from the chain in about a minute, with his signed lines and his fleet rising at the end." },
   { href: "/", icon: Anchor, title: "Play the Nauarch", line: "Open it in a fresh browser. No wallet, no seed phrase, no popup: a guest account and 100 gold appear in a few seconds." },
   { href: "/", icon: Swords, title: "Duel a friend", line: "Press Challenge a friend and send the link. They play from their own browser, no wallet either, with the same proofs on every answer." },
   { href: "/admiralty", icon: MapIcon, title: "Admiralty map", line: "Where captains hide ships, built only from boards the contract verified. The Nauarch hunts the hot cells first." },
