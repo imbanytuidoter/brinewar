@@ -102,6 +102,12 @@ export const CAPTAIN_SLOTS: readonly Vec[] = [
   { x: 1180, y: 560 },
   { x: 860, y: 860 },
   { x: 1640, y: 360 },
+  { x: 1640, y: 1050 },
+  { x: 270, y: 1040 },
+  { x: 160, y: 150 },
+  { x: 160, y: 610 },
+  { x: 1180, y: 1050 },
+  { x: 520, y: 1050 },
 ];
 
 export const START: Vec = { x: 600, y: 700 };

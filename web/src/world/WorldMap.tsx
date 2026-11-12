@@ -15,7 +15,7 @@ const POS_KEY = "brinewar.chart.pos";
 
 export type Encounter =
   | { readonly kind: "patrol"; readonly id: number }
-  | { readonly kind: "captain"; readonly captain: CaptainEntry; readonly rank: number }
+  | { readonly kind: "captain"; readonly captain: CaptainEntry; readonly rank: number | null }
   | { readonly kind: "place"; readonly place: Place };
 
 interface WorldMapProps {
@@ -95,14 +95,14 @@ function drawShip(c: CanvasRenderingContext2D, img: Images, at: Vec, heading: nu
   c.restore();
 }
 
-function label(c: CanvasRenderingContext2D, text: string, x: number, y: number, tone: "place" | "enemy" | "captain"): void {
+function label(c: CanvasRenderingContext2D, text: string, x: number, y: number, tone: "place" | "enemy" | "captain" | "bot"): void {
   c.font = tone === "place" ? "700 15px Boska, Georgia, serif" : "600 12px Satoshi, system-ui, sans-serif";
   const w = c.measureText(text).width + 14;
   c.fillStyle = tone === "enemy" ? "rgba(122,31,61,0.9)" : "rgba(9,24,33,0.78)";
   c.beginPath();
   c.roundRect(x - w / 2, y - 11, w, 22, 11);
   c.fill();
-  c.fillStyle = tone === "place" ? "#ffcf5a" : "#f4f7f8";
+  c.fillStyle = tone === "place" ? "#ffcf5a" : tone === "bot" ? "#a9bcc6" : "#f4f7f8";
   c.textAlign = "center";
   c.textBaseline = "middle";
   c.fillText(text, x, y + 1);
@@ -118,7 +118,7 @@ export function WorldMap({ captains, mySail, myFlag, reducedMotion, paused, onEn
   const pausedRef = useRef(paused);
   const encounterRef = useRef(onEncounter);
   const [hint, setHint] = useState(true);
-  const fleet = useMemo(() => captains.slice(0, CAPTAIN_SLOTS.length).map((c, i) => ({ ...c, ...(CAPTAIN_SLOTS[i] as Vec) })), [captains]);
+  const fleet = useMemo(() => captains.slice(0, CAPTAIN_SLOTS.length).map((c, i) => ({ ...c, slot: i + 1, ...(CAPTAIN_SLOTS[i] as Vec) })), [captains]);
   const fleetRef = useRef(fleet);
 
   useEffect(() => {
@@ -217,7 +217,7 @@ export function WorldMap({ captains, mySail, myFlag, reducedMotion, paused, onEn
       }
       const wreck = PLACES.find((p) => p.kind === "wreck");
       if (wreck) drawShip(ctx, img, { x: wreck.x + 20, y: wreck.y + 30 }, 0.7, 2, 2, true);
-      for (const f of fleetRef.current) drawShip(ctx, img, f, -0.4 + f.rank * 0.9, sailOf(f.captain.name), 5);
+      for (const f of fleetRef.current) drawShip(ctx, img, f, -0.4 + f.slot * 0.9, sailOf(f.captain.name), 5);
       const patrols = PATROLS.map((p) => patrolAt(p, t));
       for (const p of patrols) drawShip(ctx, img, p.pos, p.heading, 2, 2);
       if (helm.current.target) {
@@ -241,7 +241,7 @@ export function WorldMap({ captains, mySail, myFlag, reducedMotion, paused, onEn
       }
       for (const f of fleetRef.current) {
         const s = screen(f);
-        label(ctx, `#${f.rank} ${f.captain.name}`, s.x, s.y - 44 * v.scale, "captain");
+        label(ctx, f.rank === null ? `${f.captain.name} · bot` : `#${f.rank} ${f.captain.name}`, s.x, s.y - 44 * v.scale, f.rank === null ? "bot" : "captain");
       }
       const me = screen(helm.current.pos);
       label(ctx, "You", me.x, me.y - 44 * v.scale, "place");

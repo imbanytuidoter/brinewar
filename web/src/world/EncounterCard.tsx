@@ -38,9 +38,10 @@ function copyFor(e: Encounter, s: HarbourStats): Copy {
     };
   if (e.kind === "captain") {
     const c = e.captain;
+    const record = `${c.rank} · ${c.class}. ${c.wins} won and ${c.losses} lost against the Nauarch, ${c.sunk} of his ships sunk, ${c.xp.toLocaleString("en-US")} XP. Read from the contract.`;
     return {
-      title: `#${e.rank} ${c.name}`,
-      body: `${c.rank} · ${c.class}. ${c.wins} won and ${c.losses} lost against the Nauarch, ${c.sunk} of his ships sunk, ${c.xp.toLocaleString("en-US")} XP. Read from the contract.`,
+      title: e.rank === null ? c.name : `#${e.rank} ${c.name}`,
+      body: e.rank === null ? `A practice bot the harbour sent to sea so the Nauarch had boards to learn from. ${record}` : record,
       note: "Captains do not wait at sea: invite someone you know with a duel link.",
       primary: { label: "Invite a friend", battle: "friend" },
       secondary: { label: "Captains' board", href: "/captains" },
