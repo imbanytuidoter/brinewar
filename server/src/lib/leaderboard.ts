@@ -26,12 +26,28 @@ export interface CaptainEntry {
   readonly losses: number;
   readonly sunk: number;
   readonly gold: string;
+  readonly seed: boolean;
 }
 
 export interface Leaderboard {
   readonly captains: readonly CaptainEntry[];
   readonly nauarch: { readonly wins: number; readonly losses: number; readonly battles: number };
   readonly total: number;
+}
+
+const SEED_NAME = /^Seed_\d+$/;
+const ATTEMPTS = 4;
+const RETRY_MS = 1200;
+
+async function patient<T>(viewer: Viewer, method: string, args: object): Promise<T> {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await viewer.view<T>(method, args);
+    } catch (err) {
+      if (attempt >= ATTEMPTS) throw err;
+      await new Promise((r) => setTimeout(r, RETRY_MS * attempt));
+    }
+  }
 }
 
 async function inBatches<T, R>(items: readonly T[], size: number, fn: (item: T) => Promise<R>): Promise<R[]> {
@@ -41,16 +57,18 @@ async function inBatches<T, R>(items: readonly T[], size: number, fn: (item: T) 
 }
 
 export async function buildLeaderboard(viewer: Viewer, top: number, batch: number): Promise<Leaderboard> {
-  const { players } = await viewer.view<{ players: number }>("config");
+  const { players } = await patient<{ players: number }>(viewer, "config", {});
   const ids = Array.from({ length: players }, (_, i) => i + 1);
-  const ships = (await inBatches(ids, batch, (id) => viewer.view<ShipRow | null>("get_ship", { token_id: `ship:${id}` }))).filter((s): s is ShipRow => s !== null);
-  const rows = await inBatches(ships, batch, async (ship) => ({ ship, player: await viewer.view<PlayerRow | null>("get_player", { account_id: ship.captain }) }));
+  const ships = (await inBatches(ids, batch, (id) => patient<ShipRow | null>(viewer, "get_ship", { token_id: `ship:${id}` }))).filter((s): s is ShipRow => s !== null);
+  const rows = await inBatches(ships, batch, async (ship) => ({ ship, player: await patient<PlayerRow | null>(viewer, "get_player", { account_id: ship.captain }) }));
   const entries = rows.flatMap(({ ship, player }): CaptainEntry[] =>
-    player ? [{ account: ship.captain, name: player.display_name, rank: ship.rank, class: ship.class, xp: ship.xp, wins: player.wins, losses: player.losses, sunk: ship.sunk, gold: player.gold }] : [],
+    player ? [{ account: ship.captain, name: player.display_name, rank: ship.rank, class: ship.class, xp: ship.xp, wins: player.wins, losses: player.losses, sunk: ship.sunk, gold: player.gold, seed: SEED_NAME.test(player.display_name) }] : [],
   );
   const nauarch = entries.reduce((acc, e) => ({ wins: acc.wins + e.losses, losses: acc.losses + e.wins, battles: acc.battles + e.wins + e.losses }), { wins: 0, losses: 0, battles: 0 });
   const played = entries.filter((e) => e.wins + e.losses > 0 || e.xp > 0);
-  const captains = [...played].sort((a, b) => b.xp - a.xp || b.wins - a.wins || b.sunk - a.sunk).slice(0, top);
+  const ranked = [...played].sort((a, b) => b.xp - a.xp || b.wins - a.wins || b.sunk - a.sunk);
+  const keep = new Set([...ranked.filter((e) => !e.seed).slice(0, top), ...ranked.filter((e) => e.seed).slice(0, top)]);
+  const captains = ranked.filter((e) => keep.has(e));
   return { captains, nauarch, total: entries.length };
 }
 

@@ -40,8 +40,11 @@ export function CaptainsPage({ cfg }: { readonly cfg: AppConfig }) {
 
 function Board({ board, treasury, boards, me }: { readonly board: Leaderboard; readonly treasury: string | null; readonly boards: number | null; readonly me: string | null }) {
   const { nauarch } = board;
+  const [tests, setTests] = useState(false);
+  const seeds = board.captains.filter((c) => c.seed).length;
+  const shown = board.captains.filter((c) => tests || !c.seed);
   const winRate = nauarch.battles > 0 ? Math.round((nauarch.wins / nauarch.battles) * 100) : null;
-  const myPlace = me ? board.captains.findIndex((c) => c.account === me) : -1;
+  const myPlace = me ? shown.findIndex((c) => c.account === me) : -1;
   return (
     <>
       <Panel className="sm:grid-cols-[auto_1fr] sm:items-center">
@@ -60,11 +63,17 @@ function Board({ board, treasury, boards, me }: { readonly board: Leaderboard; r
       <Panel>
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h2 className="m-0 font-display text-2xl font-bold">Top captains</h2>
-          <p className="m-0 text-xs text-muted">
-            {board.captains.length} of {board.total} captains have earned XP{myPlace >= 0 ? ` · you are #${myPlace + 1}` : ""}
-          </p>
+          <div className="flex flex-wrap items-center gap-3 text-xs text-muted">
+            <span>{myPlace >= 0 ? `You are #${myPlace + 1}` : `${board.total} captains signed on`}</span>
+            {seeds > 0 && (
+              <label className="inline-flex cursor-pointer items-center gap-1.5">
+                <input type="checkbox" checked={tests} onChange={(e) => setTests(e.target.checked)} className="accent-brass" />
+                Show {seeds} test captains from the seeded map
+              </label>
+            )}
+          </div>
         </div>
-        {board.captains.length === 0 ? (
+        {shown.length === 0 ? (
           <p className="m-0 text-muted">No captain has earned XP yet. Be the first.</p>
         ) : (
           <div className="-mx-1 overflow-x-auto">
@@ -81,12 +90,13 @@ function Board({ board, treasury, boards, me }: { readonly board: Leaderboard; r
                 </tr>
               </thead>
               <tbody>
-                {board.captains.map((c, i) => (
+                {shown.map((c, i) => (
                   <tr key={c.account} className={cn("border-t border-line", c.account === me && "bg-brass/10")}>
                     <td className="px-2 py-2 tabular-nums">{i === 0 ? <Crown className="size-4 text-brass" aria-label="first" /> : i + 1}</td>
                     <td className="px-2 py-2 font-semibold">
                       {c.name}
                       {c.account === me && <span className="ml-1.5 text-xs font-normal text-brass">you</span>}
+                      {c.seed && <span className="ml-1.5 text-xs font-normal text-muted">test</span>}
                     </td>
                     <td className="px-2 py-2 text-muted">
                       {c.rank} · {c.class}

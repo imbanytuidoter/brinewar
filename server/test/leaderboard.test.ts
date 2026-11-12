@@ -10,7 +10,7 @@ const ships: Record<string, object> = {
 const players: Record<string, object> = {
   "p-a.testnet": { display_name: "Anna", gold: "85", games_vs_nauarch: 3, wins: 1, losses: 2 },
   "p-b.testnet": { display_name: "Bo", gold: "160", games_vs_nauarch: 3, wins: 3, losses: 0 },
-  "p-c.testnet": { display_name: "Captain c0de", gold: "100", games_vs_nauarch: 0, wins: 0, losses: 0 },
+  "p-c.testnet": { display_name: "Seed_07", gold: "100", games_vs_nauarch: 0, wins: 0, losses: 0 },
 };
 
 const viewer = () =>
@@ -28,6 +28,21 @@ describe("leaderboard", () => {
     expect(board.captains[0]).toMatchObject({ account: "p-b.testnet", rank: "Captain", xp: 320, wins: 3, losses: 0, sunk: 12, gold: "160" });
     expect(board.nauarch).toEqual({ wins: 2, losses: 4, battles: 6 });
     expect(board.total).toBe(3);
+    expect(board.captains.every((c) => !c.seed)).toBe(true);
+  });
+
+  it("marks seeded test captains", async () => {
+    const seeded: Record<string, object> = { ...ships, "ship:3": { ...ships["ship:3"], xp: 500, wins: 1 } };
+    const v = new FakeViewer((method, args) => {
+      if (method === "config") return { players: 3 };
+      if (method === "get_ship") return seeded[String(args.token_id)] ?? null;
+      if (method === "get_player") return players[String(args.account_id)] ?? null;
+      throw new Error(method);
+    });
+    const board = await buildLeaderboard(v, 10, 2);
+    expect(board.captains.find((c) => c.name === "Seed_07")?.seed).toBe(true);
+    const top1 = await buildLeaderboard(v, 1, 2);
+    expect(top1.captains.map((c) => c.name)).toEqual(["Seed_07", "Bo"]);
   });
 
   it("keeps the top entries only", async () => {

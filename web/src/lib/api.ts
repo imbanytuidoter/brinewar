@@ -78,6 +78,7 @@ export interface CaptainEntry {
   readonly losses: number;
   readonly sunk: number;
   readonly gold: string;
+  readonly seed: boolean;
 }
 
 export interface Leaderboard {
@@ -91,7 +92,7 @@ const isText = (v: unknown, max: number): v is string => typeof v === "string" &
 function asCaptain(v: unknown): CaptainEntry | null {
   if (!isObj(v) || !isText(v.account, 64) || !isText(v.name, 64) || !isText(v.rank, 24) || !isText(v.class, 32)) return null;
   if (!isCount(v.xp) || !isCount(v.wins) || !isCount(v.losses) || !isCount(v.sunk) || !isAmount(v.gold)) return null;
-  return { account: v.account, name: v.name, rank: v.rank, class: v.class, xp: v.xp, wins: v.wins, losses: v.losses, sunk: v.sunk, gold: v.gold };
+  return { account: v.account, name: v.name, rank: v.rank, class: v.class, xp: v.xp, wins: v.wins, losses: v.losses, sunk: v.sunk, gold: v.gold, seed: v.seed === true };
 }
 
 export function asLeaderboard(raw: unknown): Leaderboard | null {
