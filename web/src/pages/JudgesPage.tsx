@@ -1,4 +1,4 @@
-import { Anchor, BadgeCheck, Coins, ExternalLink, Map as MapIcon, ShieldCheck, Swords } from "lucide-react";
+import { Clapperboard, Anchor, BadgeCheck, Coins, ExternalLink, Map as MapIcon, ShieldCheck, Swords } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { accountLink, networkOf, type AppConfig } from "@/lib/config";
 import { cn } from "@/lib/utils";
@@ -16,6 +16,7 @@ const CHAPTERS = "/demo/chapters.json";
 const STACK = ["near-sdk 5.30.1", "near-api-js 7.4.0", "NEP-245", "NEP-297", "NEAR AI Cloud · TEE", "ed25519_verify", "React Three Fiber 9"];
 
 const DOORS = [
+  { href: "/replay", icon: Clapperboard, title: "Watch a finished battle", line: "A real battle the Nauarch won, replayed from the chain in about 40 seconds, with his signed lines and his fleet rising at the end." },
   { href: "/", icon: Anchor, title: "Play the Nauarch", line: "Open it in a fresh browser. No wallet, no seed phrase, no popup: a guest account and 100 gold appear in a few seconds." },
   { href: "/", icon: Swords, title: "Duel a friend", line: "Press Challenge a friend and send the link. They play from their own browser, no wallet either, with the same proofs on every answer." },
   { href: "/admiralty", icon: MapIcon, title: "Admiralty map", line: "Where captains hide ships, built only from boards the contract verified. The Nauarch hunts the hot cells first." },
@@ -133,9 +134,9 @@ export function JudgesPage({ cfg }: { readonly cfg: AppConfig }) {
     >
       {chapters && <DemoVideo chapters={chapters} />}
 
-      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {DOORS.map(({ href, icon: Icon, title, line }) => (
-          <a key={href} href={href} className="grid gap-2 rounded-2xl border border-line bg-glass p-4 backdrop-blur-md transition-colors hover:border-brass">
+      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {DOORS.map(({ href, icon: Icon, title, line }, i) => (
+          <a key={title} href={href} className={cn("grid gap-2 rounded-2xl border border-line bg-glass p-4 backdrop-blur-md transition-colors hover:border-brass", i === 0 && "border-brass/60 bg-brass/10 sm:col-span-2")}>
             <Icon className="size-5 text-brass" aria-hidden />
             <span className="font-display text-xl font-bold">{title}</span>
             <span className="text-sm text-muted">{line}</span>
