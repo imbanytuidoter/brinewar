@@ -1,4 +1,7 @@
-import { Anchor, Coins, Gavel, Map as MapIcon, Ship, Trophy } from "lucide-react";
+import { Anchor, Coins, Gavel, Map as MapIcon, Ship, Swords, Trophy } from "lucide-react";
+import { useEffect, useState } from "react";
+import { openBattle } from "@/game/resume";
+import { browserStorage } from "@/lib/storage";
 import { cn } from "@/lib/utils";
 
 const LINKS = [
@@ -9,6 +12,31 @@ const LINKS = [
   { href: "/treasury", label: "Treasury", icon: Coins },
   { href: "/judges", label: "For judges", icon: Gavel },
 ] as const;
+
+const warmBattle = (): void => {
+  void import("@/scene/SeaScene").catch(() => undefined);
+};
+
+export function BattleReturn() {
+  const here = window.location.pathname.replace(/\/+$/, "") || "/";
+  const [id] = useState(() => (here === "/" ? null : openBattle(browserStorage())));
+  useEffect(() => {
+    if (id === null) return;
+    const idle = window.requestIdleCallback ?? ((fn: () => void) => window.setTimeout(fn, 600));
+    idle(warmBattle);
+  }, [id]);
+  if (id === null) return null;
+  return (
+    <a
+      href="/"
+      onPointerEnter={warmBattle}
+      className="inline-flex animate-rise items-center gap-1.5 rounded-full bg-gradient-to-b from-[#ffd56e] to-brass-deep px-3 py-1.5 text-xs font-bold whitespace-nowrap text-[#241a05] shadow-[0_6px_20px_rgb(242_182_50/0.35)] transition-transform hover:-translate-y-px"
+    >
+      <Swords className="size-3.5" aria-hidden />
+      Back to battle #{id}
+    </a>
+  );
+}
 
 export function Nav({ className, compact = false }: { readonly className?: string; readonly compact?: boolean }) {
   const here = window.location.pathname.replace(/\/+$/, "") || "/";
@@ -28,6 +56,7 @@ export function Nav({ className, compact = false }: { readonly className?: strin
           </a>
         );
       })}
+      <BattleReturn />
     </nav>
   );
 }

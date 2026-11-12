@@ -12,6 +12,7 @@ import { fromHex, rootFromProof, sha256, toHex } from "@/lib/merkle";
 import { signedText } from "@/lib/nauarch";
 import { memoryStorage } from "@/lib/storage";
 import { GameSession, isStale, rewardsBetween, verifiedFleet } from "./session";
+import { battleKey, loadBattle, openBattle } from "./resume";
 import { clockText } from "@/ui/TurnClock";
 import { newBoard, revealArgs } from "@/lib/board";
 
@@ -312,6 +313,29 @@ describe("GameSession", () => {
     await other.session.tick();
     expect(other.chain.calls.at(-1)).toBe("commit_board");
     expect(other.store.get(boardKey(ME, 4))).not.toBeNull();
+  });
+
+  it("reopens a left battle from the browser before any chain read and forgets it once the battle ends", async () => {
+    const { chain, store, session } = setup();
+    await session.start(placeFleet(seededRng(7)));
+    const silent = { view: async () => new Promise<never>(() => undefined) } as unknown as Viewer;
+    const back = new GameSession({ accountId: ME, viewer: silent, caller: chain, store, evidence: chain.evidence });
+    expect(back.snapshot.gameId).toBe(4);
+    expect(back.snapshot.step).toEqual({ kind: "fire" });
+    expect(back.snapshot.board).not.toBeNull();
+    expect(openBattle(store)).toBeNull();
+    store.set("brinewar.account.v1", JSON.stringify({ accountId: ME }));
+    expect(openBattle(store)).toBe(4);
+
+    chain.game = { ...(chain.game as GameView), status: "Finished", winner: NAU };
+    await session.tick();
+    expect(new GameSession({ accountId: ME, viewer: silent, caller: chain, store, evidence: chain.evidence }).snapshot.gameId).toBeNull();
+  });
+
+  it("ignores a saved battle that belongs to someone else", () => {
+    const store = memoryStorage({ [battleKey(ME)]: JSON.stringify({ game: { id: 3, status: "Playing", a: "x.testnet", b: NAU }, history: [] }) });
+    expect(loadBattle(store, ME)).toBeNull();
+    expect(loadBattle(memoryStorage({ [battleKey(ME)]: "{not json" }), ME)).toBeNull();
   });
 
   it("shows the Nauarch fleet only when his reveal matches the committed root", async () => {

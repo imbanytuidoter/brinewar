@@ -12,6 +12,7 @@ import { fetchEvidence } from "@/lib/proofs";
 import { sound } from "@/lib/sound";
 import { confirmedSunk } from "@/lib/sunk";
 import { CalloutBanner } from "@/ui/CalloutBanner";
+import { BattleReturn } from "@/ui/Nav";
 import { MuteToggle } from "@/ui/MuteToggle";
 import { NauarchBubble } from "@/ui/NauarchBubble";
 import type { Mood } from "@/ui/NauarchPortrait";
@@ -135,6 +136,7 @@ function Theatre({ replay }: { readonly replay: Replay }) {
           Replay of battle #{game.id} from the chain · shot {Math.min(step, history.length)} of {history.length}
         </p>
         <div className="flex items-center gap-2">
+          <BattleReturn />
           <MuteToggle />
           <a href={`/verify/${game.id}`} className="inline-flex items-center gap-1.5 rounded-full border border-line bg-glass px-3 py-1.5 text-xs font-semibold backdrop-blur-md hover:border-brass">
             <ShieldCheck className="size-3.5 text-ok" aria-hidden />

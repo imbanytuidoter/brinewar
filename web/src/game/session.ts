@@ -8,6 +8,7 @@ import { bindMoves } from "@/lib/nauarch";
 import type { NauarchEvidence } from "@/lib/proofs";
 import type { KeyValue } from "@/lib/storage";
 import { canTarget, friendlyError, marksFrom, nextStep, opponentOf, type Marks, type Step } from "./engine";
+import { clearBattle, loadBattle, saveBattle } from "./resume";
 
 export interface NauarchLine {
   readonly text: string;
@@ -132,6 +133,15 @@ export class GameSession {
       accountId: d.accountId, gameId: null, game: null, history: [], marks: EMPTY_MARKS, step: null,
       board: null, lines: [], busy: null, error: null, lastTx: null, offline: false, enemyFleet: null, enemyRevealTx: null, captain: null, rewards: null, opponentName: null, invite: null, deadlineAt: null, announcedSunk: [],
     };
+    this.#resume();
+  }
+
+  #resume(): void {
+    const saved = loadBattle(this.#d.store, this.#d.accountId);
+    if (!saved) return;
+    const { game, history } = saved;
+    const board = this.#boardFor(game.id);
+    this.#snap = { ...this.#snap, gameId: game.id, game, history: [...history], marks: marksFrom(history, this.#d.accountId), board, step: nextStep(game, this.#d.accountId, board !== null) };
   }
 
   get snapshot(): Snapshot {
@@ -260,6 +270,7 @@ export class GameSession {
     this.#nauarchShots = -1;
     this.#evidenceTries = 0;
     this.#settled = null;
+    clearBattle(this.#d.store, this.#d.accountId);
     this.#set({ gameId: id, game: null, history: [], marks: EMPTY_MARKS, step: null, board, lines: [], error: null, enemyFleet: null, enemyRevealTx: null, rewards: null, opponentName: null, invite: null, deadlineAt: null, announcedSunk: [] });
   }
 
@@ -347,18 +358,27 @@ export class GameSession {
 
   async #tickOnce(): Promise<boolean> {
     const me = this.#d.accountId;
-    if (this.#snap.captain === null) await this.#captain().catch(() => null);
-    let id = this.#snap.gameId;
-    if (id === null) {
-      id = await this.#d.viewer.view<number | null>("active_game_of", { account_id: me });
-      if (id === null) return false;
-      this.#set({ gameId: id });
-    }
+    const captain = this.#snap.captain === null ? this.#captain().catch(() => null) : null;
+    await this.#lookup(me);
+    await captain;
+    return this.#battle(me);
+  }
+
+  async #lookup(me: string): Promise<void> {
+    if (this.#snap.gameId !== null) return;
+    const id = await this.#d.viewer.view<number | null>("active_game_of", { account_id: me });
+    if (id !== null) this.#set({ gameId: id });
+  }
+
+  async #battle(me: string): Promise<boolean> {
+    const id = this.#snap.gameId;
+    if (id === null) return false;
     const [game, history] = await Promise.all([
       this.#d.viewer.view<GameView | null>("get_game", { game_id: id }),
       this.#d.viewer.view<ShotView[]>("get_history", { game_id: id }),
     ]);
     if (!game) {
+      clearBattle(this.#d.store, me);
       this.#set({ gameId: null, game: null, step: null });
       return false;
     }
@@ -367,6 +387,8 @@ export class GameSession {
     const planned = nextStep(game, me, board !== null);
     const step: Step = planned.kind === "reveal" && this.#given.has(`reveal:${id}`) ? { kind: "done" } : planned;
     const invite = step.kind === "invite" ? (this.#snap.invite ?? this.#d.store.get(inviteKey(me, id))) : null;
+    if (game.status === "Finished") clearBattle(this.#d.store, me);
+    else saveBattle(this.#d.store, me, game, history);
     this.#set({ game, history, marks: marksFrom(history, me), step, board, invite, deadlineAt: await this.#deadline(game, step) });
     const acted = await this.#act(game, step, board);
     await this.#claimIfLate(game, step);
