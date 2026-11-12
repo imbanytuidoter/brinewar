@@ -1,0 +1,30 @@
+{
+  "contract": "brinewar.testnet",
+  "init": {
+    "owner": "brinewar.testnet",
+    "nauarch": "admiral.brinewar.testnet",
+    "registrar": "sponsor.brinewar.testnet",
+    "initial_treasury": "1000",
+    "settings": {
+      "move_timeout_blocks": 200,
+      "max_open_games": 50,
+      "blocks_per_day": 147000,
+      "min_heat_shots": 10,
+      "start_gold": "100",
+      "base_entry": "10",
+      "entry_threshold": "500",
+      "bounty_bps": 500,
+      "bounty_cap": "25",
+      "guest_fund": "100000000000000000000000",
+      "guest_allowance": "250000000000000000000000",
+      "guests_per_day": 300,
+      "games_per_day": 20,
+      "bounties_per_day": 3,
+      "min_heat_boards": 3
+    }
+  },
+  "model": {
+    "name": "Qwen/Qwen3.8-27B",
+    "attestation_url": "https://cloud-api.near.ai/v1/attestation/report"
+  }
+}
