@@ -4,7 +4,7 @@ import { Suspense, useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import type { ShipLook } from "./types";
 
-const MODEL_FOR_RANK: Readonly<Record<string, string>> = {
+export const MODEL_FOR_RANK: Readonly<Record<string, string>> = {
   Ensign: "ship-small",
   Lieutenant: "ship-medium",
   Captain: "ship-large",
@@ -26,11 +26,13 @@ function Ship({ rank, look, reducedMotion }: FlagshipViewerProps) {
   const name = MODEL_FOR_RANK[rank] ?? "ship-small";
   const { scene } = useGLTF(`/models/${name}.glb`, false, false);
   const group = useRef<THREE.Group>(null);
-  const { model, sails, flags, sailBase } = useMemo(() => {
+  const { model, sails, flags, hulls, sailBase, hullBase } = useMemo(() => {
     const m = scene.clone(true);
     const s: THREE.MeshStandardMaterial[] = [];
     const f: THREE.MeshStandardMaterial[] = [];
+    const h: THREE.MeshStandardMaterial[] = [];
     let base = new THREE.Color("#ffffff");
+    let hullTone = new THREE.Color("#ffffff");
     m.traverse((o) => {
       if (!(o instanceof THREE.Mesh) || Array.isArray(o.material)) return;
       const mat = (o.material as THREE.Material).clone();
@@ -40,6 +42,9 @@ function Ship({ rank, look, reducedMotion }: FlagshipViewerProps) {
       else if (SAIL.test(o.name)) {
         base = mat.color.clone();
         s.push(mat);
+      } else {
+        hullTone = mat.color.clone();
+        h.push(mat);
       }
     });
     const box = new THREE.Box3().setFromObject(m);
@@ -48,13 +53,14 @@ function Ship({ rank, look, reducedMotion }: FlagshipViewerProps) {
     m.scale.setScalar(scale);
     const c = box.getCenter(new THREE.Vector3());
     m.position.set(-c.x * scale, -box.min.y * scale - 0.25, -c.z * scale);
-    return { model: m, sails: s, flags: f, sailBase: base };
+    return { model: m, sails: s, flags: f, hulls: h, sailBase: base, hullBase: hullTone };
   }, [scene]);
 
   useEffect(() => {
     for (const m of sails) m.color.copy(look ? new THREE.Color(look.sail) : sailBase);
     for (const m of flags) m.color.set(look ? look.flag : DEFAULT_FLAG);
-  }, [sails, flags, sailBase, look]);
+    for (const m of hulls) m.color.copy(look?.hull ? new THREE.Color(look.hull) : hullBase);
+  }, [sails, flags, hulls, sailBase, hullBase, look]);
 
   useEffect(
     () => () => {

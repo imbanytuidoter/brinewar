@@ -1,4 +1,4 @@
-import { Check, Loader2, Pencil, Snowflake } from "lucide-react";
+import { Check, Loader2, Lock, Pencil, Snowflake } from "lucide-react";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { rankProgress } from "@/game/economy";
@@ -10,6 +10,7 @@ import { catalogSkins, equippedSkin, equipSkin, ownedSkins, skinLook, skinSource
 import { browserStorage } from "@/lib/storage";
 import { cn } from "@/lib/utils";
 import { PageShell, Panel, Stat } from "@/ui/PageShell";
+import { SpriteShip } from "@/ui/SpriteShip";
 
 const NICKNAME = /^[A-Za-z0-9_-]{3,16}$/;
 const FlagshipViewer = lazy(() => import("@/scene/FlagshipViewer"));
@@ -47,6 +48,15 @@ export function FleetPage({ cfg }: { readonly cfg: AppConfig }) {
     </PageShell>
   );
 }
+
+const DEFAULT_SKIN = "brine";
+const RANK_SHIPS: ReadonlyArray<readonly [rank: string, length: number, cls: string]> = [
+  ["Ensign", 2, "Cutter"],
+  ["Lieutenant", 3, "Sloop"],
+  ["Captain", 4, "Frigate"],
+  ["Commodore", 4, "Ship of the line"],
+  ["Admiral", 4, "Flagship"],
+];
 
 interface Skins {
   readonly all: readonly string[];
@@ -104,12 +114,13 @@ function FleetView({ cfg, session }: { readonly cfg: AppConfig; readonly session
   }
   const ship = captain.ship;
   const progress = rankProgress(ship?.xp ?? 0);
+  const look = skinLook(equipped ?? DEFAULT_SKIN);
   return (
     <>
       <Panel className="sm:grid-cols-[minmax(0,1.1fr)_1fr] sm:items-center">
         <div className="relative aspect-[8/5] overflow-hidden rounded-xl border border-line bg-[radial-gradient(circle_at_50%_30%,#3d8fd0,#0e2a3b_75%)]">
           <Suspense fallback={null}>
-            <FlagshipViewer rank={progress.rank} look={equipped ? skinLook(equipped) : null} reducedMotion={reducedMotion} />
+            <FlagshipViewer rank={progress.rank} look={look} reducedMotion={reducedMotion} />
           </Suspense>
           {svg && (
             <figure className="absolute right-2 bottom-2 m-0 grid w-16 gap-0.5 sm:w-24 rounded-md border border-line bg-black/40 p-1 backdrop-blur-sm">
@@ -153,36 +164,63 @@ function FleetView({ cfg, session }: { readonly cfg: AppConfig; readonly session
 
       <Panel>
         <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h2 className="m-0 font-display text-2xl font-bold">Your flagship by rank</h2>
+          <p className="m-0 text-xs text-muted">Each rank refits the flagship as a bigger ship, in battle and in the viewer above.</p>
+        </div>
+        <ol className="m-0 grid list-none grid-cols-2 gap-3 p-0 sm:grid-cols-5">
+          {RANK_SHIPS.map(([rank, length, cls]) => {
+            const here = rank === progress.rank;
+            return (
+              <li key={rank} className={cn("grid gap-2 rounded-xl border p-3", here ? "border-brass bg-brass/10" : "border-line bg-white/5")}>
+                <div className="grid h-16 place-items-center rounded-lg bg-[url(/sprites/map/water.png)] bg-[length:64px_64px] px-2">
+                  <SpriteShip vertical={false} length={length} sail={look?.sprite ?? 1} flag={look?.pennant ?? 5} className="h-9 w-auto max-w-full" />
+                </div>
+                <span className="text-xs font-semibold">{rank}</span>
+                <span className="text-[11px] text-muted">{cls}{here ? " · now" : ""}</span>
+              </li>
+            );
+          })}
+        </ol>
+      </Panel>
+
+      <Panel>
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h2 className="m-0 font-display text-2xl font-bold">Skins</h2>
-          <p className="m-0 text-xs text-muted">Every captain starts with three skins; each new rank of your flagship mints one more on NEAR. The equipped skin colours your sails and flag in battle.</p>
+          <p className="m-0 text-xs text-muted">Every captain starts with three skins; each new rank mints one more on NEAR. Tap one to equip it: sails, flag and hull change here and in battle.</p>
         </div>
         {!skins ? (
           <Loader2 className="size-4 animate-spin text-muted" aria-label="Loading skins" />
         ) : (
           <ul className="m-0 grid list-none grid-cols-2 gap-3 p-0 sm:grid-cols-4">
             {skins.all.map((name) => {
-              const look = skinLook(name);
+              const l = skinLook(name);
               const owned = skins.owned.includes(name);
-              const on = equipped === name;
+              const on = (equipped ?? DEFAULT_SKIN) === name && owned;
+              const source = skinSource(name);
               return (
                 <li key={name}>
                   <button
                     type="button"
                     disabled={!owned}
-                    onClick={() => equip(on ? null : name)}
+                    onClick={() => equip(name)}
                     aria-pressed={on}
-                    className={cn("grid w-full gap-2 rounded-xl border border-line bg-white/5 p-3 text-left transition-colors hover:border-brass disabled:cursor-not-allowed disabled:opacity-45", on && "border-brass bg-brass/10")}
+                    className={cn("grid w-full gap-2 rounded-xl border border-line bg-white/5 p-3 text-left transition-colors hover:border-brass disabled:cursor-not-allowed", on && "border-brass bg-brass/10")}
                   >
-                    <svg viewBox="0 0 80 48" className="w-full" aria-hidden>
-                      <rect width="80" height="48" rx="6" fill="#123a4d" />
-                      <path d="M40 6 V36 M40 8 L60 30 H40 Z" fill={look.sail} stroke="#3a2a1d" strokeWidth="1.5" />
-                      <path d="M40 8 L22 30 H40 Z" fill={look.sail} opacity="0.85" />
-                      <path d="M40 6 l10 3 l-10 3 Z" fill={look.flag} />
-                      <path d="M14 34 H66 L58 42 H22 Z" fill="#6b4a2d" />
-                    </svg>
-                    <span className="flex items-center justify-between text-xs font-semibold">
-                      {look.title}
-                      {on ? <Check className="size-3.5 text-brass" aria-label="equipped" /> : <span className="font-normal text-muted">{owned ? "owned" : skinSource(name) && skinSource(name) !== "starter" ? `at ${skinSource(name)}` : "not owned"}</span>}
+                    <div className="relative grid h-24 place-items-center overflow-hidden rounded-lg bg-[url(/sprites/map/water.png)] bg-[length:72px_72px]">
+                      <SpriteShip vertical={false} length={3} sail={l.sprite} flag={l.pennant} className={cn("h-14 w-auto", !owned && "opacity-55 saturate-50")} />
+                      <span className="absolute top-1.5 left-1.5 size-3 rounded-full border border-white/40" style={{ background: l.hull ?? "#c98a5a" }} title="hull tone" aria-hidden />
+                      {!owned && <Lock className="absolute top-1.5 right-1.5 size-4 text-ink/80" aria-hidden />}
+                    </div>
+                    <span className="flex items-center justify-between gap-2 text-xs font-semibold">
+                      {l.title}
+                      {on ? (
+                        <span className="inline-flex items-center gap-1 text-brass">
+                          <Check className="size-3.5" aria-hidden />
+                          Equipped
+                        </span>
+                      ) : (
+                        <span className="font-normal text-muted">{owned ? "Tap to equip" : source && source !== "starter" ? `Reach ${source}` : "Not owned"}</span>
+                      )}
                     </span>
                   </button>
                 </li>
