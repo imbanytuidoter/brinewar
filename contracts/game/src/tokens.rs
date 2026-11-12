@@ -10,6 +10,13 @@ pub const GOLD: &str = "gold";
 pub const SHIP_PREFIX: &str = "ship:";
 pub const SKIN_PREFIX: &str = "skin:";
 pub const STARTER_SKIN: &str = "skin:brine";
+pub const STARTER_SKINS: [&str; 3] = [STARTER_SKIN, "skin:coral", "skin:ghost"];
+pub const RANK_SKINS: [(usize, &str); 4] = [
+    (1, "skin:night-watch"),
+    (2, "skin:gilded"),
+    (3, "skin:storm"),
+    (4, "skin:admiral"),
+];
 const MAX_SKINS_LISTED: usize = 100;
 const GAS_FOR_RESOLVE: Gas = Gas::from_tgas(15);
 const GAS_FOR_ON_TRANSFER: Gas = Gas::from_tgas(30);

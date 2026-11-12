@@ -1,6 +1,6 @@
 use crate::events::emit;
 use crate::fleet::{BOARD_SIZE, CELLS};
-use crate::tokens::{ship_id, ship_token, GOLD, STARTER_SKIN};
+use crate::tokens::{ship_id, ship_token, GOLD, STARTER_SKINS};
 use crate::{Brinewar, BrinewarExt};
 use near_sdk::json_types::U128;
 use near_sdk::serde_json::json;
@@ -381,7 +381,9 @@ impl Brinewar {
             self.mint(GOLD, account, start, Some("welcome"));
         }
         self.mint(&ship_token(ship), account, 1, Some("flagship"));
-        self.mint(STARTER_SKIN, account, 1, Some("starter"));
+        for skin in STARTER_SKINS {
+            self.mint(skin, account, 1, Some("starter"));
+        }
         emit(
             "player_registered",
             json!({"account": account, "flagship": ship_token(ship)}),
@@ -400,8 +402,10 @@ impl Brinewar {
         if self.balance(&ship, account) > 0 {
             self.burn(&ship, account, 1, Some("guest not created"));
         }
-        if self.balance(STARTER_SKIN, account) > 0 {
-            self.burn(STARTER_SKIN, account, 1, Some("guest not created"));
+        for skin in STARTER_SKINS {
+            if self.balance(skin, account) > 0 {
+                self.burn(skin, account, 1, Some("guest not created"));
+            }
         }
         self.ships.remove(&p.flagship);
     }

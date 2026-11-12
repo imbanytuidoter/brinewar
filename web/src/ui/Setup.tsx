@@ -3,7 +3,7 @@ import { useId, useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import type { TreasuryView } from "@/lib/contract";
 import { fleetHeat, type Risk } from "@/lib/heat";
-import { skinLook } from "@/lib/skins";
+import { skinLook, skinSource } from "@/lib/skins";
 import { cn } from "@/lib/utils";
 import { PlacementGrid } from "./PlacementGrid";
 
@@ -26,6 +26,7 @@ interface SetupProps {
   readonly name: string | null;
   readonly onRename: (name: string) => Promise<boolean>;
   readonly skins: readonly string[];
+  readonly allSkins: readonly string[];
   readonly skin: string | null;
   readonly skinsFailed: boolean;
   readonly onSkin: (name: string) => void;
@@ -77,19 +78,24 @@ export function Setup(p: SetupProps) {
             <span className="text-xs text-muted">Sails and flag (your skins on NEAR)</span>
             <div className="flex flex-wrap gap-1.5">
               {p.skins.length === 0 && <span className="text-xs text-muted">{p.skinsFailed ? "Could not read your skins from the chain." : "Reading your skins from the chain…"}</span>}
-              {p.skins.map((s) => {
+              {[...p.skins, ...p.allSkins.filter((s) => !p.skins.includes(s) && skinSource(s) !== null)].map((s) => {
                 const look = skinLook(s);
                 const on = s === p.skin;
+                const owned = p.skins.includes(s);
+                const source = skinSource(s);
                 return (
                   <button
                     key={s}
                     type="button"
                     onClick={() => p.onSkin(s)}
+                    disabled={!owned}
                     aria-pressed={on}
-                    className={cn("inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition-colors", on ? "border-brass bg-brass/15" : "border-line hover:border-brass")}
+                    title={owned ? look.title : `Unlocks at the rank of ${source ?? "a higher rank"}`}
+                    className={cn("inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-45", on ? "border-brass bg-brass/15" : "border-line hover:border-brass")}
                   >
                     <span className="size-3 rounded-full border border-white/30" style={{ background: `linear-gradient(135deg, ${look.sail} 55%, ${look.flag} 55%)` }} aria-hidden />
                     {look.title}
+                    {!owned && source && <span className="text-[10px] text-muted">· {source}</span>}
                   </button>
                 );
               })}

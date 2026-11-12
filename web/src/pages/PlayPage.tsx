@@ -172,6 +172,7 @@ export function PlayPage({ cfg, session, stats, landing, onEnter }: PlayPageProp
             name={player?.display_name ?? null}
             onRename={rename}
             skins={skins.owned}
+            allSkins={skins.all}
             skin={skins.equipped}
             skinsFailed={skins.failed}
             onSkin={skins.equip}

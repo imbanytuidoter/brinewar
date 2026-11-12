@@ -8,7 +8,27 @@ const LOOKS: Readonly<Record<string, ShipLook & { readonly title: string }>> = {
   gilded: { title: "Gilded", sail: "#f3d27a", flag: "#b02a6b" },
   ghost: { title: "Ghost", sail: "#9fb4bd", flag: "#f4f7f8" },
   "night-watch": { title: "Night watch", sail: "#2c3e57", flag: "#ffcf5a" },
+  storm: { title: "Storm", sail: "#5d6f7d", flag: "#7fe0b5" },
+  admiral: { title: "Admiral", sail: "#7a1630", flag: "#ffcf5a" },
 };
+
+const SOURCES: Readonly<Record<string, string>> = {
+  brine: "starter",
+  coral: "starter",
+  ghost: "starter",
+  "night-watch": "Lieutenant",
+  gilded: "Captain",
+  storm: "Commodore",
+  admiral: "Admiral",
+};
+
+export function catalogSkins(): readonly string[] {
+  return Object.keys(SOURCES);
+}
+
+export function skinSource(name: string): string | null {
+  return SOURCES[name] ?? null;
+}
 
 function hueOf(name: string): number {
   let h = 0;

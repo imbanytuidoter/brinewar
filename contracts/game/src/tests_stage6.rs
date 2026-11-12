@@ -23,16 +23,16 @@ fn minted_skins_are_listed_once_in_mint_order() {
     let mut chain = Chain { height: 100 };
     let mut c = contract(&mut chain);
     chain.act(&acc("brinewar.testnet"));
-    c.mint_skin("coral".into(), player(), U128(1));
     c.mint_skin("gilded".into(), player(), U128(1));
-    c.mint_skin("coral".into(), nauarch(), U128(3));
+    c.mint_skin("storm".into(), player(), U128(1));
+    c.mint_skin("gilded".into(), nauarch(), U128(3));
     let listed = c.skins();
     let tail: Vec<&str> = listed
         .iter()
         .map(String::as_str)
-        .filter(|s| *s != "brine")
+        .filter(|s| !["brine", "coral", "ghost"].contains(s))
         .collect();
-    assert_eq!(tail, vec!["coral", "gilded"]);
+    assert_eq!(tail, vec!["gilded", "storm"]);
 }
 
 #[test]
@@ -361,4 +361,39 @@ fn old_guest_keys_open_and_join_duels_through_their_allowed_methods() {
     chain.act(&player());
     c.commit_board(id, Board::new(&LEGAL_A, 1).root_hex(), None);
     assert_eq!(c.get_game(id).unwrap().status, Status::Playing);
+}
+
+#[test]
+fn new_captain_gets_three_starter_skins() {
+    let mut chain = Chain { height: 100 };
+    let mut c = contract(&mut chain);
+    chain.act(&registrar());
+    let account = c.guest_account_for(guest_key(3));
+    let _ = c.create_guest(guest_key(3), None);
+    for skin in ["skin:brine", "skin:coral", "skin:ghost"] {
+        assert_eq!(c.mt_balance_of(account.clone(), skin.into()).0, 1, "{skin}");
+    }
+    chain.act(&acc("brinewar.testnet"));
+    assert!(!c.on_guest_created(account.clone(), Err(near_sdk::PromiseError::Failed)));
+    for skin in ["skin:brine", "skin:coral", "skin:ghost"] {
+        assert_eq!(c.mt_balance_of(account.clone(), skin.into()).0, 0, "{skin}");
+    }
+}
+
+#[test]
+fn each_new_rank_mints_its_skin_once() {
+    let mut chain = Chain { height: 100 };
+    let mut c = contract(&mut chain);
+    c.grant_rank_skins(&player(), 90, 310);
+    assert_eq!(c.mt_balance_of(player(), "skin:night-watch".into()).0, 1);
+    assert_eq!(c.mt_balance_of(player(), "skin:gilded".into()).0, 1);
+    assert_eq!(c.mt_balance_of(player(), "skin:storm".into()).0, 0);
+    c.grant_rank_skins(&player(), 0, 320);
+    assert_eq!(c.mt_balance_of(player(), "skin:night-watch".into()).0, 1);
+    c.grant_rank_skins(&player(), 310, 320);
+    assert_eq!(c.mt_balance_of(player(), "skin:storm".into()).0, 0);
+    c.grant_rank_skins(&player(), 690, 1600);
+    assert_eq!(c.mt_balance_of(player(), "skin:storm".into()).0, 1);
+    assert_eq!(c.mt_balance_of(player(), "skin:admiral".into()).0, 1);
+    assert!(c.skins().iter().any(|s| s == "admiral"));
 }

@@ -3,7 +3,7 @@ import { fetchAdmiralty, fetchTreasury } from "@/lib/api";
 import { makeViewer } from "@/lib/chain";
 import type { AppConfig } from "@/lib/config";
 import type { AdmiraltyView, TreasuryView } from "@/lib/contract";
-import { equippedSkin, equipSkin, ownedSkins, skinLook } from "@/lib/skins";
+import { catalogSkins, equippedSkin, equipSkin, ownedSkins, skinLook } from "@/lib/skins";
 import { browserStorage } from "@/lib/storage";
 import type { ShipLook } from "@/scene/types";
 
@@ -38,6 +38,7 @@ export function useHarbourStats(cfg: AppConfig): HarbourStats {
 }
 
 export interface Skins {
+  readonly all: readonly string[];
   readonly owned: readonly string[];
   readonly equipped: string | null;
   readonly look: ShipLook | null;
@@ -46,6 +47,7 @@ export interface Skins {
 }
 
 export function useSkins(cfg: AppConfig, accountId: string): Skins {
+  const [all, setAll] = useState<readonly string[]>([]);
   const [owned, setOwned] = useState<readonly string[]>([]);
   const [equipped, setEquipped] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
@@ -53,8 +55,9 @@ export function useSkins(cfg: AppConfig, accountId: string): Skins {
     let alive = true;
     const viewer = makeViewer(cfg.rpcUrl, cfg.contractId);
     ownedSkins(viewer, accountId)
-      .then(({ owned: list }) => {
+      .then(({ all: every, owned: list }) => {
         if (!alive) return;
+        setAll([...new Set([...every, ...catalogSkins()])]);
         setOwned(list);
         setEquipped(equippedSkin(browserStorage(), accountId, list) ?? list[0] ?? null);
       })
@@ -70,5 +73,5 @@ export function useSkins(cfg: AppConfig, accountId: string): Skins {
     },
     [accountId],
   );
-  return { owned, equipped, look: equipped ? skinLook(equipped) : null, failed, equip };
+  return { all, owned, equipped, look: equipped ? skinLook(equipped) : null, failed, equip };
 }

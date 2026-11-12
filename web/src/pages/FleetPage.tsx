@@ -6,7 +6,7 @@ import type { GameSession } from "@/game/session";
 import { useBoot, useReducedMotion, useSession } from "@/game/useGame";
 import { makeViewer } from "@/lib/chain";
 import type { AppConfig } from "@/lib/config";
-import { equippedSkin, equipSkin, ownedSkins, skinLook } from "@/lib/skins";
+import { catalogSkins, equippedSkin, equipSkin, ownedSkins, skinLook, skinSource } from "@/lib/skins";
 import { browserStorage } from "@/lib/storage";
 import { cn } from "@/lib/utils";
 import { PageShell, Panel, Stat } from "@/ui/PageShell";
@@ -78,7 +78,7 @@ function FleetView({ cfg, session }: { readonly cfg: AppConfig; readonly session
     (async () => {
       const { all, owned } = await ownedSkins(viewer, session.snapshot.accountId);
       if (!alive) return;
-      setSkins({ all, owned });
+      setSkins({ all: [...new Set([...all, ...catalogSkins()])], owned });
       setEquipped(equippedSkin(store, session.snapshot.accountId, owned));
     })().catch(() => alive && setSkins({ all: [], owned: [] }));
     return () => {
@@ -154,7 +154,7 @@ function FleetView({ cfg, session }: { readonly cfg: AppConfig; readonly session
       <Panel>
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h2 className="m-0 font-display text-2xl font-bold">Skins</h2>
-          <p className="m-0 text-xs text-muted">Equipped skins colour your sails in battle. Stored in this browser; ownership is read from the chain.</p>
+          <p className="m-0 text-xs text-muted">Every captain starts with three skins; each new rank of your flagship mints one more on NEAR. The equipped skin colours your sails and flag in battle.</p>
         </div>
         {!skins ? (
           <Loader2 className="size-4 animate-spin text-muted" aria-label="Loading skins" />
@@ -182,7 +182,7 @@ function FleetView({ cfg, session }: { readonly cfg: AppConfig; readonly session
                     </svg>
                     <span className="flex items-center justify-between text-xs font-semibold">
                       {look.title}
-                      {on ? <Check className="size-3.5 text-brass" aria-label="equipped" /> : <span className="font-normal text-muted">{owned ? "owned" : "not owned"}</span>}
+                      {on ? <Check className="size-3.5 text-brass" aria-label="equipped" /> : <span className="font-normal text-muted">{owned ? "owned" : skinSource(name) && skinSource(name) !== "starter" ? `at ${skinSource(name)}` : "not owned"}</span>}
                     </span>
                   </button>
                 </li>

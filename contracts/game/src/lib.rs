@@ -24,9 +24,9 @@ use game::{
 };
 use merkle::{board_root, root_from_proof};
 use nauarch::ModelKey;
-use players::{display_name, fav_zone, Player, ShipStats, XP_HIT, XP_SUNK, XP_WIN, ZONES};
+use players::{display_name, fav_zone, rank_of, Player, ShipStats, XP_HIT, XP_SUNK, XP_WIN, ZONES};
 use settings::Settings;
-use tokens::GOLD;
+use tokens::{GOLD, RANK_SKINS};
 
 pub const MAX_PAGE: u32 = 100;
 pub const MAX_MISSES: u8 = (CELLS - SHIP_CELLS) as u8;
@@ -701,6 +701,7 @@ impl Brinewar {
         } else {
             0
         };
+        let before = self.ships.get(&ship).map(|s| s.xp).unwrap_or(0);
         if let Some(s) = self.ships.get_mut(&ship) {
             s.xp += xp;
             if player_won {
@@ -709,10 +710,20 @@ impl Brinewar {
                 s.losses += 1;
             }
         }
+        self.grant_rank_skins(&account, before, before + xp);
         emit(
             "ship_progress",
             json!({"game_id": game.id, "token_id": tokens::ship_token(ship), "xp_gained": xp}),
         );
+    }
+
+    fn grant_rank_skins(&mut self, account: &AccountId, xp_before: u64, xp_after: u64) {
+        let (from, to) = (rank_of(xp_before), rank_of(xp_after));
+        for (rank, skin) in RANK_SKINS {
+            if rank > from && rank <= to && self.balance(skin, account) == 0 {
+                self.mint(skin, account, 1, Some("rank"));
+            }
+        }
     }
 
     fn award_sunk(&mut self, game: &Game, shooter: Side, target_cells: &[u8; CELLS]) {
@@ -726,10 +737,14 @@ impl Brinewar {
         let Some(ship) = self.active_flagship(game.account(shooter)) else {
             return;
         };
+        let before = self.ships.get(&ship).map(|s| s.xp).unwrap_or(0);
+        let gained = sunk as u64 * XP_SUNK;
         if let Some(s) = self.ships.get_mut(&ship) {
             s.sunk += sunk;
-            s.xp += sunk as u64 * XP_SUNK;
+            s.xp += gained;
         }
+        let account = game.account(shooter).clone();
+        self.grant_rank_skins(&account, before, before + gained);
         emit(
             "ship_progress",
             json!({"game_id": game.id, "token_id": tokens::ship_token(ship), "sunk": sunk, "xp_gained": sunk as u64 * XP_SUNK}),
