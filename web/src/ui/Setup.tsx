@@ -1,4 +1,4 @@
-import { Anchor, Check, Flame, Palette, Ship, Shuffle, Swords } from "lucide-react";
+import { Anchor, ArrowLeft, Check, Flame, Palette, Ship, Shuffle, Swords } from "lucide-react";
 import { useId, useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import type { TreasuryView } from "@/lib/contract";
@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 import { PlacementGrid } from "./PlacementGrid";
 
 const NICKNAME = /^[A-Za-z0-9_-]{3,16}$/;
-const DEFAULT_SAIL = "#e8f3f2";
+const DEFAULT_SKIN = "brine";
 
 const RISK_TEXT: Readonly<Record<Risk, string>> = {
   low: "Cool water: he rarely looks here first.",
@@ -33,6 +33,7 @@ interface SetupProps {
   readonly busy: boolean;
   readonly onSail: () => void;
   readonly onDuel: () => void;
+  readonly onBack?: () => void;
 }
 
 type Tab = "fleet" | "colours";
@@ -40,12 +41,18 @@ type Tab = "fleet" | "colours";
 export function Setup(p: SetupProps) {
   const [tab, setTab] = useState<Tab>("fleet");
   const [showHeat, setShowHeat] = useState(false);
-  const sail = p.skin ? skinLook(p.skin).sail : DEFAULT_SAIL;
+  const look = skinLook(p.skin ?? DEFAULT_SKIN);
   const risk = p.heat ? fleetHeat(p.cells, p.heat) : null;
   const entry = p.treasury && /^\d+$/.test(p.treasury.entry) ? BigInt(p.treasury.entry) : null;
   const short = entry !== null && p.gold !== null && p.gold < entry;
   return (
     <section aria-label="Prepare for battle" className="grid max-h-[calc(100dvh-140px)] w-full animate-rise gap-3 overflow-y-auto rounded-2xl border border-line bg-glass p-3 backdrop-blur-md sm:w-[360px]">
+      {p.onBack && (
+        <button type="button" onClick={p.onBack} className="inline-flex items-center gap-1 justify-self-start text-xs font-semibold text-muted hover:text-ink">
+          <ArrowLeft className="size-3.5" aria-hidden />
+          Back to the chart
+        </button>
+      )}
       <div role="tablist" aria-label="Preparation" className="grid grid-cols-2 gap-1 rounded-xl bg-black/25 p-1">
         <TabButton active={tab === "fleet"} onClick={() => setTab("fleet")} icon={<Ship aria-hidden />} label="Fleet" />
         <TabButton active={tab === "colours"} onClick={() => setTab("colours")} icon={<Palette aria-hidden />} label="Captain" />
@@ -53,7 +60,7 @@ export function Setup(p: SetupProps) {
 
       {tab === "fleet" ? (
         <div role="tabpanel" aria-label="Fleet" className="grid gap-2">
-          <PlacementGrid cells={p.cells} heat={showHeat ? p.heat : null} sail={sail} flag={p.skin ? skinLook(p.skin).flag : undefined} disabled={p.busy} onChange={p.onCells} />
+          <PlacementGrid cells={p.cells} heat={showHeat ? p.heat : null} sprite={look.sprite} pennant={look.pennant} disabled={p.busy} onChange={p.onCells} />
           <div className="grid grid-cols-2 gap-2">
             <Button size="sm" onClick={p.onShuffle} disabled={p.busy} aria-label="Shuffle your fleet">
               <Shuffle aria-hidden />

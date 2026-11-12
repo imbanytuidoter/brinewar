@@ -1,9 +1,10 @@
 import { shipName } from "@/game/useBattleFeed";
 import { FLEET } from "@/lib/fleet";
-import type { Mark, ShipLook } from "@/scene/types";
-import { ShipGlyph } from "./ShipGlyph";
+import type { SkinLook } from "@/lib/skins";
+import type { Mark } from "@/scene/types";
+import { SpriteShip } from "./SpriteShip";
 
-const GLYPH = 18;
+const GLYPH = 24;
 
 const LENGTHS = FLEET.flatMap(([len, count]) => Array.from({ length: count }, () => len));
 
@@ -12,7 +13,7 @@ interface FleetTrayProps {
   readonly myMarks: ReadonlyMap<number, Mark>;
   readonly sunkTheirs: readonly (readonly number[])[];
   readonly enemyLabel: string;
-  readonly look?: ShipLook | null;
+  readonly look?: SkinLook | null;
 }
 
 export function theirTray(sunk: readonly (readonly number[])[]): { readonly length: number; readonly sunk: boolean }[] {
@@ -36,15 +37,15 @@ export function FleetTray({ myShips, myMarks, sunkTheirs, enemyLabel, look }: Fl
           const lost = hits.every(Boolean);
           return (
             <span key={ship[0]} title={`${shipName(ship.length)}${lost ? ", sunk" : ""}`} style={{ width: ship.length * GLYPH }}>
-              <ShipGlyph length={ship.length} hits={hits} sunk={lost} sail={look?.sail} flag={look?.flag} className="h-[18px] w-full" />
+              <SpriteShip vertical={false} length={ship.length} hits={hits} state={lost ? "sunk" : hits.some(Boolean) ? "damaged" : "intact"} sail={look?.sprite ?? 1} flag={look?.pennant ?? 5} className="h-[24px] w-full" />
             </span>
           );
         })}
       </Row>
       <Row label={enemyLabel}>
         {theirs.map((s, i) => (
-          <span key={i} title={`${shipName(s.length)}${s.sunk ? ", sunk" : ""}`} style={{ width: s.length * GLYPH }} className={s.sunk ? "" : "text-ink/45"}>
-            <ShipGlyph length={s.length} ghost={!s.sunk} sunk={s.sunk} hits={s.sunk ? Array.from({ length: s.length }, () => true) : []} sail="#7a1f3d" className="h-[18px] w-full" />
+          <span key={i} title={`${shipName(s.length)}${s.sunk ? ", sunk" : ""}`} style={{ width: s.length * GLYPH }} >
+            <SpriteShip vertical={false} length={s.length} state={s.sunk ? "sunk" : "intact"} sail={2} flag={2} className={s.sunk ? "h-[24px] w-full" : "h-[24px] w-full opacity-30 grayscale"} />
           </span>
         ))}
       </Row>

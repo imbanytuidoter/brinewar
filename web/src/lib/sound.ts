@@ -1,4 +1,6 @@
 const MUTE_KEY = "brinewar.muted";
+const SAMPLES = ["cannon", "splash", "hit", "sunk"] as const;
+type Sample = (typeof SAMPLES)[number];
 const MASTER = 0.55;
 
 type Listener = (muted: boolean) => void;
@@ -23,6 +25,8 @@ class SoundBoard {
   #ctx: AudioContext | null = null;
   #master: GainNode | null = null;
   #noise: AudioBuffer | null = null;
+  readonly #samples = new Map<Sample, AudioBuffer>();
+  #loading = false;
   #muted = typeof window === "undefined" ? true : readMuted();
   readonly #listeners = new Set<Listener>();
 
@@ -55,6 +59,33 @@ class SoundBoard {
       for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
     }
     if (this.#ctx.state === "suspended") void this.#ctx.resume().catch(() => undefined);
+    this.#load(this.#ctx);
+  }
+
+  #load(ctx: AudioContext): void {
+    if (this.#loading) return;
+    this.#loading = true;
+    for (const name of SAMPLES) {
+      fetch(`/sfx/${name}.mp3`)
+        .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(`sfx ${name} ${r.status}`))))
+        .then((buf) => ctx.decodeAudioData(buf))
+        .then((audio) => this.#samples.set(name, audio))
+        .catch(() => this.#samples.delete(name));
+    }
+  }
+
+  #sample(name: Sample, gain: number): boolean {
+    const r = this.#ready();
+    const buffer = this.#samples.get(name);
+    if (!r || !buffer) return false;
+    const src = r.ctx.createBufferSource();
+    src.buffer = buffer;
+    src.playbackRate.value = 0.94 + Math.random() * 0.12;
+    const g = r.ctx.createGain();
+    g.gain.value = gain;
+    src.connect(g).connect(r.out);
+    src.start();
+    return true;
   }
 
   #ready(): { ctx: AudioContext; out: GainNode; noise: AudioBuffer } | null {
@@ -105,6 +136,7 @@ class SoundBoard {
   }
 
   cannon(): void {
+    if (this.#sample("cannon", 0.9)) return;
     const t = this.#now();
     if (t === null) return;
     this.#tone(t, 0.35, 0.9, "sine", 110, 38);
@@ -118,12 +150,14 @@ class SoundBoard {
   }
 
   splash(): void {
+    if (this.#sample("splash", 0.8)) return;
     const t = this.#now();
     if (t === null) return;
     this.#burst(t, 0.7, 0.45, "bandpass", 1400, 260);
   }
 
   hit(): void {
+    if (this.#sample("hit", 0.95)) return;
     const t = this.#now();
     if (t === null) return;
     this.#tone(t, 0.6, 0.8, "sine", 75, 32);
@@ -131,6 +165,7 @@ class SoundBoard {
   }
 
   sunk(): void {
+    if (this.#sample("sunk", 1)) return;
     const t = this.#now();
     if (t === null) return;
     this.hit();

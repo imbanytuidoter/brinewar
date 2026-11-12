@@ -1,4 +1,4 @@
-import { Flag, Loader2, WifiOff } from "lucide-react";
+import { Anchor, Flag, Loader2, WifiOff } from "lucide-react";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DuelInvite, duelFromLocation, JoinDuel, type DuelInviteRef } from "@/ui/DuelCards";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,9 @@ import type { Mood } from "@/ui/NauarchPortrait";
 import { useSkins, type HarbourStats } from "@/game/useHarbour";
 import { sound } from "@/lib/sound";
 import { CalloutBanner } from "@/ui/CalloutBanner";
+import { EncounterCard } from "@/world/EncounterCard";
+import { useMapCaptains } from "@/world/useMapCaptains";
+import { WorldMap, type Encounter } from "@/world/WorldMap";
 import { FleetTray } from "@/ui/FleetTray";
 import { confirmedSunk } from "@/lib/sunk";
 import type { AppConfig } from "@/lib/config";
@@ -86,13 +89,23 @@ export function PlayPage({ cfg, session, stats, landing, onEnter }: PlayPageProp
     if (joinRef === null) return;
     void session.join(joinRef.gameId, joinRef.secret, draft).then((ok) => ok && forgetInvite());
   }, [session, draft, joinRef, forgetInvite]);
+  const [view, setView] = useState<"chart" | "setup">("chart");
+  const [encounter, setEncounter] = useState<Encounter | null>(null);
+  const captains = useMapCaptains(cfg);
   const again = useCallback(() => {
     session.leave();
     setDraft(placeFleet(cryptoRng()));
+    setView("chart");
   }, [session]);
+  const toSetup = useCallback(() => {
+    sound.unlock();
+    setEncounter(null);
+    setView("setup");
+  }, []);
 
   const status = statusText(step, snap.busy, snap.marks.aiming, rival);
   const showLanding = landing && !inBattle && joinId === null;
+  const onChart = !inBattle && joinId === null && !landing && view === "chart";
   useEffect(() => {
     if (landing && snap.gameId !== null) onEnter();
   }, [landing, snap.gameId, onEnter]);
@@ -111,6 +124,8 @@ export function PlayPage({ cfg, session, stats, landing, onEnter }: PlayPageProp
 
   return (
     <main className="fixed inset-0">
+      {onChart && <WorldMap captains={captains} mySail={myLook?.sprite ?? 1} myFlag={myLook?.pennant ?? 5} reducedMotion={reducedMotion} paused={snap.busy !== null} onEncounter={setEncounter} />}
+      {!onChart && (
       <Suspense fallback={<div className="grid h-full place-items-center bg-gradient-to-b from-[#8fd3ff] to-[#2a8db6] font-semibold text-deep">Raising the fleets…</div>}>
         <SeaScene
           myShips={myShips}
@@ -127,11 +142,12 @@ export function PlayPage({ cfg, session, stats, landing, onEnter }: PlayPageProp
           onLand={feed.onLand}
         />
       </Suspense>
+      )}
 
       <CalloutBanner callout={feed.callout} />
 
       {inBattle && step !== "invite" && step !== "lost-board" && (
-        <div className="fixed top-[calc(76px+env(safe-area-inset-top))] left-[max(16px,env(safe-area-inset-left))] z-10 w-[236px] max-md:hidden">
+        <div className="fixed top-[calc(76px+env(safe-area-inset-top))] left-[max(16px,env(safe-area-inset-left))] z-10 w-[268px] max-md:hidden">
           <FleetTray look={myLook} myShips={myShips} myMarks={snap.marks.mine} sunkTheirs={sunkTheirs} enemyLabel={duel ? (rival ?? "Your friend") : "The Nauarch"} />
         </div>
       )}
@@ -147,7 +163,7 @@ export function PlayPage({ cfg, session, stats, landing, onEnter }: PlayPageProp
         </div>
       )}
 
-      <div className={cn("fixed bottom-[calc(16px+env(safe-area-inset-bottom))] left-[max(16px,env(safe-area-inset-left))] z-10 max-sm:bottom-[calc(140px+env(safe-area-inset-bottom))]", showLanding && "hidden")}>
+      <div className={cn("fixed bottom-[calc(16px+env(safe-area-inset-bottom))] left-[max(16px,env(safe-area-inset-left))] z-10 max-sm:bottom-[calc(140px+env(safe-area-inset-bottom))]", (showLanding || onChart) && "hidden")}>
         <NauarchBubble mood={moodOf(feed.last)} line={line} thinking={step === "thinking"} fallback={GREETING} txHref={txHref} note={note} opponent={duel ? (rival ?? "Your friend") : null} inviting={step === "invite"} />
       </div>
 
@@ -161,8 +177,16 @@ export function PlayPage({ cfg, session, stats, landing, onEnter }: PlayPageProp
         {!inBattle && joinId !== null && (
           <JoinDuel cfg={cfg} gameId={joinId} me={snap.accountId} busy={snap.busy !== null} onShuffle={shuffle} onAccept={accept} onDecline={forgetInvite} />
         )}
-        {!inBattle && joinId === null && !landing && (
+        {onChart && encounter && <EncounterCard encounter={encounter} stats={stats} busy={snap.busy !== null} onBattle={toSetup} onClose={() => setEncounter(null)} />}
+        {onChart && (
+          <Button variant="brass" onClick={toSetup} disabled={snap.busy !== null}>
+            <Anchor aria-hidden />
+            Prepare for battle
+          </Button>
+        )}
+        {!inBattle && joinId === null && !landing && view === "setup" && (
           <Setup
+            onBack={() => setView("chart")}
             cells={draft}
             onCells={setDraft}
             onShuffle={shuffle}

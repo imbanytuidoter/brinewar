@@ -12,7 +12,9 @@ test("a fresh browser plays the Nauarch with no wallet and verifies the battle",
 
   await page.goto("/");
   await expect(page.getByRole("heading", { name: /Hide your fleet/ })).toBeVisible();
-  await page.getByRole("button", { name: "Take command" }).click({ timeout: 60_000 });
+  await page.getByRole("button", { name: "Take command" }).click({ timeout: 120_000 });
+  await expect(page.getByRole("img", { name: /Sea chart/ })).toBeVisible();
+  await page.getByRole("button", { name: "Prepare for battle" }).click();
   await expect(page.getByRole("button", { name: "Show where he hunts" })).toBeVisible();
   await page.getByRole("button", { name: "Set sail against the Nauarch" }).click({ timeout: 60_000 });
   await expect(page.getByText(/Sink all 10 ships/)).toBeVisible({ timeout: 90_000 });

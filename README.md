@@ -13,7 +13,8 @@ Track: **Games**. Network: **NEAR testnet only**.
 | Do | See |
 |---|---|
 | Open the site in a fresh browser | The landing shows live numbers from the chain: boards the Nauarch has studied, gold in his treasury, and his first guess with the share of fleets that sat there. A guest account, a flagship, 100 gold and three skins are created in the background. No wallet window, ever. |
-| Press **Take command** | Drag and turn your ships on a grid, switch on **Heat map** to see where he hunts first and how risky your layout is, pick a name and a skin, then choose the Nauarch (entry and bounty shown) or a friend (free). |
+| Press **Take command** | The sea chart opens. Tap the water and your flagship sails there: Nauarch patrols cross the sea, real captains from the leaderboard ride at anchor, and the islands lead to the Admiralty map, his treasury, the captains' board and a wreck that replays a battle from the chain. |
+| Sail into a patrol and press **Engage** (or **Prepare for battle**) | Drag and turn your ships on a grid, switch on **Heat map** to see where he hunts first and how risky your layout is, pick a name and a skin, then choose the Nauarch (entry and bounty shown) or a friend (free). |
 | Press **Set sail**, tap a cell in the fog | Your first shot is open within seconds. Each shot lands with a callout (hit, miss, sunk) and sound. The Nauarch fires back with one line marked **signed ✓**: your browser re-checked the model signature against the key in the contract. When he fires into hot water from the map, the callout says *Hunting from the Admiralty map* with the share of fleets that sat there. |
 | Win or lose | The fog lifts, his fleet rises, a **Fleet verified ✓** seal links to his reveal transaction, and the card shows your gold, XP and rank change. |
 | Press **Verify** | `/verify/<id>` reads the battle from the contract and recomputes every Merkle proof, his reveal and every model signature in your browser. |
@@ -97,7 +98,7 @@ Naval battle on NEAR has been done before (a RISC Zero demo in 2022, FleetFaceof
 ## Libraries, assets and AI-written code
 
 - Contract: `near-sdk` 5.30.1 (sha256 and ed25519 through host functions), `serde_json`, `hex`. Server: `near-api-js` 7.4.0, Fastify, `node:sqlite`. Web: React 19, Vite 8, Tailwind 4, `radix-ui`, `lucide-react`, three.js with React Three Fiber and drei, `@noble/hashes` and `@noble/curves`.
-- 3D ships: [Kenney Pirate Kit](https://kenney.nl/assets/pirate-kit), CC0 ([`web/public/models/LICENSE-kenney.txt`](web/public/models/LICENSE-kenney.txt)). Fonts: Boska and Satoshi from [Fontshare](https://www.fontshare.com), self-hosted.
+- 3D ships: [Kenney Pirate Kit](https://kenney.nl/assets/pirate-kit), CC0 ([`web/public/models/LICENSE-kenney.txt`](web/public/models/LICENSE-kenney.txt)). Chart, islands and 2D ships: [Kenney Pirate Pack](https://kenney.nl/assets/pirate-pack), CC0 ([`web/public/sprites/LICENSE-kenney.txt`](web/public/sprites/LICENSE-kenney.txt)). Cannon, splash, hit and sinking sounds: [Battle at sea](https://opengameart.org/content/battle-at-sea) by Thimras, CC0 ([`web/public/sfx/LICENSE.txt`](web/public/sfx/LICENSE.txt)). Fonts: Boska and Satoshi from [Fontshare](https://www.fontshare.com), self-hosted.
 - The NEAR AI request building and signature check follow the approach of the Psephex project by the same builder.
 - Most of the code was written with an AI coding assistant (Claude Code), directed, reviewed and tested by the team. Design decisions are recorded in [`docs/adr/`](docs/adr), research in [`docs/research/`](docs/research).
 

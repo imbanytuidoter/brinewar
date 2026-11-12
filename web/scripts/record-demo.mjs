@@ -156,6 +156,8 @@ const played = await scene("play", async (page, mark) => {
   await command.waitFor({ timeout: 90_000 });
   await pause(page, 2500);
   await command.click();
+  await pause(page, 4000);
+  await page.getByRole("button", { name: "Prepare for battle" }).click();
   const sail = page.getByRole("button", { name: "Set sail against the Nauarch" });
   await sail.waitFor({ timeout: 90_000 });
   await pause(page, 1500);

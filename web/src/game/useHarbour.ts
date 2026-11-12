@@ -3,9 +3,8 @@ import { fetchAdmiralty, fetchTreasury } from "@/lib/api";
 import { makeViewer } from "@/lib/chain";
 import type { AppConfig } from "@/lib/config";
 import type { AdmiraltyView, TreasuryView } from "@/lib/contract";
-import { catalogSkins, equippedSkin, equipSkin, ownedSkins, skinLook } from "@/lib/skins";
+import { catalogSkins, equippedSkin, equipSkin, ownedSkins, skinLook, type SkinLook } from "@/lib/skins";
 import { browserStorage } from "@/lib/storage";
-import type { ShipLook } from "@/scene/types";
 
 const STATS_REFRESH_MS = 30_000;
 
@@ -41,7 +40,7 @@ export interface Skins {
   readonly all: readonly string[];
   readonly owned: readonly string[];
   readonly equipped: string | null;
-  readonly look: ShipLook | null;
+  readonly look: SkinLook | null;
   readonly failed: boolean;
   readonly equip: (name: string | null) => void;
 }
