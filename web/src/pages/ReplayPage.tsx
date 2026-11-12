@@ -5,9 +5,10 @@ import { marksFrom } from "@/game/engine";
 import { buildReplay, candidates, isShowcase, type Replay } from "@/game/replay";
 import { useBattleFeed } from "@/game/useBattleFeed";
 import { useReducedMotion } from "@/game/useGame";
+import { loadModelKeys } from "@/lib/nauarch";
 import { makeViewer } from "@/lib/chain";
 import type { AppConfig } from "@/lib/config";
-import type { ConfigView, GameView, ModelView, ShotView } from "@/lib/contract";
+import type { ConfigView, GameView, ShotView } from "@/lib/contract";
 import { fetchEvidence } from "@/lib/proofs";
 import { sound } from "@/lib/sound";
 import { confirmedSunk } from "@/lib/sunk";
@@ -25,7 +26,6 @@ type Load = { kind: "loading" } | { kind: "none" } | { kind: "error" } | { kind:
 
 async function loadReplay(cfg: AppConfig, wanted: number | null): Promise<Replay | null> {
   const viewer = makeViewer(cfg.rpcUrl, cfg.contractId);
-  const model = await viewer.view<ModelView | null>("model").catch(() => null);
   const ids = wanted !== null ? [wanted] : candidates((await viewer.view<ConfigView>("config")).games);
   const games: GameView[] = [];
   for (let i = 0; i < ids.length; i += SCAN_BATCH) {
@@ -35,7 +35,7 @@ async function loadReplay(cfg: AppConfig, wanted: number | null): Promise<Replay
   for (const game of [...games].sort((x, y) => x.shots - y.shots)) {
     const id = game.id;
     const [history, ev] = await Promise.all([viewer.view<ShotView[]>("get_history", { game_id: id }), fetchEvidence(cfg.apiUrl, id).catch(() => null)]);
-    const replay = buildReplay(game, history, ev, model);
+    const replay = buildReplay(game, history, ev, await loadModelKeys(viewer, ev?.moves ?? []));
     if (replay.nauarchShips && replay.lines.size > 0) return replay;
   }
   return null;

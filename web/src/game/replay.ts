@@ -1,6 +1,6 @@
-import type { GameView, ModelView, ShotView } from "@/lib/contract";
+import type { GameView, ShotView } from "@/lib/contract";
 import { ships } from "@/lib/fleet";
-import { bindMoves, type Check } from "@/lib/nauarch";
+import { bindMoves, type Check, type ModelKeys } from "@/lib/nauarch";
 import type { NauarchEvidence } from "@/lib/proofs";
 import { verifiedFleet } from "./session";
 
@@ -27,7 +27,7 @@ export function isShowcase(g: GameView): boolean {
   return g.mode === "VsNauarch" && g.status === "Finished" && g.winner === g.b && g.finish_reason === "FleetSunk" && g.revealed_b;
 }
 
-export function buildReplay(game: GameView, history: readonly ShotView[], ev: NauarchEvidence | null, model: ModelView | null): Replay {
+export function buildReplay(game: GameView, history: readonly ShotView[], ev: NauarchEvidence | null, keys: ModelKeys | null): Replay {
   const ordered = [...history].sort((x, y) => x.n - y.n);
   const hitOnCaptain = new Array<number>(100).fill(0);
   for (const s of ordered) if (s.by === game.b && s.result === "Hit") hitOnCaptain[s.index] = 1;
@@ -35,7 +35,7 @@ export function buildReplay(game: GameView, history: readonly ShotView[], ev: Na
   const modelShots = nauarchShots.filter((s) => s.source === "Model" || s.source === "ModelFallback");
   const lines = new Map<number, SpokenLine>();
   let k = 0;
-  for (const b of bindMoves(ev?.moves ?? [], nauarchShots, game.id, model)) {
+  for (const b of bindMoves(ev?.moves ?? [], nauarchShots, game.id, keys)) {
     if (b.move.kind !== "Shot" || !b.move.request || !b.move.response) continue;
     const shot = modelShots[k++];
     if (shot && b.line) lines.set(shot.n, { text: b.line, check: b.check, tx: b.move.tx });

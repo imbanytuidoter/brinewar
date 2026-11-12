@@ -298,6 +298,11 @@ pub fn signed_text(model: &str, request: &str, response: &str) -> String {
 const MIN_MOVE_TIMEOUT: u64 = 20;
 const MAX_MOVE_TIMEOUT: u64 = 6000;
 const DUEL_TIMEOUT_KEY: &[u8] = b"duel_timeout";
+const MODEL_KEY_PREFIX: &[u8] = b"model_key:";
+
+fn model_key_slot(model: &str) -> Vec<u8> {
+    [MODEL_KEY_PREFIX, model.as_bytes()].concat()
+}
 
 #[near]
 impl Brinewar {
@@ -344,6 +349,10 @@ impl Brinewar {
             .ok()
             .and_then(|k| <[u8; 32]>::try_from(k).ok())
             .unwrap_or_else(|| env::panic_str("public key must be 32 bytes hex"));
+        if let Some(old) = &self.model {
+            env::storage_write(&model_key_slot(&old.model), &old.public_key);
+        }
+        env::storage_write(&model_key_slot(&model), &key);
         self.model = Some(ModelKey {
             model: model.clone(),
             public_key: key,
@@ -359,6 +368,13 @@ impl Brinewar {
             model: m.model.clone(),
             public_key: hex::encode(m.public_key),
         })
+    }
+
+    pub fn model_key_of(&self, model: String) -> Option<String> {
+        if let Some(m) = self.model.as_ref().filter(|m| m.model == model) {
+            return Some(hex::encode(m.public_key));
+        }
+        env::storage_read(&model_key_slot(&model)).map(hex::encode)
     }
 
     pub fn nauarch_request(&self, game_id: u64, kind: MoveKind) -> String {

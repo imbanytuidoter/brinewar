@@ -795,3 +795,19 @@ fn games_since_pages_and_skips_cancelled() {
     assert_eq!(c.games_since(third, 10).len(), 1);
     assert_eq!(c.games_since(0, 1).len(), 0);
 }
+
+#[test]
+fn a_new_model_keeps_the_old_key_for_past_signatures() {
+    let mut m = Match::started();
+    let old = hex::encode(model_key().verifying_key().as_bytes());
+    assert_eq!(m.c.model_key_of(MODEL.into()), Some(old.clone()));
+    m.chain.act(&acc("brinewar.testnet"));
+    m.c.set_model("Qwen/Faster".into(), "ab".repeat(32));
+    assert_eq!(m.c.model().unwrap().model, "Qwen/Faster");
+    assert_eq!(m.c.model_key_of(MODEL.into()), Some(old));
+    assert_eq!(
+        m.c.model_key_of("Qwen/Faster".into()),
+        Some("ab".repeat(32))
+    );
+    assert_eq!(m.c.model_key_of("never/seen".into()), None);
+}

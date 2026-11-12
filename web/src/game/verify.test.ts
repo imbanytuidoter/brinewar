@@ -18,8 +18,8 @@ describe("verify report", () => {
   const ship = his.cells.indexOf(1);
   const water = his.cells.indexOf(0);
   const secret = ed25519.utils.randomSecretKey();
-  const model = { model: "m", public_key: bytesToHex(ed25519.getPublicKey(secret)) };
-  const request = "Battle #1. Fire.";
+  const model = new Map([["m", bytesToHex(ed25519.getPublicKey(secret))]]);
+  const request = JSON.stringify({ model: "m", messages: [{ role: "user", content: "Battle #1. Fire." }] });
   const response = JSON.stringify({ choices: [{ message: { content: JSON.stringify({ shot: cellName(5), line: "Aye." }) } }] });
   const sig = bytesToHex(ed25519.sign(utf8ToBytes(signedText("m", request, response)), secret));
   const answer = (i: number) => {
@@ -40,6 +40,9 @@ describe("verify report", () => {
 
   it("checks every Nauarch answer against his committed root and every signature", () => {
     const r = buildReport(game, history, ev(), model);
+    const switched = buildReport(game, history, ev(), new Map([["faster", "ab".repeat(32)], ...model]));
+    expect(switched.moves[0]?.signed).toBe("ok");
+    expect(buildReport(game, history, ev(), new Map([["faster", "ab".repeat(32)]])).moves[0]?.signed).toBe("bad");
     expect(r.shots.map((s) => s.proof)).toEqual(["ok", "chain", "ok"]);
     expect(r.proofsOk).toBe(2);
     expect(r.moves).toEqual([{ kind: "Shot", source: "model", line: "Aye.", signed: "ok", tx: "ai" }]);

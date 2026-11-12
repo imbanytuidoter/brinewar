@@ -139,7 +139,7 @@ class FakeContract implements Viewer, Caller {
     this.history.push({ n: g.shots++, by: NAU, index, result: "Pending", block: 3, source: "Model" });
     g.pending_index = index;
     g.turn = ME;
-    const request = JSON.stringify({ messages: [{ role: "user", content: `Battle #${g.id}. Shot ${g.shots}.` }] });
+    const request = JSON.stringify({ model: MODEL, messages: [{ role: "user", content: `Battle #${g.id}. Shot ${g.shots}.` }] });
     const response = JSON.stringify({ choices: [{ message: { content: JSON.stringify({ shot: cellName(index), line }) } }] });
     const signature = bytesToHex(ed25519.sign(utf8ToBytes(signedText(MODEL, request, response)), this.secret));
     this.moves.push({

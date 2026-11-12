@@ -1,6 +1,6 @@
 import { ed25519 } from "@noble/curves/ed25519.js";
 import { utf8ToBytes } from "@noble/hashes/utils.js";
-import type { PublicMove, ShotView } from "./contract";
+import type { ModelView, PublicMove, ShotView } from "./contract";
 import { fromHex, sha256, toHex } from "./merkle";
 
 export const MAX_LINE_CHARS = 140;
@@ -88,11 +88,39 @@ function shotOf(responseBody: string): number | null {
   return m ? (Number(m[2]) - 1) * 10 + ((m[1] as string).toUpperCase().charCodeAt(0) - 65) : null;
 }
 
+export type ModelKeys = ReadonlyMap<string, string>;
+
+export function modelOfRequest(request: string | null): string | null {
+  if (!request) return null;
+  try {
+    const m = (JSON.parse(request) as { model?: unknown }).model;
+    return typeof m === "string" ? m : null;
+  } catch {
+    return null;
+  }
+}
+
+interface KeyViewer {
+  view<T>(method: string, args?: object): Promise<T>;
+}
+
+export async function loadModelKeys(viewer: KeyViewer, moves: readonly PublicMove[], known: ModelKeys = new Map()): Promise<Map<string, string>> {
+  const keys = new Map(known);
+  const current = await viewer.view<ModelView | null>("model").catch(() => null);
+  if (current) keys.set(current.model, current.public_key);
+  const missing = [...new Set(moves.map((m) => modelOfRequest(m.request)).filter((n): n is string => n !== null && !keys.has(n)))];
+  for (const name of missing) {
+    const key = await viewer.view<string | null>("model_key_of", { model: name }).catch(() => null);
+    if (key) keys.set(name, key);
+  }
+  return keys;
+}
+
 export function bindMoves(
   moves: readonly PublicMove[],
   nauarchShots: readonly ShotView[],
   gameId: number,
-  model: { readonly model: string; readonly public_key: string } | null,
+  keys: ModelKeys | null,
 ): BoundMove[] {
   const modelShots = nauarchShots.filter((s) => s.source === "Model" || s.source === "ModelFallback");
   let k = 0;
@@ -101,8 +129,10 @@ export function bindMoves(
     .map((m) => {
       const line = lineOf(m.response);
       const shot = m.kind === "Shot" && m.request && m.response ? modelShots[k++] : undefined;
-      if (!m.request || !m.response || !m.signature || !model) return { move: m, line, check: "chain" as const };
-      const sigOk = verifyMove({ model: model.model, publicKeyHex: model.public_key, request: m.request, response: m.response, signatureHex: m.signature });
+      if (!m.request || !m.response || !m.signature || !keys) return { move: m, line, check: "chain" as const };
+      const name = modelOfRequest(m.request);
+      const key = name ? keys.get(name) : undefined;
+      const sigOk = name !== null && key !== undefined && verifyMove({ model: name, publicKeyHex: key, request: m.request, response: m.response, signatureHex: m.signature });
       const sameGame = m.request.includes(`Battle #${gameId}.`);
       const sameShot = m.kind !== "Shot" || (shot !== undefined && (shot.source !== "Model" || shotOf(m.response) === shot.index));
       return { move: m, line, check: sigOk && sameGame && sameShot ? ("ok" as const) : ("bad" as const) };

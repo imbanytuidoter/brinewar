@@ -1,10 +1,10 @@
 import { answerArgs, decodeBoard, encodeBoard, newBoard, revealArgs, rootHex, type Board } from "@/lib/board";
 import type { Caller, CallResult, Viewer } from "@/lib/chain";
-import type { GameView, ModelView, PlayerView, ShipStatsView, ShotView } from "@/lib/contract";
+import type { GameView, PlayerView, ShipStatsView, ShotView } from "@/lib/contract";
 import { isLegalFleet, ships } from "@/lib/fleet";
 import { boardKey } from "@/lib/guest";
 import { buildTree, fromHex, sha256, toHex } from "@/lib/merkle";
-import { bindMoves } from "@/lib/nauarch";
+import { bindMoves, loadModelKeys, modelOfRequest } from "@/lib/nauarch";
 import type { NauarchEvidence } from "@/lib/proofs";
 import type { KeyValue } from "@/lib/storage";
 import { canTarget, friendlyError, marksFrom, nextStep, opponentOf, type Marks, type Step } from "./engine";
@@ -119,7 +119,7 @@ export class GameSession {
   #attempts = new Map<string, Attempt>();
   #given = new Set<string>();
   #boards = new Map<number, Board>();
-  #model: ModelView | null | undefined;
+  #keys: Map<string, string> = new Map();
   #nauarchShots = -1;
   #evidenceTries = 0;
   #lastRefuel = -Infinity;
@@ -471,8 +471,8 @@ export class GameSession {
       const fleet = verifiedFleet(ev.reveal.cells, ev.reveal.salts, g.root_b);
       if (fleet) this.#set({ enemyFleet: fleet, enemyRevealTx: ev.reveal.tx });
     }
-    if (this.#model === undefined) this.#model = await this.#d.viewer.view<ModelView | null>("model").catch(() => undefined);
-    const lines = bindMoves(ev.moves, nauarchShots, g.id, this.#model ?? null).flatMap((b): NauarchLine[] =>
+    if (ev.moves.some((m) => { const n = modelOfRequest(m.request); return n !== null && !this.#keys.has(n); })) this.#keys = await loadModelKeys(this.#d.viewer, ev.moves, this.#keys);
+    const lines = bindMoves(ev.moves, nauarchShots, g.id, this.#keys).flatMap((b): NauarchLine[] =>
       b.line ? [{ text: b.line, kind: b.move.kind, signed: b.check === "ok", tx: b.move.tx, at: b.move.at }] : [],
     );
     this.#set({ lines });

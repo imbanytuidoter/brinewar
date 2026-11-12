@@ -1,6 +1,6 @@
-import type { AnswerRow, GameView, ModelView, ShotView } from "@/lib/contract";
+import type { AnswerRow, GameView, ShotView } from "@/lib/contract";
 import { fromHex, rootFromProof, toHex } from "@/lib/merkle";
-import { bindMoves, type Check } from "@/lib/nauarch";
+import { bindMoves, type Check, type ModelKeys } from "@/lib/nauarch";
 import type { NauarchEvidence } from "@/lib/proofs";
 import { verifiedFleet } from "./session";
 
@@ -47,7 +47,7 @@ export function answerCheck(a: AnswerRow | undefined, root: string | null, resul
   }
 }
 
-export function buildReport(game: GameView, history: readonly ShotView[], ev: NauarchEvidence | null, model: ModelView | null): Report {
+export function buildReport(game: GameView, history: readonly ShotView[], ev: NauarchEvidence | null, keys: ModelKeys | null): Report {
   const duel = game.mode === "PvP";
   const answers = new Map((duel ? [] : (ev?.answers ?? [])).map((a) => [a.idx, a]));
   const shots = history.map((s): ShotRow => {
@@ -59,7 +59,7 @@ export function buildReport(game: GameView, history: readonly ShotView[], ev: Na
       tx: answer?.tx ?? null,
     };
   });
-  const moves = bindMoves(duel ? [] : (ev?.moves ?? []), history.filter((s) => s.by === game.b), game.id, model).map(
+  const moves = bindMoves(duel ? [] : (ev?.moves ?? []), history.filter((s) => s.by === game.b), game.id, keys).map(
     (b): MoveRow => ({ kind: b.move.kind, source: b.move.source, line: b.line, signed: b.check, tx: b.move.tx }),
   );
   const reveal = duel ? null : (ev?.reveal ?? null);
