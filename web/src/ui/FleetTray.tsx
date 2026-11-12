@@ -36,7 +36,7 @@ export function FleetTray({ myShips, myMarks, sunkTheirs, enemyLabel, look }: Fl
           const lost = hits.every(Boolean);
           return (
             <span key={ship[0]} title={`${shipName(ship.length)}${lost ? ", sunk" : ""}`} style={{ width: ship.length * GLYPH }}>
-              <ShipGlyph length={ship.length} hits={hits} sunk={lost} sail={look?.sail} className="h-[18px] w-full" />
+              <ShipGlyph length={ship.length} hits={hits} sunk={lost} sail={look?.sail} flag={look?.flag} className="h-[18px] w-full" />
             </span>
           );
         })}

@@ -53,7 +53,7 @@ export function Setup(p: SetupProps) {
 
       {tab === "fleet" ? (
         <div role="tabpanel" aria-label="Fleet" className="grid gap-2">
-          <PlacementGrid cells={p.cells} heat={showHeat ? p.heat : null} sail={sail} disabled={p.busy} onChange={p.onCells} />
+          <PlacementGrid cells={p.cells} heat={showHeat ? p.heat : null} sail={sail} flag={p.skin ? skinLook(p.skin).flag : undefined} disabled={p.busy} onChange={p.onCells} />
           <div className="grid grid-cols-2 gap-2">
             <Button size="sm" onClick={p.onShuffle} disabled={p.busy} aria-label="Shuffle your fleet">
               <Shuffle aria-hidden />

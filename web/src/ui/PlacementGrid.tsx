@@ -12,6 +12,7 @@ interface PlacementGridProps {
   readonly cells: readonly number[];
   readonly heat: readonly number[] | null;
   readonly sail: string;
+  readonly flag?: string;
   readonly disabled: boolean;
   readonly onChange: (cells: number[]) => void;
 }
@@ -45,7 +46,7 @@ function describe(cells: readonly number[], index: number | null): string | null
   return `Ship of ${h.cells.length} at ${at}${way}. Tap open water to move it, tap it again to turn it.`;
 }
 
-export function PlacementGrid({ cells, heat, sail, disabled, onChange }: PlacementGridProps) {
+export function PlacementGrid({ cells, heat, sail, flag, disabled, onChange }: PlacementGridProps) {
   const gridRef = useRef<HTMLDivElement>(null);
   const [pick, setPick] = useState<Pick | null>(null);
   const [drag, setDrag] = useState<Drag | null>(null);
@@ -186,7 +187,7 @@ export function PlacementGrid({ cells, heat, sail, disabled, onChange }: Placeme
                   className={cn("absolute p-[2px] transition-opacity", lifted && "opacity-30", picked && "[filter:drop-shadow(0_0_4px_var(--color-brass))_drop-shadow(0_0_1px_var(--color-brass))]")}
                   style={{ left: `${(bow % SIZE) * 10}%`, top: `${Math.floor(bow / SIZE) * 10}%`, width: `${(across ? h.cells.length : 1) * 10}%`, height: `${(across ? 1 : h.cells.length) * 10}%` }}
                 >
-                  <ShipGlyph length={h.cells.length} vertical={!across} sail={sail} className="size-full" />
+                  <ShipGlyph top length={h.cells.length} vertical={!across} sail={sail} flag={flag} className="size-full" />
                 </div>
               );
             })}
