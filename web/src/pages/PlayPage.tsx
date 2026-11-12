@@ -87,14 +87,14 @@ export function PlayPage({ cfg, session }: PlayPageProps) {
       <TopBar myHits={g ? hitsOnMe(g, snap.accountId) : 0} enemyHits={g ? hitsOnThem(g, snap.accountId) : 0} showScore={inBattle && step !== "invite"} verifyHref={step === "invite" ? null : verifyHref} enemyLabel={duel ? (rival ?? "Friend") : "Nauarch"} />
 
       {status && (
-        <div role="status" className="pointer-events-none fixed top-[calc(68px+env(safe-area-inset-top))] left-1/2 z-10 flex -translate-x-1/2 items-center gap-2 rounded-full border border-line bg-glass px-3.5 py-1.5 text-xs whitespace-nowrap text-muted backdrop-blur-md">
+        <div role="status" className="pointer-events-none fixed top-[calc(68px+env(safe-area-inset-top))] max-sm:top-[calc(106px+env(safe-area-inset-top))] left-1/2 z-10 flex -translate-x-1/2 items-center gap-2 rounded-full border border-line bg-glass px-3.5 py-1.5 text-xs whitespace-nowrap text-muted backdrop-blur-md">
           {snap.busy && <Loader2 className="size-3.5 animate-spin" aria-hidden />}
           {status}
         </div>
       )}
 
       <div className="fixed bottom-[calc(16px+env(safe-area-inset-bottom))] left-[max(16px,env(safe-area-inset-left))] z-10 max-sm:bottom-[calc(140px+env(safe-area-inset-bottom))]">
-        <NauarchBubble line={line} thinking={step === "thinking"} fallback={GREETING} txHref={txHref} note={note} opponent={duel ? (rival ?? "Your friend") : null} />
+        <NauarchBubble line={line} thinking={step === "thinking"} fallback={GREETING} txHref={txHref} note={note} opponent={duel ? (rival ?? "Your friend") : null} inviting={step === "invite"} />
       </div>
 
       <div className="fixed right-[max(16px,env(safe-area-inset-right))] bottom-[calc(16px+env(safe-area-inset-bottom))] z-10 grid justify-items-end gap-2 max-sm:left-[max(16px,env(safe-area-inset-left))]">
