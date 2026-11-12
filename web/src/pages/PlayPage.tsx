@@ -131,8 +131,8 @@ export function PlayPage({ cfg, session, stats, landing, onEnter }: PlayPageProp
       <CalloutBanner callout={feed.callout} />
 
       {inBattle && step !== "invite" && step !== "lost-board" && (
-        <div className="fixed top-[calc(76px+env(safe-area-inset-top))] left-[max(16px,env(safe-area-inset-left))] z-10 w-[210px] max-md:hidden">
-          <FleetTray myShips={myShips} myMarks={snap.marks.mine} sunkTheirs={sunkTheirs} enemyLabel={duel ? (rival ?? "Your friend") : "The Nauarch"} />
+        <div className="fixed top-[calc(76px+env(safe-area-inset-top))] left-[max(16px,env(safe-area-inset-left))] z-10 w-[236px] max-md:hidden">
+          <FleetTray look={myLook} myShips={myShips} myMarks={snap.marks.mine} sunkTheirs={sunkTheirs} enemyLabel={duel ? (rival ?? "Your friend") : "The Nauarch"} />
         </div>
       )}
 

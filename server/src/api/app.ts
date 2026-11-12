@@ -5,12 +5,16 @@ import type { Logger } from "pino";
 import type { AdmiraltyView, GameView, PlayerView, ShotView, TreasuryView } from "../lib/contract.js";
 import { GUEST_GAS_TGAS } from "../lib/contract.js";
 import type { Store } from "../lib/db.js";
+import { buildLeaderboard, Snapshots } from "../lib/leaderboard.js";
 import type { Caller, Viewer } from "../lib/near.js";
 
 const HOUR = 3_600_000;
 const DAY = 24 * HOUR;
 const NICKNAME = /^[A-Za-z0-9_-]{3,16}$/;
 const CACHE_MS = 5000;
+const LEADERBOARD_MS = 120_000;
+const LEADERBOARD_TOP = 50;
+const LEADERBOARD_BATCH = 6;
 
 export function limitKey(ip: string): string {
   if (!ip.includes(":")) return ip;
@@ -135,6 +139,9 @@ export async function buildApp(o: AppOptions) {
       },
     };
   });
+
+  const leaderboard = new Snapshots(() => buildLeaderboard(o.viewer, LEADERBOARD_TOP, LEADERBOARD_BATCH), LEADERBOARD_MS, now);
+  app.get("/api/leaderboard", { config: { rateLimit: { max: 60, timeWindow: "1 minute" } } }, async () => leaderboard.get());
 
   app.get("/api/treasury", async () =>
     cached("treasury", async () => ({

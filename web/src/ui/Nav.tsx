@@ -1,10 +1,11 @@
-import { Anchor, Coins, Gavel, Map as MapIcon, Ship } from "lucide-react";
+import { Anchor, Coins, Gavel, Map as MapIcon, Ship, Trophy } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const LINKS = [
   { href: "/", label: "Play", icon: Anchor },
   { href: "/admiralty", label: "Admiralty", icon: MapIcon },
   { href: "/fleet", label: "Fleet", icon: Ship },
+  { href: "/captains", label: "Captains", icon: Trophy },
   { href: "/treasury", label: "Treasury", icon: Coins },
   { href: "/judges", label: "For judges", icon: Gavel },
 ] as const;

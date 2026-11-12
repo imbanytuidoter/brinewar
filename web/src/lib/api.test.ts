@@ -22,3 +22,13 @@ describe("harbour history", () => {
     await expect(fetchTreasury("", res({}, 500))).rejects.toThrow(/500/);
   });
 });
+
+describe("leaderboard payload", () => {
+  it("accepts a well-formed board and rejects a malformed captain", async () => {
+    const { asLeaderboard } = await import("./api");
+    const ok = { captains: [{ account: "p-a.testnet", name: "Anna", rank: "Lieutenant", class: "Sloop", xp: 140, wins: 1, losses: 2, sunk: 4, gold: "85" }], nauarch: { wins: 2, losses: 1, battles: 3 }, total: 5 };
+    expect(asLeaderboard(ok)?.captains[0]?.name).toBe("Anna");
+    expect(asLeaderboard({ ...ok, captains: [{ ...ok.captains[0], gold: "lots" }] })).toBeNull();
+    expect(asLeaderboard({ ...ok, nauarch: null })).toBeNull();
+  });
+});

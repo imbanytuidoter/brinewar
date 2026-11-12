@@ -90,7 +90,7 @@ export function Setup(p: SetupProps) {
                     onClick={() => p.onSkin(s)}
                     disabled={!owned}
                     aria-pressed={on}
-                    title={owned ? look.title : `Unlocks at the rank of ${source ?? "a higher rank"}`}
+                    title={owned ? look.title : source === "starter" ? "Starter skin, reload to receive it" : `Unlocks at the rank of ${source ?? "a higher rank"}`}
                     className={cn("inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-45", on ? "border-brass bg-brass/15" : "border-line hover:border-brass")}
                   >
                     <span className="size-3 rounded-full border border-white/30" style={{ background: `linear-gradient(135deg, ${look.sail} 55%, ${look.flag} 55%)` }} aria-hidden />

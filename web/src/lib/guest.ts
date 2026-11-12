@@ -30,6 +30,15 @@ export function loadOrCreateKey(store: KeyValue): { secretKey: string; publicKey
   return { secretKey, publicKey: kp.getPublicKey().toString() };
 }
 
+export function storedAccount(store: KeyValue): string | null {
+  try {
+    const v = JSON.parse(store.get(ACCOUNT) ?? "null") as { accountId?: unknown } | null;
+    return typeof v?.accountId === "string" ? v.accountId : null;
+  } catch {
+    return null;
+  }
+}
+
 export function validGuestAccount(accountId: unknown, contractId: string): accountId is string {
   return typeof accountId === "string" && new RegExp(`^p-[0-9a-f]{16}\\.${contractId.replace(/\./g, "\\.")}$`).test(accountId);
 }

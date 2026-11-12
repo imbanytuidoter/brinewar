@@ -1,8 +1,9 @@
-import { useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent } from "react";
+import { useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 import { heatAlpha } from "@/lib/heat";
 import { bowFor, hullOf, moveHull, nudgeHull, previewBody, rotateHull, type Hull } from "@/lib/placement";
 import { ships } from "@/lib/fleet";
 import { cn } from "@/lib/utils";
+import { ShipGlyph } from "./ShipGlyph";
 
 const SIZE = 10;
 const COLS = "ABCDEFGHIJ";
@@ -29,25 +30,6 @@ const KEYS: Readonly<Record<string, readonly [number, number]>> = {
   ArrowUp: [0, -1],
   ArrowDown: [0, 1],
 };
-
-const GAP = 3;
-const RADIUS = 5;
-
-function hullStyle(cells: readonly number[], i: number): CSSProperties {
-  const x = i % SIZE;
-  const left = x > 0 && cells[i - 1] === 1;
-  const right = x < SIZE - 1 && cells[i + 1] === 1;
-  const up = i >= SIZE && cells[i - SIZE] === 1;
-  const down = i < SIZE * (SIZE - 1) && cells[i + SIZE] === 1;
-  const r = (a: boolean, b: boolean): string => (a || b ? "0" : `${RADIUS}px`);
-  return {
-    top: up ? -1 : GAP,
-    bottom: down ? -1 : GAP,
-    left: left ? -1 : GAP,
-    right: right ? -1 : GAP,
-    borderRadius: `${r(up, left)} ${r(up, right)} ${r(down, right)} ${r(down, left)}`,
-  };
-}
 
 interface Pick {
   readonly cells: readonly number[];
@@ -175,12 +157,9 @@ export function PlacementGrid({ cells, heat, sail, disabled, onChange }: Placeme
           onPointerUp={up}
           onPointerCancel={(e) => drag?.pointer === e.pointerId && setDrag(null)}
           onKeyDown={key}
-          className={cn("grid aspect-square touch-none grid-cols-10 overflow-hidden rounded-lg border border-line bg-[#0f3a4f] select-none", disabled && "opacity-60")}
+          className={cn("relative grid aspect-square touch-none grid-cols-10 overflow-hidden rounded-lg border border-line bg-[#0f3a4f] select-none", disabled && "opacity-60")}
         >
-          {cells.map((c, i) => {
-            const isShip = c === 1;
-            const picked = hull?.cells.includes(i) ?? false;
-            const lifted = drag?.moved && drag.hull.cells.includes(i);
+          {cells.map((_, i) => {
             const inGhost = ghost?.includes(i) ?? false;
             const h = heat ? heatAlpha(heat, i) : 0;
             return (
@@ -189,11 +168,29 @@ export function PlacementGrid({ cells, heat, sail, disabled, onChange }: Placeme
                 className="relative border-[0.5px] border-white/8"
                 style={{ backgroundColor: heat && h > 0 ? `rgb(255 106 61 / ${(h * 0.75).toFixed(2)})` : undefined }}
               >
-                {isShip && <span className={cn("absolute transition-[opacity,background-color]", lifted && "opacity-30")} style={{ ...hullStyle(cells, i), backgroundColor: picked ? "var(--color-brass)" : sail }} />}
                 {inGhost && <span className={cn("absolute inset-[2px] rounded-[3px] border-2", ghostOk ? "border-ok bg-ok/30" : "border-hit bg-hit/30")} />}
               </div>
             );
           })}
+          <div className="pointer-events-none absolute inset-0">
+            {ships(cells).map((ship) => {
+              const h = hullOf(cells, ship[0] as number);
+              if (!h) return null;
+              const bow = h.cells[0] as number;
+              const across = h.horizontal || h.cells.length === 1;
+              const picked = hull?.cells[0] === bow;
+              const lifted = drag?.moved === true && drag.hull.cells[0] === bow;
+              return (
+                <div
+                  key={bow}
+                  className={cn("absolute p-[2px] transition-opacity", lifted && "opacity-30", picked && "[filter:drop-shadow(0_0_4px_var(--color-brass))_drop-shadow(0_0_1px_var(--color-brass))]")}
+                  style={{ left: `${(bow % SIZE) * 10}%`, top: `${Math.floor(bow / SIZE) * 10}%`, width: `${(across ? h.cells.length : 1) * 10}%`, height: `${(across ? 1 : h.cells.length) * 10}%` }}
+                >
+                  <ShipGlyph length={h.cells.length} vertical={!across} sail={sail} className="size-full" />
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
       <p className="m-0 min-h-[1.2em] text-[11px] text-muted" aria-live="polite">

@@ -40,6 +40,8 @@ export class ShipActor {
   readonly #sailMats: THREE.MeshStandardMaterial[] = [];
   readonly #flagMats: THREE.MeshStandardMaterial[] = [];
   readonly #sailBase = new THREE.Color();
+  readonly #hullMats: THREE.MeshStandardMaterial[] = [];
+  readonly #hullBase = new THREE.Color();
 
   constructor(proto: THREE.Object3D, cells: readonly number[], side: Side, risen: boolean) {
     this.cells = cells;
@@ -62,6 +64,9 @@ export class ShipActor {
       } else if (!enemy && SAIL.test(o.name)) {
         this.#sailBase.copy(mat.color);
         this.#sailMats.push(mat);
+      } else if (!enemy) {
+        this.#hullBase.copy(mat.color);
+        this.#hullMats.push(mat);
       }
     });
     const n = cells.length;
@@ -90,6 +95,7 @@ export class ShipActor {
   setLook(look: ShipLook | null): void {
     for (const m of this.#sailMats) m.color.copy(look ? new THREE.Color(look.sail) : this.#sailBase);
     for (const m of this.#flagMats) m.color.set(look ? look.flag : MY_FLAG);
+    for (const m of this.#hullMats) m.color.copy(look?.hull ? new THREE.Color(look.hull) : this.#hullBase);
   }
 
   get gone(): boolean {

@@ -81,6 +81,13 @@ describe("POST /api/guest", () => {
     expect(day.statusCode).toBe(429);
   });
 
+  it("lets one address create guests freely when the per-address limit is off, keeping the daily cap", async () => {
+    const t = await setup({ perIp: 0, perDay: 4 });
+    const codes: number[] = [];
+    for (let i = 0; i < 5; i++) codes.push((await t.app.inject({ method: "POST", url: "/api/guest", payload: { publicKey: key() } })).statusCode);
+    expect(codes).toEqual([200, 200, 200, 200, 429]);
+  });
+
   it("hides contract errors behind a generic message", async () => {
     const t = await setup({ createOk: false });
     const res = await t.app.inject({ method: "POST", url: "/api/guest", payload: { publicKey: key() } });

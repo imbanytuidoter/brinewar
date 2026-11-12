@@ -110,7 +110,7 @@ export class Store {
   }
 
   reserveGuest(ip: string, account: string, perIp: number, perDay: number, hourAgo: number, dayAgo: number): number | "ip" | "day" {
-    if (this.guestsSince(hourAgo, ip) >= perIp) return "ip";
+    if (perIp > 0 && this.guestsSince(hourAgo, ip) >= perIp) return "ip";
     if (this.guestsSince(dayAgo) >= perDay) return "day";
     const r = this.db.prepare("INSERT INTO guests (ip, account, tx, at, status) VALUES (?, ?, NULL, ?, 'pending')").run(ip, account, this.now());
     return Number(r.lastInsertRowid);

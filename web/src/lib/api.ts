@@ -67,3 +67,44 @@ export async function fetchTreasury(apiUrl: string, fetchFn: typeof fetch = fetc
   const current = c && point && typeof c.account === "string" && isAmount(c.threshold) ? { ...point, account: c.account, threshold: c.threshold } : null;
   return { current, history: samples(raw.history, asTreasuryPoint) };
 }
+
+export interface CaptainEntry {
+  readonly account: string;
+  readonly name: string;
+  readonly rank: string;
+  readonly class: string;
+  readonly xp: number;
+  readonly wins: number;
+  readonly losses: number;
+  readonly sunk: number;
+  readonly gold: string;
+}
+
+export interface Leaderboard {
+  readonly captains: readonly CaptainEntry[];
+  readonly nauarch: { readonly wins: number; readonly losses: number; readonly battles: number };
+  readonly total: number;
+}
+
+const isText = (v: unknown, max: number): v is string => typeof v === "string" && v.length > 0 && v.length <= max;
+
+function asCaptain(v: unknown): CaptainEntry | null {
+  if (!isObj(v) || !isText(v.account, 64) || !isText(v.name, 64) || !isText(v.rank, 24) || !isText(v.class, 32)) return null;
+  if (!isCount(v.xp) || !isCount(v.wins) || !isCount(v.losses) || !isCount(v.sunk) || !isAmount(v.gold)) return null;
+  return { account: v.account, name: v.name, rank: v.rank, class: v.class, xp: v.xp, wins: v.wins, losses: v.losses, sunk: v.sunk, gold: v.gold };
+}
+
+export function asLeaderboard(raw: unknown): Leaderboard | null {
+  if (!isObj(raw) || !Array.isArray(raw.captains) || !isObj(raw.nauarch) || !isCount(raw.total)) return null;
+  const n = raw.nauarch;
+  if (!isCount(n.wins) || !isCount(n.losses) || !isCount(n.battles)) return null;
+  const captains = raw.captains.map(asCaptain);
+  if (captains.some((c) => c === null)) return null;
+  return { captains: captains as CaptainEntry[], nauarch: { wins: n.wins, losses: n.losses, battles: n.battles }, total: raw.total };
+}
+
+export async function fetchLeaderboard(apiUrl: string, fetchFn: typeof fetch = fetch): Promise<Leaderboard> {
+  const board = asLeaderboard(await getJson(`${apiUrl}/api/leaderboard`, fetchFn));
+  if (!board) throw new Error("harbour sent a bad leaderboard");
+  return board;
+}

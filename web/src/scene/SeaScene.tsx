@@ -65,6 +65,9 @@ function Board({ side, ships, marks, look = null }: BoardProps) {
     const flagship = ships.reduce<readonly number[] | null>((best, s) => (!best || s.length > best.length ? s : best), null);
     effects.setOrigin(side, flagship);
   }, [effects, side, ships]);
+  useEffect(() => {
+    if (side === "mine") effects.setTrail(look?.trail ?? null);
+  }, [effects, side, look]);
   const sunk = useMemo(() => sunkShips(ships, landed), [ships, landed]);
   return <Fleet side={side} ships={ships} sunk={sunk} look={look} />;
 }

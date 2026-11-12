@@ -12,6 +12,7 @@ const BALL_DIAMETER = 0.42;
 const SMOKE_CHANCE = 0.45;
 const SMOKE_BUDGET = 6;
 const MUZZLE_HEIGHT = 1.6;
+const TRAIL_COLOR = "#c9d2d6";
 
 export interface Afloat {
   readonly y: number;
@@ -50,6 +51,7 @@ interface Flight {
   t: number;
   readonly max: number;
   readonly done: () => void;
+  readonly trail: string;
 }
 
 const rnd = (a: number, b: number): number => a + Math.random() * (b - a);
@@ -58,6 +60,7 @@ export class EffectsEngine {
   readonly group = new THREE.Group();
   readonly #pool = new ParticlePool(MAX_PARTICLES);
   readonly #waves: readonly Wave[];
+  #trail = TRAIL_COLOR;
   readonly #origins: Record<Side, THREE.Vector3 | null> = { mine: null, enemy: null };
   readonly #reduced: boolean;
   readonly #rings: Ring[] = [];
@@ -146,6 +149,10 @@ export class EffectsEngine {
     this.#burns.set(key, { side, cell, x: c.x, z: c.z, acc: 0 });
   }
 
+  setTrail(color: string | null): void {
+    this.#trail = color ?? TRAIL_COLOR;
+  }
+
   setOrigin(side: Side, cells: readonly number[] | null): void {
     if (!cells || cells.length === 0) {
       this.#origins[side] = null;
@@ -183,7 +190,7 @@ export class EffectsEngine {
     m.scale.setScalar(this.#ballScale);
     m.position.copy(from);
     this.group.add(m);
-    this.#flights.push({ side, m, from, to, t: 0, max: FLIGHT_SECONDS, done });
+    this.#flights.push({ side, m, from, to, t: 0, max: FLIGHT_SECONDS, done, trail: side === "enemy" ? this.#trail : TRAIL_COLOR });
   }
 
   #updateFlights(dt: number): void {
@@ -196,7 +203,7 @@ export class EffectsEngine {
       this.#tmp.y = THREE.MathUtils.lerp(f.from.y, 0.1, k) + Math.sin(k * Math.PI) * 4.2;
       f.m.position.copy(this.#tmp);
       if (Math.random() < 0.7) {
-        this.#pool.emit({ x: this.#tmp.x, y: this.#tmp.y, z: this.#tmp.z, vx: 0, vy: 0.3, vz: 0, color: "#c9d2d6", size: 0.22, grow: 0.6, life: 0.6, gravity: 0.4 });
+        this.#pool.emit({ x: this.#tmp.x, y: this.#tmp.y, z: this.#tmp.z, vx: 0, vy: 0.3, vz: 0, color: f.trail, size: 0.22, grow: 0.6, life: 0.6, gravity: 0.4 });
       }
       if (k >= 1) {
         this.group.remove(f.m);

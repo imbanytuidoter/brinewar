@@ -5,6 +5,8 @@ export type Side = "mine" | "enemy";
 export interface ShipLook {
   readonly sail: string;
   readonly flag: string;
+  readonly hull?: string;
+  readonly trail?: string;
 }
 
 export interface SeaSceneProps {

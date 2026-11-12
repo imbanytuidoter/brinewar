@@ -1,7 +1,9 @@
 import { shipName } from "@/game/useBattleFeed";
 import { FLEET } from "@/lib/fleet";
-import { cn } from "@/lib/utils";
-import type { Mark } from "@/scene/types";
+import type { Mark, ShipLook } from "@/scene/types";
+import { ShipGlyph } from "./ShipGlyph";
+
+const GLYPH = 18;
 
 const LENGTHS = FLEET.flatMap(([len, count]) => Array.from({ length: count }, () => len));
 
@@ -10,6 +12,7 @@ interface FleetTrayProps {
   readonly myMarks: ReadonlyMap<number, Mark>;
   readonly sunkTheirs: readonly (readonly number[])[];
   readonly enemyLabel: string;
+  readonly look?: ShipLook | null;
 }
 
 export function theirTray(sunk: readonly (readonly number[])[]): { readonly length: number; readonly sunk: boolean }[] {
@@ -22,29 +25,26 @@ export function theirTray(sunk: readonly (readonly number[])[]): { readonly leng
   });
 }
 
-export function FleetTray({ myShips, myMarks, sunkTheirs, enemyLabel }: FleetTrayProps) {
+export function FleetTray({ myShips, myMarks, sunkTheirs, enemyLabel, look }: FleetTrayProps) {
   const mine = [...myShips].sort((a, b) => b.length - a.length);
   const theirs = theirTray(sunkTheirs);
   return (
-    <aside aria-label="Fleets" className="grid gap-2 rounded-2xl border border-line bg-glass p-2.5 text-[11px] backdrop-blur-md">
+    <aside aria-label="Fleets" className="grid gap-2.5 rounded-2xl border border-line bg-glass p-3 text-[11px] backdrop-blur-md">
       <Row label="Your fleet">
         {mine.map((ship) => {
-          const lost = ship.every((c) => myMarks.get(c) === "hit");
+          const hits = ship.map((c) => myMarks.get(c) === "hit");
+          const lost = hits.every(Boolean);
           return (
-            <span key={ship[0]} title={`${shipName(ship.length)}${lost ? ", sunk" : ""}`} className={cn("flex gap-px", lost && "opacity-35")}>
-              {ship.map((c) => (
-                <span key={c} className={cn("h-2.5 w-2 rounded-[2px]", myMarks.get(c) === "hit" ? "bg-hit" : "bg-ink/85")} />
-              ))}
+            <span key={ship[0]} title={`${shipName(ship.length)}${lost ? ", sunk" : ""}`} style={{ width: ship.length * GLYPH }}>
+              <ShipGlyph length={ship.length} hits={hits} sunk={lost} sail={look?.sail} className="h-[18px] w-full" />
             </span>
           );
         })}
       </Row>
       <Row label={enemyLabel}>
         {theirs.map((s, i) => (
-          <span key={i} title={`${shipName(s.length)}${s.sunk ? ", sunk" : ""}`} className="flex gap-px">
-            {Array.from({ length: s.length }, (_, j) => (
-              <span key={j} className={cn("h-2.5 w-2 rounded-[2px]", s.sunk ? "bg-hit/80" : "border border-ink/50")} />
-            ))}
+          <span key={i} title={`${shipName(s.length)}${s.sunk ? ", sunk" : ""}`} style={{ width: s.length * GLYPH }} className={s.sunk ? "" : "text-ink/45"}>
+            <ShipGlyph length={s.length} ghost={!s.sunk} sunk={s.sunk} hits={s.sunk ? Array.from({ length: s.length }, () => true) : []} sail="#7a1f3d" className="h-[18px] w-full" />
           </span>
         ))}
       </Row>
@@ -56,7 +56,7 @@ function Row({ label, children }: { readonly label: string; readonly children: R
   return (
     <div className="grid gap-1">
       <span className="text-muted">{label}</span>
-      <div className="flex flex-wrap items-center gap-1.5">{children}</div>
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">{children}</div>
     </div>
   );
 }
