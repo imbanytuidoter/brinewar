@@ -1,17 +1,19 @@
 import { Flag, Loader2, WifiOff } from "lucide-react";
-import { lazy, Suspense, useCallback, useMemo, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { DuelInvite, duelFromLocation, JoinDuel, type DuelInviteRef } from "@/ui/DuelCards";
 import { Button } from "@/components/ui/button";
 import { hitsOnMe, hitsOnThem, opponentOf, outcome, sideOf } from "@/game/engine";
 import type { GameSession } from "@/game/session";
-import { useEquippedLook, useReducedMotion, useSession } from "@/game/useGame";
+import { useReducedMotion, useSession } from "@/game/useGame";
+import { useSkins, type HarbourStats } from "@/game/useHarbour";
 import type { AppConfig } from "@/lib/config";
 import { txLink } from "@/lib/config";
 import { cryptoRng, placeFleet, ships } from "@/lib/fleet";
-import { cellName } from "@/lib/utils";
+import { cellName, cn } from "@/lib/utils";
 import { EndCard } from "@/ui/EndCard";
 import { FireByName } from "@/ui/FireByName";
-import { Harbour } from "@/ui/Harbour";
+import { Landing } from "@/ui/Landing";
+import { Setup } from "@/ui/Setup";
 import { NauarchBubble } from "@/ui/NauarchBubble";
 import { RevealSeal } from "@/ui/RevealSeal";
 import { TopBar } from "@/ui/TopBar";
@@ -23,12 +25,16 @@ const GREETING = "The sea is calm, Captain. It will not stay that way.";
 interface PlayPageProps {
   readonly cfg: AppConfig;
   readonly session: GameSession;
+  readonly stats: HarbourStats;
+  readonly landing: boolean;
+  readonly onEnter: () => void;
 }
 
-export function PlayPage({ cfg, session }: PlayPageProps) {
+export function PlayPage({ cfg, session, stats, landing, onEnter }: PlayPageProps) {
   const snap = useSession(session);
   const reducedMotion = useReducedMotion();
-  const myLook = useEquippedLook(cfg, snap.accountId);
+  const skins = useSkins(cfg, snap.accountId);
+  const myLook = skins.look;
   const [draft, setDraft] = useState<number[]>(() => placeFleet(cryptoRng()));
   const inBattle = snap.gameId !== null;
   const cells = inBattle ? snap.board?.cells ?? null : draft;
@@ -65,6 +71,15 @@ export function PlayPage({ cfg, session }: PlayPageProps) {
   }, [session]);
 
   const status = statusText(step, snap.busy, snap.marks.aiming, rival);
+  const showLanding = landing && !inBattle && joinId === null;
+  useEffect(() => {
+    if (landing && snap.gameId !== null) onEnter();
+  }, [landing, snap.gameId, onEnter]);
+  const rename = useCallback((name: string) => session.rename(name), [session]);
+  const shuffle = useCallback(() => setDraft(placeFleet(cryptoRng())), []);
+  const player = snap.captain?.player ?? null;
+  const gold = player && /^\d+$/.test(player.gold) ? BigInt(player.gold) : null;
+  const stakes = inBattle && g && !duel && !result && step !== "lost-board" ? `Sink all 10 ships: ${stats.treasury ? `+${stats.treasury.bounty} gold bounty` : "a bounty from his treasury"}. Lose: your ${g.stake} gold entry stays in his treasury.` : null;
 
   return (
     <main className="fixed inset-0">
@@ -94,7 +109,7 @@ export function PlayPage({ cfg, session }: PlayPageProps) {
         </div>
       )}
 
-      <div className="fixed bottom-[calc(16px+env(safe-area-inset-bottom))] left-[max(16px,env(safe-area-inset-left))] z-10 max-sm:bottom-[calc(140px+env(safe-area-inset-bottom))]">
+      <div className={cn("fixed bottom-[calc(16px+env(safe-area-inset-bottom))] left-[max(16px,env(safe-area-inset-left))] z-10 max-sm:bottom-[calc(140px+env(safe-area-inset-bottom))]", showLanding && "hidden")}>
         <NauarchBubble line={line} thinking={step === "thinking"} fallback={GREETING} txHref={txHref} note={note} opponent={duel ? (rival ?? "Your friend") : null} inviting={step === "invite"} />
       </div>
 
@@ -106,9 +121,28 @@ export function PlayPage({ cfg, session }: PlayPageProps) {
           </p>
         )}
         {!inBattle && joinId !== null && (
-          <JoinDuel cfg={cfg} gameId={joinId} me={snap.accountId} busy={snap.busy !== null} onShuffle={() => setDraft(placeFleet(cryptoRng()))} onAccept={accept} onDecline={forgetInvite} />
+          <JoinDuel cfg={cfg} gameId={joinId} me={snap.accountId} busy={snap.busy !== null} onShuffle={shuffle} onAccept={accept} onDecline={forgetInvite} />
         )}
-        {!inBattle && joinId === null && <Harbour busy={snap.busy !== null} onShuffle={() => setDraft(placeFleet(cryptoRng()))} onSail={sail} onDuel={challenge} />}
+        {!inBattle && joinId === null && !landing && (
+          <Setup
+            cells={draft}
+            onCells={setDraft}
+            onShuffle={shuffle}
+            heat={stats.admiralty && stats.admiralty.boards_counted > 0 ? stats.admiralty.heat : null}
+            treasury={stats.treasury}
+            gold={gold}
+            name={player?.display_name ?? null}
+            onRename={rename}
+            skins={skins.owned}
+            skin={skins.equipped}
+            skinsFailed={skins.failed}
+            onSkin={skins.equip}
+            busy={snap.busy !== null}
+            onSail={sail}
+            onDuel={challenge}
+          />
+        )}
+        {stakes && <p className="m-0 max-w-[300px] rounded-xl border border-line bg-glass px-3 py-2 text-[11px] text-muted backdrop-blur-md">{stakes}</p>}
         {inBattle && step === "invite" && snap.gameId !== null && <DuelInvite gameId={snap.gameId} secret={snap.invite} busy={snap.busy !== null} onCancel={() => void session.resign()} />}
         {inBattle && joinId !== null && step !== "done" && <p className="m-0 max-w-[280px] rounded-xl border border-line bg-glass px-3 py-2 text-xs backdrop-blur-md">Finish this battle first, then open the duel link again.</p>}
         {inBattle && result && verifyHref && <EndCard outcome={result} reason={g?.finish_reason ?? null} verifyHref={verifyHref} done={step === "done"} onAgain={again} rewards={snap.rewards} opponent={duel ? rival : null} />}
@@ -129,6 +163,7 @@ export function PlayPage({ cfg, session }: PlayPageProps) {
           </Button>
         )}
       </div>
+      {showLanding && <Landing stats={stats} ready onEnter={onEnter} />}
     </main>
   );
 }

@@ -152,6 +152,10 @@ const isOver = async (page) => ENDED.test(await page.locator("body").innerText()
 let gameId = null;
 const played = await scene("play", async (page, mark) => {
   await page.goto(`${BASE}/`);
+  const command = page.getByRole("button", { name: "Take command" });
+  await command.waitFor({ timeout: 90_000 });
+  await pause(page, 2500);
+  await command.click();
   const sail = page.getByRole("button", { name: "Set sail against the Nauarch" });
   await sail.waitFor({ timeout: 90_000 });
   await pause(page, 1500);

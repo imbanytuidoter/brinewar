@@ -1,7 +1,10 @@
 import { Anchor, Loader2 } from "lucide-react";
-import { useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useBoot } from "@/game/useGame";
+import { useHarbourStats } from "@/game/useHarbour";
+import { duelFromLocation } from "@/ui/DuelCards";
+import { Landing } from "@/ui/Landing";
 import { readConfig, type AppConfig } from "@/lib/config";
 import { PlayPage } from "@/pages/PlayPage";
 import { AdmiraltyPage } from "@/pages/AdmiraltyPage";
@@ -29,9 +32,33 @@ export function App() {
   return <Play cfg={cfg} />;
 }
 
+const LANDED = "brinewar.landed";
+
+function landedBefore(): boolean {
+  try {
+    return window.sessionStorage.getItem(LANDED) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function markLanded(): void {
+  try {
+    window.sessionStorage.setItem(LANDED, "1");
+  } catch {
+    return;
+  }
+}
+
 function Play({ cfg }: { readonly cfg: AppConfig }) {
   const { boot, retry } = useBoot(cfg);
-  if (boot.kind === "ready") return <PlayPage cfg={cfg} session={boot.session} />;
+  const stats = useHarbourStats(cfg);
+  const [landing, setLanding] = useState(() => duelFromLocation(window.location.search, window.location.hash) === null && !landedBefore());
+  const enter = useCallback(() => {
+    markLanded();
+    setLanding(false);
+  }, []);
+  if (boot.kind === "ready") return <PlayPage cfg={cfg} session={boot.session} stats={stats} landing={landing} onEnter={enter} />;
   if (boot.kind === "error")
     return (
       <Shell title="Could not board" text={boot.message}>
@@ -42,6 +69,12 @@ function Play({ cfg }: { readonly cfg: AppConfig }) {
           </Button>
         )}
       </Shell>
+    );
+  if (landing)
+    return (
+      <main className="fixed inset-0 bg-[radial-gradient(120%_80%_at_70%_0%,#2a8db6,#0b2230_70%)]">
+        <Landing stats={stats} ready={false} onEnter={enter} />
+      </main>
     );
   return (
     <Shell title="Brinewar" text="Signing you on as a captain. No wallet, no popups.">

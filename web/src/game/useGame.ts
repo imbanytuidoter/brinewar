@@ -3,9 +3,7 @@ import { makeCaller, makeViewer } from "@/lib/chain";
 import type { AppConfig } from "@/lib/config";
 import { ensureGuest, GuestError, refuelGuest } from "@/lib/guest";
 import { fetchEvidence } from "@/lib/proofs";
-import { equippedSkin, ownedSkins, skinLook } from "@/lib/skins";
 import { browserStorage } from "@/lib/storage";
-import type { ShipLook } from "@/scene/types";
 import { GameSession, type Snapshot } from "./session";
 
 const BATTLE_POLL_MS = 1500;
@@ -83,22 +81,4 @@ export function useReducedMotion(): boolean {
     return () => query.removeEventListener("change", on);
   }, [query]);
   return reduced;
-}
-
-export function useEquippedLook(cfg: AppConfig, accountId: string): ShipLook | null {
-  const [look, setLook] = useState<ShipLook | null>(null);
-  useEffect(() => {
-    let alive = true;
-    const viewer = makeViewer(cfg.rpcUrl, cfg.contractId);
-    const store = browserStorage();
-    (async () => {
-      const { owned } = await ownedSkins(viewer, accountId);
-      const name = equippedSkin(store, accountId, owned);
-      if (alive) setLook(name ? skinLook(name) : null);
-    })().catch(() => undefined);
-    return () => {
-      alive = false;
-    };
-  }, [cfg, accountId]);
-  return look;
 }
