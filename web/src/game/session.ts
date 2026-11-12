@@ -7,7 +7,7 @@ import { buildTree, fromHex, toHex } from "@/lib/merkle";
 import { bindMoves } from "@/lib/nauarch";
 import type { NauarchEvidence } from "@/lib/proofs";
 import type { KeyValue } from "@/lib/storage";
-import { canTarget, friendlyError, marksFrom, nextStep, type Marks, type Step } from "./engine";
+import { canTarget, friendlyError, marksFrom, nextStep, opponentOf, type Marks, type Step } from "./engine";
 
 export interface NauarchLine {
   readonly text: string;
@@ -34,6 +34,7 @@ export interface Snapshot {
   readonly enemyRevealTx: string | null;
   readonly captain: Captain | null;
   readonly rewards: Rewards | null;
+  readonly opponentName: string | null;
 }
 
 export interface Captain {
@@ -76,6 +77,7 @@ const REVEAL_TRIES = 6;
 const EVIDENCE_TRIES = 8;
 const OUT_OF_FUEL = /NotEnoughBalance|LackBalance|not enough balance/i;
 const REFUEL_GAP_MS = 60_000;
+const CLAIM_AFTER_MS = 150_000;
 const FINAL = /board already committed|board already revealed|board not committed|index does not match|no shot to answer|game is not/;
 
 interface Attempt {
@@ -96,6 +98,7 @@ export class GameSession {
   #nauarchShots = -1;
   #evidenceTries = 0;
   #lastRefuel = -Infinity;
+  #stall: { key: string; since: number } | null = null;
   #settled: number | null = null;
 
   constructor(d: SessionDeps) {
@@ -103,7 +106,7 @@ export class GameSession {
     this.#now = d.now ?? Date.now;
     this.#snap = {
       accountId: d.accountId, gameId: null, game: null, history: [], marks: EMPTY_MARKS, step: null,
-      board: null, lines: [], busy: null, error: null, lastTx: null, offline: false, enemyFleet: null, enemyRevealTx: null, captain: null, rewards: null,
+      board: null, lines: [], busy: null, error: null, lastTx: null, offline: false, enemyFleet: null, enemyRevealTx: null, captain: null, rewards: null, opponentName: null,
     };
   }
 
@@ -160,26 +163,39 @@ export class GameSession {
     this.#set({ busy: null, error: ok ? null : this.#snap.error });
   }
 
-  async #once(key: string, label: string, method: string, args: () => object): Promise<void> {
-    if (this.#inflight.has(key) || this.#given.has(key)) return;
+  async #once(key: string, label: string, method: string, args: () => object): Promise<boolean> {
+    if (this.#inflight.has(key) || this.#given.has(key)) return false;
     const a = this.#attempts.get(key);
-    if (a && this.#now() < a.nextAt) return;
+    if (a && this.#now() < a.nextAt) return false;
     this.#inflight.add(key);
     try {
       const r = await this.#send(label, method, args());
       if (r.ok) {
         this.#attempts.delete(key);
-        return;
+        return true;
       }
       const n = (a?.n ?? 0) + 1;
       this.#attempts.set(key, { n, nextAt: this.#now() + Math.min(BACKOFF_MAX_MS, BACKOFF_BASE_MS * 2 ** n) });
       if (FINAL.test(r.error ?? "") || (key.startsWith("reveal:") && n >= REVEAL_TRIES)) this.#given.add(key);
+      return false;
     } finally {
       this.#inflight.delete(key);
     }
   }
 
   async start(cells: readonly number[]): Promise<boolean> {
+    return this.#open(cells, "Opening a battle", "new_game_vs_nauarch", {}, null);
+  }
+
+  async startDuel(cells: readonly number[]): Promise<boolean> {
+    return this.#open(cells, "Opening a duel", "new_game_pvp", {}, null);
+  }
+
+  async join(gameId: number, cells: readonly number[]): Promise<boolean> {
+    return this.#open(cells, "Joining the duel", "join_game", { game_id: gameId }, gameId);
+  }
+
+  async #open(cells: readonly number[], label: string, method: string, args: object, known: number | null): Promise<boolean> {
     if (this.#snap.gameId !== null && this.#snap.step?.kind !== "done") return false;
     const board = newBoard(cells);
     try {
@@ -190,13 +206,12 @@ export class GameSession {
     }
     const before = await this.#captain().catch(() => null);
     await this.#refuel();
-    const created = await this.#send("Opening a battle", "new_game_vs_nauarch", {});
-    const id = typeof created.value === "number" ? created.value : null;
-    if (!created.ok || id === null) return false;
+    const r = await this.#send(label, method, args);
+    const id = known ?? (typeof r.value === "number" ? r.value : null);
+    if (!r.ok || id === null) return false;
     this.#adoptPending(id);
     if (before) this.#saveBaseline(id, before);
     this.#resetGame(id, board);
-    await this.#once(`commit:${id}`, "Sealing your board", "commit_board", () => ({ game_id: id, root: rootHex(board) }));
     await this.tick();
     return true;
   }
@@ -205,7 +220,7 @@ export class GameSession {
     this.#nauarchShots = -1;
     this.#evidenceTries = 0;
     this.#settled = null;
-    this.#set({ gameId: id, game: null, history: [], marks: EMPTY_MARKS, step: null, board, lines: [], error: null, enemyFleet: null, enemyRevealTx: null, rewards: null });
+    this.#set({ gameId: id, game: null, history: [], marks: EMPTY_MARKS, step: null, board, lines: [], error: null, enemyFleet: null, enemyRevealTx: null, rewards: null, opponentName: null });
   }
 
   async #captain(): Promise<Captain | null> {
@@ -287,12 +302,16 @@ export class GameSession {
   }
 
   async tick(): Promise<void> {
+    if (await this.#tickOnce()) await this.#tickOnce();
+  }
+
+  async #tickOnce(): Promise<boolean> {
     const me = this.#d.accountId;
     if (this.#snap.captain === null) await this.#captain().catch(() => null);
     let id = this.#snap.gameId;
     if (id === null) {
       id = await this.#d.viewer.view<number | null>("active_game_of", { account_id: me });
-      if (id === null) return;
+      if (id === null) return false;
       this.#set({ gameId: id });
     }
     const [game, history] = await Promise.all([
@@ -301,26 +320,49 @@ export class GameSession {
     ]);
     if (!game) {
       this.#set({ gameId: null, game: null, step: null });
-      return;
+      return false;
     }
     const board = this.#boardFor(id) ?? (game.status === "Placing" ? this.#adoptPending(id) : null);
     const planned = nextStep(game, me, board !== null);
     const step: Step = planned.kind === "reveal" && this.#given.has(`reveal:${id}`) ? { kind: "done" } : planned;
     this.#set({ game, history, marks: marksFrom(history, me), step, board });
-    await this.#act(game, step, board);
-    await this.#refreshEvidence(game, history).catch(() => undefined);
-    if (step.kind === "done" && game.revealed_a && game.revealed_b) await this.#settle(game.id);
+    const acted = await this.#act(game, step, board);
+    await this.#claimIfLate(game, step);
+    if (game.mode === "VsNauarch") await this.#refreshEvidence(game, history).catch(() => undefined);
+    else await this.#opponent(game).catch(() => undefined);
+    const settled = game.mode === "VsNauarch" ? game.revealed_a && game.revealed_b : game.status === "Finished";
+    if (step.kind === "done" && settled) await this.#settle(game.id);
+    return acted;
   }
 
-  async #act(g: GameView, step: Step, board: Board | null): Promise<void> {
-    if (!board) return;
-    if (step.kind === "commit") {
-      await this.#once(`commit:${g.id}`, "Sealing your board", "commit_board", () => ({ game_id: g.id, root: rootHex(board) }));
-    } else if (step.kind === "answer") {
-      await this.#once(`answer:${g.id}:${step.index}`, "Answering with proof", "answer", () => answerArgs(board, g.id, step.index));
-    } else if (step.kind === "reveal") {
-      await this.#once(`reveal:${g.id}`, "Revealing your fleet", "reveal", () => revealArgs(board, g.id));
+  async #opponent(g: GameView): Promise<void> {
+    const other = opponentOf(g, this.#d.accountId);
+    if (other === this.#d.accountId || this.#snap.opponentName !== null) return;
+    const p = await this.#d.viewer.view<PlayerView | null>("get_player", { account_id: other });
+    if (p) this.#set({ opponentName: p.display_name });
+  }
+
+  async #claimIfLate(g: GameView, step: Step): Promise<void> {
+    const waitingOnThem = step.kind === "thinking" || step.kind === "wait" || step.kind === "invite";
+    const key = `${g.id}:${g.status}:${g.shots}:${g.pending_index}:${g.root_a}:${g.root_b}:${g.revealed_a}:${g.revealed_b}`;
+    if (!waitingOnThem || g.status === "Finished") {
+      this.#stall = null;
+      return;
     }
+    if (this.#stall?.key !== key) {
+      this.#stall = { key, since: this.#now() };
+      return;
+    }
+    if (this.#now() - this.#stall.since < CLAIM_AFTER_MS) return;
+    await this.#once(`claim:${key}`, "Claiming the late move", "claim_timeout", () => ({ game_id: g.id }));
+  }
+
+  async #act(g: GameView, step: Step, board: Board | null): Promise<boolean> {
+    if (!board) return false;
+    if (step.kind === "commit") return this.#once(`commit:${g.id}`, "Sealing your board", "commit_board", () => ({ game_id: g.id, root: rootHex(board) }));
+    if (step.kind === "answer") return this.#once(`answer:${g.id}:${step.index}`, "Answering with proof", "answer", () => answerArgs(board, g.id, step.index));
+    if (step.kind === "reveal") return this.#once(`reveal:${g.id}`, "Revealing your fleet", "reveal", () => revealArgs(board, g.id));
+    return false;
   }
 
   async #refreshEvidence(g: GameView, history: readonly ShotView[]): Promise<void> {

@@ -73,7 +73,7 @@ function World(props: SeaSceneProps) {
       <hemisphereLight args={[0xdff4ff, 0x2b6b80, 1.35]} />
       <directionalLight color={0xfff1d6} intensity={2.4} position={[-14, 22, 12]} />
       <Sea aiming={props.aiming} />
-      <Labels />
+      <Labels enemy={props.enemyLabel ?? "The Nauarch"} />
       <CameraRig reduced={runtime.reduced} />
       <Picker marks={props.enemyMarks} aiming={props.aiming} canFire={props.canFire} onFire={props.onFire} />
       <Suspense fallback={null}>

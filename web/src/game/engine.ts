@@ -9,15 +9,40 @@ export type Step =
   | { readonly kind: "thinking" }
   | { readonly kind: "wait" }
   | { readonly kind: "lost-board" }
+  | { readonly kind: "invite" }
   | { readonly kind: "done" };
 
+export type SideName = "a" | "b";
+
+export function sideOf(g: GameView, me: string): SideName {
+  return g.a === me ? "a" : "b";
+}
+
+export function opponentOf(g: GameView, me: string): string {
+  return g.a === me ? g.b : g.a;
+}
+
+export function hitsOnMe(g: GameView, me: string): number {
+  return sideOf(g, me) === "a" ? g.hits_on_a : g.hits_on_b;
+}
+
+export function hitsOnThem(g: GameView, me: string): number {
+  return sideOf(g, me) === "a" ? g.hits_on_b : g.hits_on_a;
+}
+
+function mine(g: GameView, me: string): { root: string | null; revealed: boolean } {
+  return sideOf(g, me) === "a" ? { root: g.root_a, revealed: g.revealed_a } : { root: g.root_b, revealed: g.revealed_b };
+}
+
 export function nextStep(g: GameView, me: string, hasBoard: boolean): Step {
-  if (g.status === "Finished" && (g.revealed_a || !hasBoard)) return { kind: "done" };
+  const my = mine(g, me);
+  if (g.status === "Waiting") return { kind: "invite" };
+  if (g.status === "Finished" && (my.revealed || !hasBoard)) return { kind: "done" };
   if (!hasBoard) return { kind: "lost-board" };
-  if (g.status === "Placing") return g.root_a === null ? { kind: "commit" } : { kind: "wait" };
+  if (g.status === "Placing") return my.root === null ? { kind: "commit" } : { kind: "wait" };
   if (g.status === "Revealing" || g.status === "Finished") {
-    if (g.root_a === null) return g.status === "Finished" ? { kind: "done" } : { kind: "wait" };
-    return g.revealed_a ? { kind: "wait" } : { kind: "reveal" };
+    if (my.root === null) return g.status === "Finished" ? { kind: "done" } : { kind: "wait" };
+    return my.revealed ? { kind: "wait" } : { kind: "reveal" };
   }
   if (g.turn !== me) return g.pending_index === null ? { kind: "thinking" } : { kind: "wait" };
   return g.pending_index === null ? { kind: "fire" } : { kind: "answer", index: g.pending_index };

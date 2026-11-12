@@ -10,6 +10,7 @@ interface EndCardProps {
   readonly done: boolean;
   readonly onAgain: () => void;
   readonly rewards: Rewards | null;
+  readonly opponent?: string | null;
 }
 
 const REASONS: Record<string, string> = {
@@ -21,11 +22,11 @@ const REASONS: Record<string, string> = {
   Cancelled: "battle cancelled",
 };
 
-export function EndCard({ outcome, reason, verifyHref, done, onAgain, rewards }: EndCardProps) {
+export function EndCard({ outcome, reason, verifyHref, done, onAgain, rewards, opponent = null }: EndCardProps) {
   const won = outcome === "won";
   return (
     <div className="grid animate-rise gap-2 rounded-2xl border border-line bg-glass p-3 backdrop-blur-md sm:w-[320px]">
-      <p className="m-0 font-display text-2xl leading-tight font-bold">{won ? "Victory, Captain." : "The Nauarch prevails."}</p>
+      <p className="m-0 font-display text-2xl leading-tight font-bold">{won ? "Victory, Captain." : opponent ? `${opponent} wins the duel.` : "The Nauarch prevails."}</p>
       {reason && <p className="m-0 text-xs text-muted">{REASONS[reason] ?? reason}</p>}
       {!done && <p className="m-0 text-xs text-muted">Both fleets are being revealed and checked on chain…</p>}
       {rewards && (

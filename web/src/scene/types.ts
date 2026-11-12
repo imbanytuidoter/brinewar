@@ -17,4 +17,5 @@ export interface SeaSceneProps {
   readonly reducedMotion: boolean;
   readonly onFire: (index: number) => void;
   readonly myLook?: ShipLook | null;
+  readonly enemyLabel?: string;
 }

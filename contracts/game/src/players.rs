@@ -9,7 +9,7 @@ use near_sdk::{
 };
 
 pub const GUEST_METHODS: &str =
-    "new_game_vs_nauarch,commit_board,fire,answer,reveal,resign,claim_timeout,set_nickname";
+    "new_game_vs_nauarch,new_game_pvp,join_game,commit_board,fire,answer,reveal,resign,claim_timeout,set_nickname";
 pub const ZONES: [&str; 9] = [
     "north-west",
     "north",

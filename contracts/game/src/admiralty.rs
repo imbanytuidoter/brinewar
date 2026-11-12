@@ -73,13 +73,18 @@ impl Brinewar {
         env::block_height() / self.settings.blocks_per_day
     }
 
-    pub(crate) fn count_board(&mut self, game: &crate::game::Game, cells: &[u8; CELLS]) -> bool {
+    pub(crate) fn count_board(
+        &mut self,
+        game: &crate::game::Game,
+        side: crate::game::Side,
+        cells: &[u8; CELLS],
+    ) -> bool {
         let game_id = game.id;
-        let account = &game.a;
+        let account = game.account(side);
         if game.finish_reason != Some(crate::game::FinishReason::FleetSunk) {
             return false;
         }
-        if game.answered_by(crate::game::Side::A) < self.settings.min_heat_shots as usize {
+        if game.answered_by(side) < self.settings.min_heat_shots as usize {
             return false;
         }
         let day = self.today();

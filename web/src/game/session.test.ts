@@ -29,6 +29,7 @@ class FakeContract implements Viewer, Caller {
   failNext: string | null = null;
   gold = "100";
   xp = 0;
+  claims = 0;
 
   async view<T>(method: string, args: Record<string, unknown> = {}): Promise<T> {
     const out: Record<string, unknown> = {
@@ -36,7 +37,7 @@ class FakeContract implements Viewer, Caller {
       get_game: this.game && args.game_id === this.game.id ? { ...this.game } : null,
       get_history: this.history.map((s) => ({ ...s })),
       model: { model: MODEL, public_key: bytesToHex(ed25519.getPublicKey(this.secret)) },
-      get_player: { account_id: ME, nickname: null, display_name: "Captain", gold: this.gold, games_vs_nauarch: 0, wins: 0, losses: 0, last_result: null, fav_zone: null, flagship: "ship:1" },
+      get_player: { account_id: args.account_id, nickname: null, display_name: args.account_id === ME ? "Captain" : "Ishmael", gold: this.gold, games_vs_nauarch: 0, wins: 0, losses: 0, last_result: null, fav_zone: null, flagship: "ship:1" },
       get_ship: { token_id: "ship:1", owner_id: ME, captain: ME, class: "c", rank: this.xp >= 100 ? "Lieutenant" : "Ensign", xp: this.xp, next_rank_xp: 100, wins: 0, losses: 0, sunk: 0, frozen: false },
     };
     return out[method] as T;
@@ -59,11 +60,30 @@ class FakeContract implements Viewer, Caller {
           revealed_b: false, created_block: 1, stake: "10", farewell_said: false,
         };
         return { txHash: tx, ok: true, value: 4 };
-      case "commit_board":
-        if (!g || g.root_a) return { txHash: tx, ok: false, error: "board already committed" };
-        g.root_a = String(args.root);
-        g.status = "Playing";
+      case "new_game_pvp":
+        this.game = {
+          id: 4, mode: "PvP", a: ME, b: ME, root_a: null, root_b: null, status: "Waiting", turn: ME, deadline_block: 1,
+          winner: null, finish_reason: null, hits_on_a: 0, hits_on_b: 0, shots: 0, pending_index: null, revealed_a: false,
+          revealed_b: false, created_block: 1, stake: "0", farewell_said: false,
+        };
+        return { txHash: tx, ok: true, value: 4 };
+      case "join_game":
+        if (!g || g.status !== "Waiting" || g.a === ME) return { txHash: tx, ok: false, error: "this duel is not waiting for a captain" };
+        g.b = ME;
+        g.status = "Placing";
         return { txHash: tx, ok: true };
+      case "claim_timeout":
+        this.claims += 1;
+        return { txHash: tx, ok: false, error: "deadline has not passed" };
+      case "commit_board": {
+        if (!g) return { txHash: tx, ok: false, error: "unknown game" };
+        const mineA = g.a === ME;
+        if (mineA ? g.root_a : g.root_b) return { txHash: tx, ok: false, error: "board already committed" };
+        if (mineA) g.root_a = String(args.root);
+        else g.root_b = String(args.root);
+        if (g.mode === "VsNauarch" || (g.root_a && g.root_b)) g.status = "Playing";
+        return { txHash: tx, ok: true };
+      }
       case "fire": {
         if (!g || g.turn !== ME || g.pending_index !== null) return { txHash: tx, ok: false, error: "not your turn" };
         const index = Number(args.index);
@@ -285,6 +305,52 @@ describe("GameSession", () => {
     const fresh = new GameSession({ accountId: ME, viewer: chain, caller: chain, store, evidence: chain.evidence });
     await fresh.tick();
     expect(fresh.snapshot.step).toEqual({ kind: "lost-board" });
+  });
+});
+
+describe("duels with a friend", () => {
+  const FRIEND = "p-8899aabbccddeeff.brinewar.testnet";
+
+  it("opens a duel, waits for the friend and seals the board once they join", async () => {
+    const { chain, session } = setup();
+    expect(await session.startDuel(placeFleet(seededRng(7)))).toBe(true);
+    expect(session.snapshot.step).toEqual({ kind: "invite" });
+    expect(chain.calls).toEqual(["new_game_pvp"]);
+    const g = chain.game as GameView;
+    g.b = FRIEND;
+    g.status = "Placing";
+    g.root_b = "ff";
+    await session.tick();
+    expect(chain.calls.at(-1)).toBe("commit_board");
+    expect(g.root_a).not.toBeNull();
+    expect(session.snapshot.opponentName).toBe("Ishmael");
+  });
+
+  it("joins a friend's duel as the second captain and seals the board", async () => {
+    const { chain, session, store } = setup();
+    chain.game = {
+      id: 9, mode: "PvP", a: FRIEND, b: FRIEND, root_a: "aa", root_b: null, status: "Waiting", turn: FRIEND, deadline_block: 1,
+      winner: null, finish_reason: null, hits_on_a: 0, hits_on_b: 0, shots: 0, pending_index: null, revealed_a: false,
+      revealed_b: false, created_block: 1, stake: "0", farewell_said: false,
+    };
+    expect(await session.join(9, placeFleet(seededRng(7)))).toBe(true);
+    expect(chain.calls).toEqual(["join_game", "commit_board"]);
+    expect(chain.game.root_b).not.toBeNull();
+    expect(chain.game.status).toBe("Playing");
+    expect(store.get(boardKey(ME, 9))).not.toBeNull();
+    expect(session.snapshot.step).toEqual({ kind: "thinking" });
+  });
+
+  it("claims the win when the other captain goes quiet", async () => {
+    let t = 0;
+    const chain = new FakeContract();
+    const session = new GameSession({ accountId: ME, viewer: chain, caller: chain, store: memoryStorage(), evidence: chain.evidence, now: () => t });
+    await session.startDuel(placeFleet(seededRng(7)));
+    await session.tick();
+    expect(chain.claims).toBe(0);
+    t += 151_000;
+    await session.tick();
+    expect(chain.claims).toBe(1);
   });
 });
 

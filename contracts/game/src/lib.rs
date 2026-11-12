@@ -30,6 +30,7 @@ use tokens::GOLD;
 
 pub const MAX_PAGE: u32 = 100;
 pub const MAX_MISSES: u8 = (CELLS - SHIP_CELLS) as u8;
+pub const PVP_JOIN_WINDOW: u64 = 15;
 
 #[near(contract_state)]
 #[derive(PanicOnDefault)]
@@ -174,6 +175,90 @@ impl Brinewar {
         id
     }
 
+    pub fn new_game_pvp(&mut self) -> u64 {
+        let player = env::predecessor_account_id();
+        require!(player != self.nauarch, "the Nauarch cannot play itself");
+        require!(
+            self.players.contains_key(&player),
+            "not a registered player"
+        );
+        require!(
+            !self.active_game.contains_key(&player),
+            "finish your current game first"
+        );
+        self.count_game_today(&player);
+        let id = self.next_game_id;
+        self.next_game_id += 1;
+        let now = env::block_height();
+        let game = Game {
+            id,
+            mode: Mode::PvP,
+            a: player.clone(),
+            b: player.clone(),
+            root_a: None,
+            root_b: None,
+            shots: Vec::new(),
+            fired_a: 0,
+            fired_b: 0,
+            hits_on_a: 0,
+            hits_on_b: 0,
+            misses_on_a: 0,
+            misses_on_b: 0,
+            turn: Side::A,
+            deadline_block: now + self.settings.move_timeout_blocks * PVP_JOIN_WINDOW,
+            status: Status::Waiting,
+            winner: None,
+            finish_reason: None,
+            revealed_a: false,
+            revealed_b: false,
+            created_block: now,
+            stake: 0,
+            dossier: String::new(),
+            hot: Vec::new(),
+            farewell_said: false,
+        };
+        self.active_game.insert(player.clone(), id);
+        self.games.insert(id, game);
+        emit(
+            "game_created",
+            json!({"game_id": id, "mode": "PvP", "a": player, "stake": U128(0)}),
+        );
+        id
+    }
+
+    pub fn join_game(&mut self, game_id: u64) {
+        let joiner = env::predecessor_account_id();
+        let mut game = self.load(game_id);
+        require!(
+            game.status == Status::Waiting,
+            "this duel is not waiting for a captain"
+        );
+        require!(joiner != game.a, "you cannot join your own duel");
+        require!(
+            joiner != self.nauarch,
+            "the Nauarch only plays its own battles"
+        );
+        require!(
+            self.players.contains_key(&joiner),
+            "not a registered player"
+        );
+        require!(
+            !self.active_game.contains_key(&joiner),
+            "finish your current game first"
+        );
+        self.require_before_deadline(&game);
+        self.count_game_today(&joiner);
+        game.b = joiner.clone();
+        game.status = Status::Placing;
+        game.deadline_block = env::block_height() + self.settings.move_timeout_blocks;
+        self.active_game.insert(joiner.clone(), game_id);
+        emit(
+            "game_joined",
+            json!({"game_id": game_id, "a": game.a, "b": joiner, "deadline_block": game.deadline_block}),
+        );
+        self.store(game);
+    }
+
     pub fn commit_board(&mut self, game_id: u64, root: String) {
         let root = ok_or_fail(parse_hash(&root, "root"));
         let mut game = self.load(game_id);
@@ -309,14 +394,15 @@ impl Brinewar {
         };
         game.set_revealed(side);
         let mut counted = false;
-        if fleet.is_ok() && game.mode == Mode::VsNauarch {
-            match side {
-                Side::A => {
-                    let account = game.a.clone();
-                    self.add_zones(&account, &cells);
-                    counted = self.count_board(&game, &cells);
-                }
-                Side::B => self.award_sunk(&game, &cells),
+        if fleet.is_ok() {
+            let human = game.mode == Mode::PvP || side == Side::A;
+            if human {
+                let account = game.account(side).clone();
+                self.add_zones(&account, &cells);
+                counted = self.count_board(&game, side, &cells);
+            }
+            if game.mode == Mode::PvP || side == Side::B {
+                self.award_sunk(&game, side.other(), &cells);
             }
         }
         emit(
@@ -344,7 +430,9 @@ impl Brinewar {
             "deadline has not passed"
         );
         match game.status {
-            Status::Placing => self.finish(&mut game, None, FinishReason::Cancelled),
+            Status::Placing | Status::Waiting => {
+                self.finish(&mut game, None, FinishReason::Cancelled)
+            }
             Status::Playing => {
                 let late = game.turn;
                 self.finish(&mut game, Some(late.other()), FinishReason::Timeout)
@@ -362,7 +450,9 @@ impl Brinewar {
         let mut game = self.load(game_id);
         let side = self.caller_side(&game);
         match game.status {
-            Status::Placing => self.finish(&mut game, None, FinishReason::Cancelled),
+            Status::Placing | Status::Waiting => {
+                self.finish(&mut game, None, FinishReason::Cancelled)
+            }
             Status::Playing => self.finish(&mut game, Some(side.other()), FinishReason::Resigned),
             Status::Revealing | Status::Finished => fail("game is already decided"),
         }
@@ -474,13 +564,16 @@ impl Brinewar {
     }
 
     fn finish(&mut self, game: &mut Game, winner: Option<Side>, reason: FinishReason) {
+        game.finish_reason = Some(reason);
         if game.mode == Mode::VsNauarch {
             self.open_games = self.open_games.saturating_sub(1);
-            game.finish_reason = Some(reason);
             self.settle(game, winner, reason);
             if winner.is_some() {
-                self.record_result(game, winner == Some(Side::A));
+                self.record_result(game, Side::A, winner == Some(Side::A));
             }
+        } else if let Some(w) = winner {
+            self.record_result(game, w, true);
+            self.record_result(game, w.other(), false);
         }
         game.status = Status::Finished;
         game.winner = winner;
@@ -533,19 +626,22 @@ impl Brinewar {
         )
     }
 
-    fn record_result(&mut self, game: &Game, player_won: bool) {
+    fn record_result(&mut self, game: &Game, side: Side, player_won: bool) {
         let now = env::block_height();
-        if let Some(p) = self.players.get_mut(&game.a) {
-            p.games += 1;
-            if player_won {
-                p.wins += 1;
-            } else {
-                p.losses += 1;
+        let account = game.account(side).clone();
+        if game.mode == Mode::VsNauarch {
+            if let Some(p) = self.players.get_mut(&account) {
+                p.games += 1;
+                if player_won {
+                    p.wins += 1;
+                } else {
+                    p.losses += 1;
+                }
+                p.last_won = Some(player_won);
+                p.last_game_block = now;
             }
-            p.last_won = Some(player_won);
-            p.last_game_block = now;
         }
-        let Some(ship) = self.active_flagship(&game.a) else {
+        let Some(ship) = self.active_flagship(&account) else {
             return;
         };
         let win_xp = if player_won && game.sank_fleet() {
@@ -553,7 +649,7 @@ impl Brinewar {
         } else {
             0
         };
-        let xp = game.hits_on_b as u64 * XP_HIT + win_xp;
+        let xp = game.hits_on(side.other()) as u64 * XP_HIT + win_xp;
         if let Some(s) = self.ships.get_mut(&ship) {
             s.xp += xp;
             if player_won {
@@ -568,15 +664,15 @@ impl Brinewar {
         );
     }
 
-    fn award_sunk(&mut self, game: &Game, nauarch_cells: &[u8; CELLS]) {
-        let sunk = ships(nauarch_cells)
+    fn award_sunk(&mut self, game: &Game, shooter: Side, target_cells: &[u8; CELLS]) {
+        let sunk = ships(target_cells)
             .iter()
-            .filter(|ship| ship.iter().all(|&c| game.has_fired(Side::A, c as u8)))
+            .filter(|ship| ship.iter().all(|&c| game.has_fired(shooter, c as u8)))
             .count() as u32;
         if sunk == 0 {
             return;
         }
-        let Some(ship) = self.active_flagship(&game.a) else {
+        let Some(ship) = self.active_flagship(game.account(shooter)) else {
             return;
         };
         if let Some(s) = self.ships.get_mut(&ship) {

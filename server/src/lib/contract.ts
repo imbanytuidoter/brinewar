@@ -1,4 +1,4 @@
-export type Status = "Placing" | "Playing" | "Revealing" | "Finished";
+export type Status = "Placing" | "Playing" | "Revealing" | "Finished" | "Waiting";
 export type ShotResult = "Pending" | "Hit" | "Miss";
 export type ShotSource = "Player" | "Model" | "ModelFallback" | "Deterministic";
 export type MoveKind = "Shot" | "Farewell";

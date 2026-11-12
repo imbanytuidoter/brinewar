@@ -7,9 +7,10 @@ interface TopBarProps {
   readonly enemyHits: number;
   readonly showScore: boolean;
   readonly verifyHref: string | null;
+  readonly enemyLabel?: string;
 }
 
-export function TopBar({ myHits, enemyHits, showScore, verifyHref }: TopBarProps) {
+export function TopBar({ myHits, enemyHits, showScore, verifyHref, enemyLabel = "Nauarch" }: TopBarProps) {
   return (
     <header className="pointer-events-none fixed inset-x-0 top-0 z-10 flex items-center justify-between gap-3 px-[max(16px,env(safe-area-inset-right))] pt-[calc(10px+env(safe-area-inset-top))] pb-2.5">
       <a href="/" className="pointer-events-auto font-display text-[22px] leading-none font-bold tracking-[0.01em] [text-shadow:0_2px_12px_rgb(0_0_0/0.35)]">
@@ -21,7 +22,7 @@ export function TopBar({ myHits, enemyHits, showScore, verifyHref }: TopBarProps
         {showScore && (
           <>
             <Chip label="Your fleet" value={SHIP_CELLS - myHits} />
-            <Chip label="Nauarch" value={SHIP_CELLS - enemyHits} />
+            <Chip label={enemyLabel} value={SHIP_CELLS - enemyHits} />
           </>
         )}
         {verifyHref && (

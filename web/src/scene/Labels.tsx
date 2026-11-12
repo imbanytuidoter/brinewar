@@ -67,11 +67,11 @@ function BoardLabel({ side, title }: BoardLabelProps) {
   );
 }
 
-export function Labels() {
+export function Labels({ enemy }: { readonly enemy: string }) {
   return (
     <>
       <BoardLabel side="mine" title="Your fleet" />
-      <BoardLabel side="enemy" title="The Nauarch" />
+      <BoardLabel key={enemy} side="enemy" title={enemy} />
     </>
   );
 }

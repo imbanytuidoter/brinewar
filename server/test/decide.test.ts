@@ -57,3 +57,11 @@ describe("decide", () => {
     expect(decide(game({ b: "other.testnet" }), ctx()).kind).toBe("done");
   });
 });
+
+describe("duels between captains", () => {
+  it("leaves games without the Nauarch alone", () => {
+    const duel = game({ b: "p-2.brinewar.testnet", mode: "PvP" });
+    expect(decide({ ...duel, status: "Waiting" }, ctx())).toEqual({ kind: "done" });
+    expect(decide({ ...duel, status: "Playing" }, ctx())).toEqual({ kind: "done" });
+  });
+});

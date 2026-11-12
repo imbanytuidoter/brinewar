@@ -41,5 +41,7 @@ export function decide(g: GameView, ctx: DecideContext): Action {
       if (!g.revealed_b && ctx.hasBoard && g.root_b !== null) return { kind: "reveal" };
       if (!g.farewell_said && ctx.farewellEnabled && !ctx.farewellGaveUp) return { kind: "farewell" };
       return { kind: "done" };
+    case "Waiting":
+      return { kind: "done" };
   }
 }

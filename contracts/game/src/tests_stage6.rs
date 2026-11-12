@@ -109,3 +109,183 @@ fn refuels_stop_at_the_daily_guest_limit() {
     });
     assert!(msg.contains("daily guest limit"), "{msg}");
 }
+
+fn friend() -> AccountId {
+    acc("friend.testnet")
+}
+
+fn gold_of(c: &Brinewar, who: &AccountId) -> u128 {
+    c.mt_balance_of(who.clone(), GOLD.into()).0
+}
+
+struct Duel {
+    chain: Chain,
+    c: Brinewar,
+    id: u64,
+    a: Board,
+    b: Board,
+}
+
+impl Duel {
+    fn joined() -> Self {
+        let mut chain = Chain { height: 100 };
+        let mut c = contract(&mut chain);
+        chain.act(&registrar());
+        c.register_player(friend(), Some("Ishmael".into()));
+        chain.act(&player());
+        let id = c.new_game_pvp();
+        chain.act(&friend());
+        c.join_game(id);
+        Duel {
+            chain,
+            c,
+            id,
+            a: Board::new(&LEGAL_A, 1),
+            b: Board::new(&LEGAL_B, 2),
+        }
+    }
+
+    fn commit(&mut self) {
+        self.chain.act(&player());
+        self.c.commit_board(self.id, self.a.root_hex());
+        self.chain.act(&friend());
+        self.c.commit_board(self.id, self.b.root_hex());
+    }
+
+    fn shot(&mut self, who: &AccountId, index: u8) {
+        let (target, board) = if *who == player() {
+            (friend(), &self.b)
+        } else {
+            (player(), &self.a)
+        };
+        let (cell, salt, pf) = (
+            board.cells[index as usize],
+            board.salt_hex(index),
+            board.proof_hex(index),
+        );
+        self.chain.skip(1);
+        self.chain.act(who);
+        self.c.fire(self.id, index);
+        self.chain.skip(1);
+        self.chain.act(&target);
+        self.c.answer(self.id, index, cell, salt, pf);
+    }
+
+    fn reveal(&mut self, who: &AccountId) {
+        let board = if *who == player() { &self.a } else { &self.b };
+        let (cells, s) = (board.cells_str(), board.salts_hex());
+        self.chain.skip(1);
+        self.chain.act(who);
+        self.c.reveal(self.id, cells, s);
+    }
+}
+
+#[test]
+fn a_friend_joins_an_open_duel_by_its_number() {
+    let mut d = Duel::joined();
+    let g = d.c.get_game(d.id).unwrap();
+    assert_eq!(g.mode, Mode::PvP);
+    assert_eq!(g.status, Status::Placing);
+    assert_eq!(g.b, friend());
+    assert_eq!(g.stake.0, 0);
+    assert_eq!(d.c.active_game_of(friend()), Some(d.id));
+    assert_eq!(d.c.active_game_of(player()), Some(d.id));
+    d.commit();
+    assert_eq!(d.c.get_game(d.id).unwrap().status, Status::Playing);
+}
+
+#[test]
+fn only_a_free_registered_captain_can_join_a_waiting_duel() {
+    let mut chain = Chain { height: 100 };
+    let mut c = contract(&mut chain);
+    chain.act(&registrar());
+    c.register_player(friend(), None);
+    chain.act(&player());
+    let id = c.new_game_pvp();
+    assert_eq!(c.get_game(id).unwrap().status, Status::Waiting);
+    let msg = panics(|| c.join_game(id));
+    assert!(msg.contains("your own"), "{msg}");
+    chain.act(&acc("stranger.testnet"));
+    let msg = panics(|| c.join_game(id));
+    assert!(msg.contains("not a registered player"), "{msg}");
+    chain.act(&nauarch());
+    let msg = panics(|| c.join_game(id));
+    assert!(
+        msg.contains("not a registered player") || msg.contains("Nauarch"),
+        "{msg}"
+    );
+    chain.act(&friend());
+    c.join_game(id);
+    chain.act(&acc("third.testnet"));
+    let msg = panics(|| c.join_game(id));
+    assert!(msg.contains("not waiting"), "{msg}");
+}
+
+#[test]
+fn an_unjoined_duel_is_cancelled_by_its_creator_or_by_time() {
+    let mut chain = Chain { height: 100 };
+    let mut c = contract(&mut chain);
+    chain.act(&player());
+    let id = c.new_game_pvp();
+    c.resign(id);
+    assert!(c.get_game(id).is_none());
+    assert_eq!(c.active_game_of(player()), None);
+    let id = c.new_game_pvp();
+    chain.skip(settings().move_timeout_blocks * 20);
+    chain.act(&acc("anyone.testnet"));
+    c.claim_timeout(id);
+    assert!(c.get_game(id).is_none());
+    assert_eq!(c.active_game_of(player()), None);
+}
+
+#[test]
+fn a_full_duel_moves_no_gold_and_grows_both_flagships() {
+    let mut d = Duel::joined();
+    let gold_a = gold_of(&d.c, &player());
+    let gold_b = gold_of(&d.c, &friend());
+    let treasury = d.c.treasury().balance.0;
+    d.commit();
+    let targets = d.b.ship_cells();
+    let misses = d.a.water_cells();
+    for (k, &t) in targets.iter().enumerate() {
+        d.shot(&player(), t);
+        if d.c.get_game(d.id).unwrap().status != Status::Playing {
+            break;
+        }
+        d.shot(&friend(), misses[k]);
+    }
+    let g = d.c.get_game(d.id).unwrap();
+    assert_eq!(g.status, Status::Revealing);
+    assert_eq!(g.winner, Some(player()));
+    d.reveal(&player());
+    d.reveal(&friend());
+    let g = d.c.get_game(d.id).unwrap();
+    assert_eq!(g.status, Status::Finished);
+    assert!(g.revealed_a && g.revealed_b);
+    assert_eq!(gold_of(&d.c, &player()), gold_a);
+    assert_eq!(gold_of(&d.c, &friend()), gold_b);
+    assert_eq!(d.c.treasury().balance.0, treasury);
+    let pa = d.c.get_player(player()).unwrap();
+    let pb = d.c.get_player(friend()).unwrap();
+    let sa = d.c.get_ship(pa.flagship).unwrap();
+    let sb = d.c.get_ship(pb.flagship).unwrap();
+    assert_eq!(sa.wins, 1);
+    assert_eq!(sb.losses, 1);
+    assert_eq!(sa.sunk, 10);
+    assert!(sa.xp >= 200 + 100 + 300, "{}", sa.xp);
+    assert_eq!(pa.games_vs_nauarch, 0);
+    assert_eq!(d.c.active_game_of(player()), None);
+    assert_eq!(d.c.active_game_of(friend()), None);
+}
+
+#[test]
+fn the_second_captain_fires_and_answers_in_a_duel() {
+    let mut d = Duel::joined();
+    d.commit();
+    d.shot(&player(), 5);
+    d.shot(&friend(), 7);
+    let h = d.c.get_history(d.id);
+    assert_eq!(h.len(), 2);
+    assert_eq!(h[1].by, friend());
+    assert_ne!(h[1].result, ShotResult::Pending);
+}

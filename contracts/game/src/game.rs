@@ -15,6 +15,7 @@ pub enum Status {
     Playing,
     Revealing,
     Finished,
+    Waiting,
 }
 
 #[near(serializers = [borsh, json])]

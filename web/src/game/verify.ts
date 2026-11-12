@@ -46,7 +46,8 @@ export function answerCheck(a: AnswerRow | undefined, root: string | null, resul
 }
 
 export function buildReport(game: GameView, history: readonly ShotView[], ev: NauarchEvidence | null, model: ModelView | null): Report {
-  const answers = new Map((ev?.answers ?? []).map((a) => [a.idx, a]));
+  const duel = game.mode === "PvP";
+  const answers = new Map((duel ? [] : (ev?.answers ?? [])).map((a) => [a.idx, a]));
   const shots = history.map((s): ShotRow => {
     const byNauarch = s.by === game.b;
     const answer = byNauarch ? undefined : answers.get(s.index);
@@ -56,10 +57,10 @@ export function buildReport(game: GameView, history: readonly ShotView[], ev: Na
       tx: answer?.tx ?? null,
     };
   });
-  const moves = bindMoves(ev?.moves ?? [], history.filter((s) => s.by === game.b), game.id, model).map(
+  const moves = bindMoves(duel ? [] : (ev?.moves ?? []), history.filter((s) => s.by === game.b), game.id, model).map(
     (b): MoveRow => ({ kind: b.move.kind, source: b.move.source, line: b.line, signed: b.check, tx: b.move.tx }),
   );
-  const reveal = ev?.reveal ?? null;
+  const reveal = duel ? null : (ev?.reveal ?? null);
   const nauarchFleet = reveal && game.root_b ? verifiedFleet(reveal.cells, reveal.salts, game.root_b) : null;
   return {
     shots, moves, nauarchFleet,

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { GameView, ShotView } from "@/lib/contract";
-import { canTarget, friendlyError, marksFrom, nextStep, outcome } from "./engine";
+import { canTarget, friendlyError, hitsOnMe, hitsOnThem, marksFrom, nextStep, opponentOf, outcome, sideOf } from "./engine";
 
 const ME = "p-0011223344556677.brinewar.testnet";
 const NAU = "admiral.brinewar.testnet";
@@ -44,6 +44,29 @@ describe("nextStep", () => {
   it("flags a lost local board unless the game is finished", () => {
     expect(nextStep(game(), ME, false)).toEqual({ kind: "lost-board" });
     expect(nextStep(game({ status: "Finished" }), ME, false)).toEqual({ kind: "done" });
+  });
+});
+
+describe("duels", () => {
+  const FRIEND = "p-8899aabbccddeeff.brinewar.testnet";
+  const duel = (over: Partial<GameView> = {}): GameView => game({ mode: "PvP", a: FRIEND, b: ME, stake: "0", ...over });
+
+  it("waits for a friend, then plays as the second captain with my own root and reveal", () => {
+    expect(nextStep(game({ mode: "PvP", b: ME, status: "Waiting", root_a: null, root_b: null }), ME, true)).toEqual({ kind: "invite" });
+    expect(nextStep(duel({ status: "Placing", root_a: "aa", root_b: null }), ME, true)).toEqual({ kind: "commit" });
+    expect(nextStep(duel({ status: "Placing", root_a: null, root_b: "bb" }), ME, true)).toEqual({ kind: "wait" });
+    expect(nextStep(duel({ turn: FRIEND }), ME, true)).toEqual({ kind: "thinking" });
+    expect(nextStep(duel({ turn: ME, pending_index: 9 }), ME, true)).toEqual({ kind: "answer", index: 9 });
+    expect(nextStep(duel({ status: "Revealing", winner: FRIEND, revealed_a: true }), ME, true)).toEqual({ kind: "reveal" });
+    expect(nextStep(duel({ status: "Finished", winner: FRIEND, revealed_b: true }), ME, true)).toEqual({ kind: "done" });
+  });
+
+  it("knows my side and the hits on my fleet", () => {
+    const d = duel({ hits_on_a: 3, hits_on_b: 5 });
+    expect(sideOf(d, ME)).toBe("b");
+    expect(hitsOnMe(d, ME)).toBe(5);
+    expect(hitsOnThem(d, ME)).toBe(3);
+    expect(opponentOf(d, ME)).toBe(FRIEND);
   });
 });
 

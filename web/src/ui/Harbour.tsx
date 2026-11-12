@@ -1,13 +1,14 @@
-import { Anchor, Shuffle } from "lucide-react";
+import { Anchor, Shuffle, Swords } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface HarbourProps {
   readonly busy: boolean;
   readonly onShuffle: () => void;
   readonly onSail: () => void;
+  readonly onDuel: () => void;
 }
 
-export function Harbour({ busy, onShuffle, onSail }: HarbourProps) {
+export function Harbour({ busy, onShuffle, onSail, onDuel }: HarbourProps) {
   return (
     <div className="grid animate-rise gap-2 rounded-2xl border border-line bg-glass p-3 backdrop-blur-md sm:w-[320px]">
       <p className="m-0 text-[13px] text-muted">
@@ -20,9 +21,13 @@ export function Harbour({ busy, onShuffle, onSail }: HarbourProps) {
         </Button>
         <Button variant="brass" onClick={onSail} disabled={busy} aria-label="Set sail against the Nauarch">
           <Anchor aria-hidden />
-          Set sail
+          Sail vs the Nauarch
         </Button>
       </div>
+      <Button variant="glass" onClick={onDuel} disabled={busy}>
+        <Swords aria-hidden />
+        Challenge a friend
+      </Button>
     </div>
   );
 }

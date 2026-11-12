@@ -69,3 +69,13 @@ describe("verify report", () => {
     expect(r.moves[0]?.signed).toBe("chain");
   });
 });
+
+describe("verify report for a duel", () => {
+  it("trusts only the contract for both captains and ignores any server evidence", () => {
+    const duel = { id: 2, a: ME, b: "p-8899aabbccddeeff.brinewar.testnet", mode: "PvP", root_b: "00".repeat(32) } as GameView;
+    const r = buildReport(duel, [{ n: 0, by: ME, index: 3, result: "Hit", block: 1, source: "Player" }], { root: null, answers: [{ idx: 3, cell: 0, salt: "00", proof: [], tx: null }], reveal: null, moves: [] }, null);
+    expect(r.shots[0]?.proof).toBe("chain");
+    expect(r.moves).toEqual([]);
+    expect(r.revealCheck).toBeNull();
+  });
+});
