@@ -2,6 +2,8 @@
 
 A naval battle on NEAR where the blockchain stays out of sight. You open the site and play: no wallet, no seed phrase, no popup. Every shot is a NEAR transaction, every answer comes with a Merkle proof the contract checks, and your opponent, **the Nauarch**, is an AI admiral whose moves are produced by NEAR AI Cloud inside a TEE, signed there, and verified by the contract before they count. He learns where all captains hide their ships from an on-chain map, keeps a treasury that pays bounties and grows poor when he loses, and remembers you between battles.
 
+Play: **https://brinewar.imbanytui.xyz** · For judges: **https://brinewar.imbanytui.xyz/judges**
+
 Track: **Games**. Network: **NEAR testnet only**.
 
 ## Try it: do X, see Y
@@ -40,7 +42,7 @@ Track: **Games**. Network: **NEAR testnet only**.
 
 | Account | Role |
 |---|---|
-| `brinewar.testnet` | the game contract (game + NEP-245 + treasury) |
+| [`brinewar.testnet`](https://testnet.nearblocks.io/address/brinewar.testnet) | the game contract (game + NEP-245 + treasury) |
 | `admiral.brinewar.testnet` | the Nauarch: holds the treasury, plays through a function-call key |
 | `sponsor.brinewar.testnet` | registrar: pays for guest accounts |
 
