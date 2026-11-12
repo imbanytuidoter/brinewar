@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ISLANDS, PLACES, START, nearest, outOfIslands, patrolAt, PATROLS, steer, WORLD_H, WORLD_W, type Helm } from "./world";
+import { captainSlots, ISLANDS, PLACES, START, nearest, outOfIslands, patrolAt, PATROLS, steer, WORLD_H, WORLD_W, type Helm } from "./world";
 
 describe("world", () => {
   it("starts in open water, with every place reachable from the sea", () => {
@@ -38,5 +38,21 @@ describe("world", () => {
     const a = patrolAt(PATROLS[0]!, 0).pos;
     const b = patrolAt(PATROLS[0]!, 3).pos;
     expect(Math.hypot(a.x - b.x, a.y - b.y)).toBeGreaterThan(10);
+  });
+
+  it("finds open water for every captain, nearest the port first", () => {
+    const few = captainSlots(12);
+    expect(few).toHaveLength(12);
+    const many = captainSlots(300);
+    expect(many.length).toBeGreaterThanOrEqual(300);
+    for (const p of many) {
+      expect(outOfIslands(p)).toBe(p);
+      expect(p.x).toBeGreaterThan(0);
+      expect(p.x).toBeLessThan(WORLD_W);
+      expect(p.y).toBeLessThan(WORLD_H);
+      expect(nearest(PLACES, p, (pl) => pl.reach)).toBeNull();
+    }
+    const d = (p: { x: number; y: number }) => Math.hypot(p.x - START.x, p.y - START.y);
+    expect(d(few[0]!)).toBeLessThanOrEqual(d(few[11]!));
   });
 });

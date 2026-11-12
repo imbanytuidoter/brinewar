@@ -12,8 +12,10 @@ describe("captainsAtSea", () => {
     expect(sea.map((r) => r.rank)).toEqual([2, 3, null, null]);
   });
 
-  it("fills at most twelve places", () => {
-    const board = Array.from({ length: 30 }, (_, i) => entry(`c${i}`, i % 2 === 0));
-    expect(captainsAtSea(board, null)).toHaveLength(12);
+  it("puts every live captain to sea and only tops up with bots", () => {
+    const live = Array.from({ length: 40 }, (_, i) => entry(`c${i}`));
+    const bots = Array.from({ length: 30 }, (_, i) => entry(`s${i}`, true));
+    expect(captainsAtSea([...bots, ...live], null)).toHaveLength(40);
+    expect(captainsAtSea([...bots, ...live.slice(0, 5)], null)).toHaveLength(24);
   });
 });

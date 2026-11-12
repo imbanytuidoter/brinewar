@@ -1,5 +1,5 @@
-export const WORLD_W = 1800;
-export const WORLD_H = 1200;
+export const WORLD_W = 3600;
+export const WORLD_H = 2400;
 export const SHIP_SPEED = 170;
 export const TURN_RATE = 3.2;
 export const ARRIVE = 8;
@@ -47,70 +47,105 @@ export interface Patrol {
   readonly phase: number;
 }
 
+const OUTER_ISLANDS: readonly Island[] = [
+  { x: 420, y: 400, radius: 140, sprite: "isle-green", size: 320 },
+  { x: 1000, y: 230, radius: 70, sprite: "isle-sand", size: 160 },
+  { x: 1750, y: 260, radius: 90, sprite: "isle-sand", size: 210 },
+  { x: 2700, y: 330, radius: 120, sprite: "isle-green", size: 280 },
+  { x: 3250, y: 560, radius: 130, sprite: "isle-sand", size: 300 },
+  { x: 300, y: 1250, radius: 110, sprite: "isle-sand", size: 250 },
+  { x: 560, y: 2000, radius: 85, sprite: "isle-green", size: 200 },
+  { x: 1350, y: 2150, radius: 125, sprite: "isle-green", size: 290 },
+  { x: 2150, y: 2080, radius: 80, sprite: "isle-sand", size: 190 },
+  { x: 3020, y: 2000, radius: 145, sprite: "isle-green", size: 330 },
+  { x: 3360, y: 1250, radius: 90, sprite: "isle-sand", size: 210 },
+  { x: 2950, y: 960, radius: 60, sprite: "isle-green", size: 140 },
+];
+
+const OUTER_DECOR: readonly Decor[] = [
+  { sprite: "palm-b", x: 380, y: 380, size: 70 },
+  { sprite: "palm-a", x: 470, y: 440, size: 55 },
+  { sprite: "tower-b", x: 430, y: 330, size: 64 },
+  { sprite: "palm-c", x: 1000, y: 225, size: 46 },
+  { sprite: "palm-a", x: 1730, y: 250, size: 58 },
+  { sprite: "rock-e", x: 1790, y: 290, size: 40 },
+  { sprite: "palm-b", x: 2660, y: 310, size: 66 },
+  { sprite: "tower", x: 2750, y: 360, size: 56 },
+  { sprite: "palm-c", x: 3220, y: 540, size: 50 },
+  { sprite: "palm-a", x: 3290, y: 590, size: 60 },
+  { sprite: "rock-b", x: 290, y: 1240, size: 56 },
+  { sprite: "palm-b", x: 560, y: 1990, size: 58 },
+  { sprite: "tower", x: 1310, y: 2100, size: 62 },
+  { sprite: "palm-a", x: 1400, y: 2180, size: 64 },
+  { sprite: "palm-c", x: 2150, y: 2070, size: 46 },
+  { sprite: "palm-b", x: 2970, y: 1970, size: 72 },
+  { sprite: "rock-e", x: 3070, y: 2050, size: 62 },
+  { sprite: "tower-b", x: 3040, y: 1930, size: 66 },
+  { sprite: "palm-a", x: 3360, y: 1240, size: 56 },
+  { sprite: "palm-c", x: 2950, y: 955, size: 40 },
+  { sprite: "rock-a", x: 160, y: 760, size: 44 },
+  { sprite: "rock-d", x: 2420, y: 620, size: 40 },
+  { sprite: "rock-b", x: 3480, y: 1820, size: 50 },
+  { sprite: "rock-a", x: 1880, y: 2300, size: 42 },
+  { sprite: "rock-d", x: 120, y: 2280, size: 44 },
+  { sprite: "rock-a", x: 3500, y: 120, size: 46 },
+];
+
 export const ISLANDS: readonly Island[] = [
-  { x: 380, y: 820, radius: 150, sprite: "isle-green", size: 340 },
-  { x: 1390, y: 300, radius: 110, sprite: "isle-sand", size: 250 },
-  { x: 1480, y: 930, radius: 125, sprite: "isle-green", size: 290 },
-  { x: 760, y: 250, radius: 95, sprite: "isle-sand", size: 215 },
-  { x: 1080, y: 760, radius: 55, sprite: "isle-sand", size: 125 },
-  { x: 220, y: 300, radius: 60, sprite: "isle-green", size: 140 },
+  { x: 1280, y: 1420, radius: 150, sprite: "isle-green", size: 340 },
+  { x: 2290, y: 900, radius: 110, sprite: "isle-sand", size: 250 },
+  { x: 2380, y: 1530, radius: 125, sprite: "isle-green", size: 290 },
+  { x: 1660, y: 850, radius: 95, sprite: "isle-sand", size: 215 },
+  { x: 1980, y: 1360, radius: 55, sprite: "isle-sand", size: 125 },
+  { x: 1120, y: 900, radius: 60, sprite: "isle-green", size: 140 },
+  ...OUTER_ISLANDS,
 ];
 
 export const DECOR: readonly Decor[] = [
-  { sprite: "tower", x: 300, y: 740, size: 60 },
-  { sprite: "tower", x: 460, y: 740, size: 60 },
-  { sprite: "wall-h", x: 380, y: 740, size: 100 },
-  { sprite: "dock-h", x: 545, y: 800, size: 70 },
-  { sprite: "palm-b", x: 330, y: 880, size: 70 },
-  { sprite: "palm-a", x: 430, y: 900, size: 55 },
-  { sprite: "palm-c", x: 380, y: 820, size: 45 },
-  { sprite: "tower-b", x: 1350, y: 280, size: 70 },
-  { sprite: "tower", x: 1440, y: 320, size: 52 },
-  { sprite: "wall-h", x: 1395, y: 300, size: 60 },
-  { sprite: "rock-e", x: 1470, y: 900, size: 70 },
-  { sprite: "rock-b", x: 1420, y: 980, size: 60 },
-  { sprite: "palm-b", x: 1540, y: 960, size: 65 },
-  { sprite: "palm-a", x: 730, y: 230, size: 60 },
-  { sprite: "palm-c", x: 795, y: 275, size: 48 },
-  { sprite: "palm-b", x: 1080, y: 750, size: 50 },
-  { sprite: "palm-a", x: 210, y: 290, size: 55 },
-  { sprite: "rock-a", x: 960, y: 600, size: 42 },
-  { sprite: "rock-d", x: 1010, y: 640, size: 36 },
-  { sprite: "rock-b", x: 620, y: 560, size: 46 },
-  { sprite: "rock-a", x: 1700, y: 560, size: 40 },
-  { sprite: "rock-d", x: 120, y: 1080, size: 44 },
+  { sprite: "tower", x: 1200, y: 1340, size: 60 },
+  { sprite: "tower", x: 1360, y: 1340, size: 60 },
+  { sprite: "wall-h", x: 1280, y: 1340, size: 100 },
+  { sprite: "dock-h", x: 1445, y: 1400, size: 70 },
+  { sprite: "palm-b", x: 1230, y: 1480, size: 70 },
+  { sprite: "palm-a", x: 1330, y: 1500, size: 55 },
+  { sprite: "palm-c", x: 1280, y: 1420, size: 45 },
+  { sprite: "tower-b", x: 2250, y: 880, size: 70 },
+  { sprite: "tower", x: 2340, y: 920, size: 52 },
+  { sprite: "wall-h", x: 2295, y: 900, size: 60 },
+  { sprite: "rock-e", x: 2370, y: 1500, size: 70 },
+  { sprite: "rock-b", x: 2320, y: 1580, size: 60 },
+  { sprite: "palm-b", x: 2440, y: 1560, size: 65 },
+  { sprite: "palm-a", x: 1630, y: 830, size: 60 },
+  { sprite: "palm-c", x: 1695, y: 875, size: 48 },
+  { sprite: "palm-b", x: 1980, y: 1350, size: 50 },
+  { sprite: "palm-a", x: 1110, y: 890, size: 55 },
+  { sprite: "rock-a", x: 1860, y: 1200, size: 42 },
+  { sprite: "rock-d", x: 1910, y: 1240, size: 36 },
+  { sprite: "rock-b", x: 1520, y: 1160, size: 46 },
+  { sprite: "rock-a", x: 2600, y: 1160, size: 40 },
+  { sprite: "rock-d", x: 1020, y: 1680, size: 44 },
+  ...OUTER_DECOR,
 ];
 
 export const PLACES: readonly Place[] = [
-  { kind: "port", name: "Port Brine", x: 560, y: 760, reach: 70 },
-  { kind: "admiralty", name: "The Admiralty", x: 1260, y: 360, reach: 80 },
-  { kind: "treasury", name: "The Nauarch's Keep", x: 1330, y: 1010, reach: 80 },
-  { kind: "tavern", name: "Captains' Cay", x: 880, y: 300, reach: 75 },
-  { kind: "wreck", name: "Wreck Shoals", x: 985, y: 570, reach: 70 },
+  { kind: "port", name: "Port Brine", x: 1460, y: 1360, reach: 70 },
+  { kind: "admiralty", name: "The Admiralty", x: 2160, y: 960, reach: 80 },
+  { kind: "treasury", name: "The Nauarch's Keep", x: 2230, y: 1610, reach: 80 },
+  { kind: "tavern", name: "Captains' Cay", x: 1780, y: 900, reach: 75 },
+  { kind: "wreck", name: "Wreck Shoals", x: 1885, y: 1170, reach: 70 },
 ];
 
 export const PATROLS: readonly Patrol[] = [
-  { id: 1, cx: 1100, cy: 420, r: 150, phase: 0 },
-  { id: 2, cx: 720, cy: 980, r: 130, phase: 2.1 },
-  { id: 3, cx: 1560, cy: 620, r: 110, phase: 4.2 },
+  { id: 1, cx: 2000, cy: 1020, r: 150, phase: 0 },
+  { id: 2, cx: 1620, cy: 1580, r: 130, phase: 2.1 },
+  { id: 3, cx: 2460, cy: 1220, r: 110, phase: 4.2 },
+  { id: 4, cx: 760, cy: 760, r: 150, phase: 1.0 },
+  { id: 5, cx: 2980, cy: 1560, r: 140, phase: 3.1 },
+  { id: 6, cx: 900, cy: 1950, r: 120, phase: 5.2 },
 ];
 
-export const CAPTAIN_SLOTS: readonly Vec[] = [
-  { x: 640, y: 380 },
-  { x: 960, y: 210 },
-  { x: 560, y: 470 },
-  { x: 1180, y: 560 },
-  { x: 860, y: 860 },
-  { x: 1640, y: 360 },
-  { x: 1640, y: 1050 },
-  { x: 270, y: 1040 },
-  { x: 160, y: 150 },
-  { x: 160, y: 610 },
-  { x: 1180, y: 1050 },
-  { x: 520, y: 1050 },
-];
 
-export const START: Vec = { x: 600, y: 700 };
+export const START: Vec = { x: 1500, y: 1300 };
 
 export function patrolAt(p: Patrol, t: number): { pos: Vec; heading: number } {
   const a = p.phase + t * PATROL_SPEED;
@@ -172,4 +207,40 @@ export function nearest<T extends Vec>(items: readonly T[], at: Vec, within: (it
     }
   }
   return best;
+}
+
+const SLOT_SPACINGS = [200, 160, 130, 105] as const;
+const SLOT_MARGIN = 120;
+const SLOT_CLEAR = 70;
+const SLOT_START_CLEAR = 170;
+const SLOT_PATROL_BAND = 80;
+
+function slotFree(p: Vec): boolean {
+  if (ISLANDS.some((i) => Math.hypot(p.x - i.x, p.y - i.y) < i.radius + SLOT_CLEAR)) return false;
+  if (PLACES.some((pl) => Math.hypot(p.x - pl.x, p.y - pl.y) < pl.reach + SLOT_CLEAR)) return false;
+  if (PATROLS.some((pa) => Math.abs(Math.hypot(p.x - pa.cx, p.y - pa.cy) - pa.r) < SLOT_PATROL_BAND)) return false;
+  if (DECOR.some((d) => Math.hypot(p.x - d.x, p.y - d.y) < d.size / 2 + SLOT_CLEAR / 2)) return false;
+  return Math.hypot(p.x - START.x, p.y - START.y) >= SLOT_START_CLEAR;
+}
+
+function slotsAt(spacing: number): Vec[] {
+  const out: Vec[] = [];
+  const rowH = spacing * 0.866;
+  for (let row = 0, y = SLOT_MARGIN; y <= WORLD_H - SLOT_MARGIN; row++, y += rowH)
+    for (let x = SLOT_MARGIN + (row % 2) * (spacing / 2); x <= WORLD_W - SLOT_MARGIN; x += spacing) {
+      const p = { x: Math.round(x), y: Math.round(y) };
+      if (slotFree(p)) out.push(p);
+    }
+  return out.sort((a, b) => Math.hypot(a.x - START.x, a.y - START.y) - Math.hypot(b.x - START.x, b.y - START.y));
+}
+
+const slotCache = new Map<number, Vec[]>();
+
+export function captainSlots(n: number): Vec[] {
+  for (const spacing of SLOT_SPACINGS) {
+    const slots = slotCache.get(spacing) ?? slotsAt(spacing);
+    slotCache.set(spacing, slots);
+    if (slots.length >= n) return slots.slice(0, n);
+  }
+  return slotCache.get(SLOT_SPACINGS.at(-1) ?? 0) ?? [];
 }

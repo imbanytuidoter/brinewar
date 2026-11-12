@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { fetchLeaderboard, type CaptainEntry } from "@/lib/api";
 import type { AppConfig } from "@/lib/config";
 
-const AT_SEA = 12;
+const SEA_MIN = 24;
 
 export interface RankedCaptain {
   readonly captain: CaptainEntry;
@@ -12,7 +12,8 @@ export interface RankedCaptain {
 export function captainsAtSea(all: readonly CaptainEntry[], me: string | null): RankedCaptain[] {
   const real = all.filter((c) => !c.seed).map((captain, i) => ({ captain, rank: i + 1 }));
   const seeds = all.filter((c) => c.seed).map((captain) => ({ captain, rank: null }));
-  return [...real, ...seeds].filter((r) => r.captain.account !== me).slice(0, AT_SEA);
+  const live = real.filter((r) => r.captain.account !== me);
+  return [...live, ...seeds.slice(0, Math.max(0, SEA_MIN - live.length))];
 }
 
 export function useMapCaptains(cfg: AppConfig, me: string | null): readonly RankedCaptain[] {

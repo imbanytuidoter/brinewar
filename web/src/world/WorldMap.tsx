@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CaptainEntry } from "@/lib/api";
 import { sound } from "@/lib/sound";
 import type { RankedCaptain } from "./useMapCaptains";
-import { CAPTAIN_SLOTS, DECOR, ENCOUNTER, ISLANDS, nearest, PATROLS, PLACES, patrolAt, START, steer, WORLD_H, WORLD_W, type Helm, type Place, type Vec } from "./world";
+import { captainSlots, DECOR, ENCOUNTER, ISLANDS, nearest, PATROLS, PLACES, patrolAt, START, steer, WORLD_H, WORLD_W, type Helm, type Place, type Vec } from "./world";
 
 const SPRITES = ["hull", "hull-wreck", "flag-2", "sail-2", "sail-1", "sail-3", "sail-4", "sail-5", "sail-6", "sail-wreck", "flag-1", "flag-3", "flag-4", "flag-5", "flag-6"] as const;
 const MAP_SPRITES = ["water", "isle-green", "isle-sand", "palm-a", "palm-b", "palm-c", "rock-a", "rock-b", "rock-d", "rock-e", "tower", "tower-b", "wall-h", "dock-h"] as const;
@@ -11,7 +11,9 @@ const SHIP_LEN = 62;
 const SHIP_W = 29;
 const WAKE_LIFE = 1.6;
 const MAX_WAKE = 90;
-const POS_KEY = "brinewar.chart.pos";
+const POS_KEY = "brinewar.chart.pos.v2";
+const MINI_W = 180;
+const CULL = 120;
 
 export type Encounter =
   | { readonly kind: "patrol"; readonly id: number }
@@ -108,6 +110,49 @@ function label(c: CanvasRenderingContext2D, text: string, x: number, y: number, 
   c.fillText(text, x, y + 1);
 }
 
+function drawMini(canvas: HTMLCanvasElement | null, fleet: readonly (Vec & { readonly rank: number | null })[], patrols: readonly Vec[], me: Vec, v: { scale: number; cx: number; cy: number; w: number; h: number }): void {
+  const c = canvas?.getContext("2d");
+  if (!canvas || !c) return;
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  const w = canvas.clientWidth || MINI_W;
+  const h = (w * WORLD_H) / WORLD_W;
+  if (canvas.width !== Math.round(w * dpr)) {
+    canvas.width = Math.round(w * dpr);
+    canvas.height = Math.round(h * dpr);
+  }
+  const k = w / WORLD_W;
+  c.setTransform(dpr, 0, 0, dpr, 0, 0);
+  c.fillStyle = "rgba(9,24,33,0.72)";
+  c.fillRect(0, 0, w, h);
+  c.fillStyle = "#e8d7a6";
+  for (const i of ISLANDS) {
+    c.beginPath();
+    c.arc(i.x * k, i.y * k, Math.max(2, i.radius * k), 0, Math.PI * 2);
+    c.fill();
+  }
+  c.fillStyle = "#ffcf5a";
+  for (const p of PLACES) c.fillRect(p.x * k - 2, p.y * k - 2, 4, 4);
+  for (const f of fleet) {
+    c.fillStyle = f.rank === null ? "rgba(169,188,198,0.75)" : "#f4f7f8";
+    c.beginPath();
+    c.arc(f.x * k, f.y * k, f.rank === null ? 1.6 : 2.4, 0, Math.PI * 2);
+    c.fill();
+  }
+  c.fillStyle = "#ff6a3d";
+  for (const p of patrols) {
+    c.beginPath();
+    c.arc(p.x * k, p.y * k, 2.4, 0, Math.PI * 2);
+    c.fill();
+  }
+  c.strokeStyle = "rgba(255,255,255,0.7)";
+  c.lineWidth = 1;
+  c.strokeRect((v.cx - v.w / 2 / v.scale) * k, (v.cy - v.h / 2 / v.scale) * k, (v.w / v.scale) * k, (v.h / v.scale) * k);
+  c.fillStyle = "#ffcf5a";
+  c.beginPath();
+  c.arc(me.x * k, me.y * k, 3.4, 0, Math.PI * 2);
+  c.fill();
+}
+
 export function WorldMap({ captains, mySail, myFlag, reducedMotion, paused, onEncounter }: WorldMapProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const img = useMemo(loadImages, []);
@@ -118,7 +163,11 @@ export function WorldMap({ captains, mySail, myFlag, reducedMotion, paused, onEn
   const pausedRef = useRef(paused);
   const encounterRef = useRef(onEncounter);
   const [hint, setHint] = useState(true);
-  const fleet = useMemo(() => captains.slice(0, CAPTAIN_SLOTS.length).map((c, i) => ({ ...c, slot: i + 1, ...(CAPTAIN_SLOTS[i] as Vec) })), [captains]);
+  const fleet = useMemo(() => {
+    const slots = captainSlots(captains.length);
+    return captains.slice(0, slots.length).map((c, i) => ({ ...c, slot: i + 1, ...(slots[i] as Vec) }));
+  }, [captains]);
+  const miniRef = useRef<HTMLCanvasElement>(null);
   const fleetRef = useRef(fleet);
 
   useEffect(() => {
@@ -200,8 +249,12 @@ export function WorldMap({ captains, mySail, myFlag, reducedMotion, paused, onEn
       const water = img.water;
       if (water && water.complete && water.naturalWidth > 0) {
         const drift = reducedMotion ? 0 : (t * 6) % WATER_TILE;
-        for (let x = -WATER_TILE; x < WORLD_W + WATER_TILE; x += WATER_TILE)
-          for (let y = -WATER_TILE; y < WORLD_H + WATER_TILE; y += WATER_TILE) ctx.drawImage(water, x + drift, y + drift * 0.5, WATER_TILE + 1, WATER_TILE + 1);
+        const x0 = Math.floor((view.current.cx - halfW) / WATER_TILE - 1) * WATER_TILE;
+        const y0 = Math.floor((view.current.cy - halfH) / WATER_TILE - 1) * WATER_TILE;
+        const x1 = view.current.cx + halfW + WATER_TILE;
+        const y1 = view.current.cy + halfH + WATER_TILE;
+        for (let x = x0; x < x1; x += WATER_TILE)
+          for (let y = y0; y < y1; y += WATER_TILE) ctx.drawImage(water, x + drift, y + drift * 0.5, WATER_TILE + 1, WATER_TILE + 1);
       }
       ctx.strokeStyle = "rgba(255,255,255,0.22)";
       ctx.lineWidth = 3;
@@ -217,7 +270,9 @@ export function WorldMap({ captains, mySail, myFlag, reducedMotion, paused, onEn
       }
       const wreck = PLACES.find((p) => p.kind === "wreck");
       if (wreck) drawShip(ctx, img, { x: wreck.x + 20, y: wreck.y + 30 }, 0.7, 2, 2, true);
-      for (const f of fleetRef.current) drawShip(ctx, img, f, -0.4 + f.slot * 0.9, sailOf(f.captain.name), 5);
+      const seen = (p: Vec): boolean => Math.abs(p.x - view.current.cx) < halfW + CULL && Math.abs(p.y - view.current.cy) < halfH + CULL;
+      const shown = fleetRef.current.filter(seen);
+      for (const f of shown) drawShip(ctx, img, f, -0.4 + f.slot * 0.9, sailOf(f.captain.name), 5);
       const patrols = PATROLS.map((p) => patrolAt(p, t));
       for (const p of patrols) drawShip(ctx, img, p.pos, p.heading, 2, 2);
       if (helm.current.target) {
@@ -239,12 +294,13 @@ export function WorldMap({ captains, mySail, myFlag, reducedMotion, paused, onEn
         const s = screen(p.pos);
         label(ctx, "Nauarch's patrol", s.x, s.y - 46 * v.scale, "enemy");
       }
-      for (const f of fleetRef.current) {
+      for (const f of shown) {
         const s = screen(f);
         label(ctx, f.rank === null ? `${f.captain.name} · bot` : `#${f.rank} ${f.captain.name}`, s.x, s.y - 44 * v.scale, f.rank === null ? "bot" : "captain");
       }
       const me = screen(helm.current.pos);
       label(ctx, "You", me.x, me.y - 44 * v.scale, "place");
+      drawMini(miniRef.current, fleetRef.current, patrols.map((p) => p.pos), helm.current.pos, view.current);
       raf = requestAnimationFrame(frame);
     };
     raf = requestAnimationFrame(frame);
@@ -267,8 +323,26 @@ export function WorldMap({ captains, mySail, myFlag, reducedMotion, paused, onEn
     [toWorld],
   );
 
+  const sailMini = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (pausedRef.current) return;
+    const r = e.currentTarget.getBoundingClientRect();
+    const target = { x: ((e.clientX - r.left) / r.width) * WORLD_W, y: ((e.clientY - r.top) / r.height) * WORLD_H };
+    helm.current = { ...helm.current, target };
+    met.current = null;
+    setHint(false);
+    sound.unlock();
+  }, []);
+
   return (
     <div className="fixed inset-0 z-[4]">
+      <canvas
+        ref={miniRef}
+        onPointerDown={sailMini}
+        aria-label={`Chart of the whole sea: ${fleet.length} captains at anchor. Tap to sail there.`}
+        role="img"
+        className="absolute bottom-[calc(16px+env(safe-area-inset-bottom))] left-4 z-[5] w-[180px] cursor-crosshair touch-none rounded-xl border border-line shadow-lg max-sm:bottom-[calc(132px+env(safe-area-inset-bottom))] max-sm:w-[132px]"
+        style={{ aspectRatio: `${WORLD_W} / ${WORLD_H}` }}
+      />
       <canvas ref={canvasRef} onPointerDown={sail} className="block size-full cursor-crosshair touch-none" aria-label="Sea chart. Tap the water to set a course; sail to a place, a captain or a Nauarch patrol." role="img" />
       {hint && (
         <p className="pointer-events-none absolute top-[calc(84px+env(safe-area-inset-top))] left-1/2 m-0 -translate-x-1/2 rounded-full border border-line bg-glass px-3.5 py-1.5 text-xs whitespace-nowrap backdrop-blur-md max-sm:top-[calc(118px+env(safe-area-inset-top))]">
