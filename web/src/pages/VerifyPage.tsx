@@ -154,6 +154,16 @@ function ReportView({ cfg, game: g, revealTx, report, model, names }: ReportView
             <Tx cfg={cfg} hash={revealTx} />
           </p>
         )}
+        {report.sunkCheck && (
+          <p className="m-0 inline-flex items-center gap-2 text-sm">
+            <Mark check={report.sunkCheck} />
+            {report.sunkCheck === "ok"
+              ? `All ${report.sunkCount} of his "sunk" announcements match ships in his revealed fleet.`
+              : report.sunkCheck === "bad"
+                ? `His "sunk" announcements do not match his revealed fleet.`
+                : `${report.sunkCount} "sunk" announcements will be checked when he reveals his fleet.`}
+          </p>
+        )}
       </section>
 
       <section className="grid gap-3">

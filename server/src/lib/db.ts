@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS actions (id INTEGER PRIMARY KEY AUTOINCREMENT, game_i
 CREATE TABLE IF NOT EXISTS guests (id INTEGER PRIMARY KEY AUTOINCREMENT, ip TEXT NOT NULL, account TEXT NOT NULL, tx TEXT, at INTEGER NOT NULL, status TEXT NOT NULL DEFAULT 'ok');
 CREATE TABLE IF NOT EXISTS samples (kind TEXT NOT NULL, at INTEGER NOT NULL, block INTEGER NOT NULL, data TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS kv (k TEXT PRIMARY KEY, v TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS sunk (game_id INTEGER NOT NULL, cells TEXT NOT NULL, at INTEGER NOT NULL, PRIMARY KEY (game_id, cells));
 CREATE INDEX IF NOT EXISTS guests_ip_at ON guests (ip, at);
 CREATE INDEX IF NOT EXISTS samples_kind_at ON samples (kind, at);
 `;
@@ -72,6 +73,15 @@ export class Store {
     this.db
       .prepare("INSERT OR REPLACE INTO answers (game_id, idx, cell, salt, proof, tx, at) VALUES (?, ?, ?, ?, ?, ?, ?)")
       .run(gameId, a.idx, a.cell, a.salt, JSON.stringify(a.proof), a.tx, this.now());
+  }
+
+  saveSunk(gameId: number, cells: readonly number[]): void {
+    this.db.prepare("INSERT OR IGNORE INTO sunk (game_id, cells, at) VALUES (?, ?, ?)").run(gameId, JSON.stringify([...cells].sort((x, y) => x - y)), this.now());
+  }
+
+  sunk(gameId: number): number[][] {
+    const rows = this.db.prepare("SELECT cells FROM sunk WHERE game_id = ? ORDER BY at").all(gameId) as Array<{ cells: string }>;
+    return rows.map((r) => JSON.parse(r.cells) as number[]);
   }
 
   answers(gameId: number): AnswerRow[] {

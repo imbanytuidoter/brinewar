@@ -33,7 +33,7 @@ describe("verify report", () => {
     { n: 2, by: ME, index: water, result: "Miss", block: 3, source: "Player" },
   ];
   const ev = (over: Partial<NauarchEvidence> = {}): NauarchEvidence => ({
-    root: game.root_b, answers: [answer(ship), answer(water)], reveal: null,
+    root: game.root_b, answers: [answer(ship), answer(water)], reveal: null, sunk: [],
     moves: [{ kind: "Shot", source: "model", chat_id: "c", request, response, signature: sig, signed_text: null, error: null, tx: "ai", at: 1 }],
     ...over,
   });
@@ -73,9 +73,20 @@ describe("verify report", () => {
 describe("verify report for a duel", () => {
   it("trusts only the contract for both captains and ignores any server evidence", () => {
     const duel = { id: 2, a: ME, b: "p-8899aabbccddeeff.brinewar.testnet", mode: "PvP", root_b: "00".repeat(32) } as GameView;
-    const r = buildReport(duel, [{ n: 0, by: ME, index: 3, result: "Hit", block: 1, source: "Player" }], { root: null, answers: [{ idx: 3, cell: 0, salt: "00", proof: [], tx: null }], reveal: null, moves: [] }, null);
+    const r = buildReport(duel, [{ n: 0, by: ME, index: 3, result: "Hit", block: 1, source: "Player" }], { root: null, answers: [{ idx: 3, cell: 0, salt: "00", proof: [], tx: null }], reveal: null, moves: [], sunk: [] }, null);
     expect(r.shots[0]?.proof).toBe("chain");
     expect(r.moves).toEqual([]);
     expect(r.revealCheck).toBeNull();
+  });
+});
+
+describe("sunk announcements", () => {
+  it("must match ships of the revealed fleet", async () => {
+    const { sunkAgainst } = await import("./verify");
+    const fleet = [[0, 1], [55], [20, 30, 40]];
+    expect(sunkAgainst([], fleet)).toBeNull();
+    expect(sunkAgainst([[1, 0], [55]], fleet)).toBe("ok");
+    expect(sunkAgainst([[0]], fleet)).toBe("bad");
+    expect(sunkAgainst([[55]], null)).toBe("chain");
   });
 });

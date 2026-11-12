@@ -136,6 +136,7 @@ export async function buildApp(o: AppOptions) {
         answers: o.store.answers(id),
         reveal: o.store.reveal(id) ?? null,
         moves: o.store.aiMoves(id) as PublicMove[],
+        sunk: o.store.sunk(id),
       },
     };
   });

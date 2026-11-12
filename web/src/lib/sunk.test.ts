@@ -41,3 +41,13 @@ describe("their tray", () => {
     expect(tray).toHaveLength(10);
   });
 });
+
+describe("water around a sunk ship", () => {
+  it("merges announced and inferred ships once and clears every untouched neighbour", async () => {
+    const { mergeSunk, clearWater } = await import("./sunk");
+    expect(mergeSunk([[1, 0]], [[0, 1], [55]])).toEqual([[0, 1], [55]]);
+    const clear = clearWater([[0, 1]], marks([0, 1], [2]));
+    expect([...clear].sort((a, b) => a - b)).toEqual([10, 11, 12]);
+    expect(clearWater([[55]], marks([55], [])).size).toBe(8);
+  });
+});

@@ -81,6 +81,7 @@ export interface ProofsView {
     answers: AnswerRow[];
     reveal: { cells: string; salts: string[]; tx: string | null } | null;
     moves: PublicMove[];
+    sunk: number[][];
   };
 }
 

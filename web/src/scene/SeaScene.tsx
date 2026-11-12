@@ -21,6 +21,7 @@ preloadModels();
 
 const EXPOSURE = 1.05;
 const NO_SHIPS: readonly (readonly number[])[] = [];
+const NO_CELLS: ReadonlySet<number> = new Set();
 
 function skyTexture(): THREE.Texture {
   const c = document.createElement("canvas");
@@ -95,7 +96,10 @@ function Shaker({ children }: { readonly children: React.ReactNode }) {
 function World(props: SeaSceneProps) {
   const runtime = useRuntime();
   useReveal(props.enemyShips !== null);
-  const { onLaunch, onLand } = props;
+  const { onLaunch, onLand, enemyClear } = props;
+  useEffect(() => {
+    runtime.effects.setClear(enemyClear ?? NO_CELLS);
+  }, [runtime, enemyClear]);
   useEffect(() => {
     runtime.hooks.launch = onLaunch ?? null;
     runtime.hooks.land = onLand ?? null;
@@ -113,7 +117,7 @@ function World(props: SeaSceneProps) {
       <Shaker>
         <Sea aiming={props.aiming} />
         <Labels enemy={props.enemyLabel ?? "The Nauarch"} />
-        <Picker marks={props.enemyMarks} aiming={props.aiming} canFire={props.canFire} onFire={props.onFire} />
+        <Picker marks={props.enemyMarks} aiming={props.aiming} canFire={props.canFire} onFire={props.onFire} blocked={props.enemyClear ?? NO_CELLS} />
         <Suspense fallback={null}>
           <Effects />
           <Scenery layout={layoutFor(props.layout ?? null)} />

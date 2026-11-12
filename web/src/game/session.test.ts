@@ -149,10 +149,11 @@ class FakeContract implements Viewer, Caller {
 
   reveal: NauarchEvidence["reveal"] = null;
   hang = false;
+  sunk: number[][] = [];
 
   evidence = async (id: number): Promise<NauarchEvidence | null> => {
     if (this.hang) throw new Error("timeout");
-    return this.game && this.game.id === id ? { root: this.game.root_b, answers: [], reveal: this.reveal, moves: this.moves } : null;
+    return this.game && this.game.id === id ? { root: this.game.root_b, answers: [], reveal: this.reveal, moves: this.moves, sunk: this.sunk } : null;
   };
 }
 
@@ -273,6 +274,16 @@ describe("GameSession", () => {
     await session.tick();
     await session.tick();
     expect(chain.calls.filter((c) => c === "reveal")).toHaveLength(1);
+  });
+
+  it("shows a sunk ship as soon as the Nauarch announces it, and only if every cell is a hit", async () => {
+    const { chain, session } = setup();
+    await session.start(placeFleet(seededRng(7)));
+    const target = chain.enemy.indexOf(1);
+    chain.sunk = [[target], [98, 99]];
+    await session.fire(target);
+    await session.tick();
+    expect(session.snapshot.announcedSunk).toEqual([[target]]);
   });
 
   it("ignores a game view older than the one it already showed", () => {

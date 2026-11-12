@@ -24,6 +24,14 @@ function move(v: unknown): PublicMove | null {
   };
 }
 
+const MAX_SHIPS = 10;
+const LONGEST = 4;
+
+function sunkShips(v: unknown): number[][] {
+  if (!Array.isArray(v) || v.length > MAX_SHIPS) return [];
+  return v.filter((s): s is number[] => Array.isArray(s) && s.length >= 1 && s.length <= LONGEST && s.every((c) => Number.isInteger(c) && c >= 0 && c < 100));
+}
+
 export type NauarchEvidence = ProofsView["nauarch"];
 
 export function parseEvidence(raw: unknown, gameId: number): NauarchEvidence | null {
@@ -39,7 +47,7 @@ export function parseEvidence(raw: unknown, gameId: number): NauarchEvidence | n
     const salts = n.reveal.salts;
     if (cells !== null && Array.isArray(salts) && salts.every((s) => typeof s === "string")) reveal = { cells, salts: salts as string[], tx: str(n.reveal.tx) };
   }
-  return { root: str(n.root), answers: answers as AnswerRow[], moves: moves as PublicMove[], reveal };
+  return { root: str(n.root), answers: answers as AnswerRow[], moves: moves as PublicMove[], reveal, sunk: sunkShips(n.sunk) };
 }
 
 export async function fetchEvidence(apiUrl: string, gameId: number, fetchFn: typeof fetch = fetch): Promise<NauarchEvidence | null> {

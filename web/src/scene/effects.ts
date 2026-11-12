@@ -12,6 +12,7 @@ const BALL_DIAMETER = 0.42;
 const SMOKE_CHANCE = 0.45;
 const SMOKE_BUDGET = 6;
 const MUZZLE_HEIGHT = 1.6;
+const CLEAR_COLOR = "#dbe7ec";
 const TRAIL_COLOR = "#c9d2d6";
 
 export interface Afloat {
@@ -69,6 +70,9 @@ export class EffectsEngine {
   readonly #flights: Flight[] = [];
   readonly #ringGeo = new THREE.RingGeometry(0.3, 0.42, 48);
   readonly #buoyGeo = new THREE.TorusGeometry(0.22, 0.05, 8, 24);
+  readonly #clearGeo = new THREE.CircleGeometry(0.1, 16);
+  readonly #clearMat = new THREE.MeshBasicMaterial({ color: CLEAR_COLOR, transparent: true, opacity: 0.75, depthTest: false });
+  readonly #clear = new Map<number, THREE.Mesh>();
   readonly #buoyMat = new THREE.MeshStandardMaterial({ color: BUOY_COLOR, roughness: 0.6, depthTest: false });
   readonly #tmp = new THREE.Vector3();
   #ball: THREE.Object3D | null = null;
@@ -260,6 +264,24 @@ export class EffectsEngine {
     this.#pool.update(dt);
   }
 
+  setClear(cells: ReadonlySet<number>): void {
+    for (const [cell, m] of this.#clear) {
+      if (cells.has(cell)) continue;
+      this.group.remove(m);
+      this.#clear.delete(cell);
+    }
+    for (const cell of cells) {
+      if (this.#clear.has(cell)) continue;
+      const c = cellCenter("enemy", cell);
+      const m = new THREE.Mesh(this.#clearGeo, this.#clearMat);
+      m.rotation.x = -Math.PI / 2;
+      m.renderOrder = 2;
+      m.position.set(c.x, 0.12, c.z);
+      this.group.add(m);
+      this.#clear.set(cell, m);
+    }
+  }
+
   reset(side: Side): void {
     for (let i = this.#flights.length - 1; i >= 0; i--) {
       const f = this.#flights[i];
@@ -280,6 +302,8 @@ export class EffectsEngine {
     for (const r of this.#rings) r.m.material.dispose();
     this.#ringGeo.dispose();
     this.#buoyGeo.dispose();
+    this.#clearGeo.dispose();
+    this.#clearMat.dispose();
     this.#buoyMat.dispose();
     this.#pool.dispose();
     this.group.clear();

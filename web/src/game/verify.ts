@@ -29,6 +29,8 @@ export interface Report {
   readonly moves: readonly MoveRow[];
   readonly nauarchFleet: readonly (readonly number[])[] | null;
   readonly revealCheck: Check | null;
+  readonly sunkCheck: Check | null;
+  readonly sunkCount: number;
   readonly proofsOk: number;
   readonly proofsBad: number;
   readonly signedOk: number;
@@ -65,8 +67,17 @@ export function buildReport(game: GameView, history: readonly ShotView[], ev: Na
   return {
     shots, moves, nauarchFleet,
     revealCheck: reveal ? (nauarchFleet ? "ok" : "bad") : null,
+    sunkCheck: sunkAgainst(duel ? [] : (ev?.sunk ?? []), nauarchFleet),
+    sunkCount: duel ? 0 : (ev?.sunk.length ?? 0),
     proofsOk: shots.filter((s) => s.proof === "ok").length,
     proofsBad: shots.filter((s) => s.proof === "bad").length,
     signedOk: moves.filter((m) => m.signed === "ok").length,
   };
+}
+
+export function sunkAgainst(announced: readonly (readonly number[])[], fleet: readonly (readonly number[])[] | null): Check | null {
+  if (announced.length === 0) return null;
+  if (!fleet) return "chain";
+  const real = new Set(fleet.map((s) => [...s].sort((a, b) => a - b).join()));
+  return announced.every((s) => real.has([...s].sort((a, b) => a - b).join())) ? "ok" : "bad";
 }

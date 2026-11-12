@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import { Admiral } from "../src/admiral/admiral.js";
 import type { GameView } from "../src/lib/contract.js";
 import { Store } from "../src/lib/db.js";
-import { isLegalFleet, seededRng } from "../src/lib/fleet.js";
+import { isLegalFleet, seededRng, ships } from "../src/lib/fleet.js";
 import { fromHex, rootFromProof, toHex } from "../src/lib/merkle.js";
 import { Vault } from "../src/lib/vault.js";
 import { FakeCaller, FakeModel, FakeViewer, silent } from "./fakes.js";
@@ -75,6 +75,21 @@ describe("admiral", () => {
     expect(a.index).toBe(37);
     expect(toHex(rootFromProof(37, a.cell, fromHex(a.salt), a.proof.map(fromHex)))).toBe(root);
     expect(t.store.answers(0)).toHaveLength(1);
+  });
+
+  it("announces a sunk ship as soon as its last cell is answered", async () => {
+    const t = setup();
+    await t.settle();
+    const root = t.store.board(0)?.root as string;
+    const plain = JSON.parse(new Vault(KEY).open(t.store.board(0)?.sealed as string, "game:0")) as { cells: number[] };
+    const [first, second] = ships(plain.cells).find((s) => s.length === 2) as [number, number];
+    const ship = [first, second];
+    t.set({ status: "Playing", root_b: root, turn: ADM, pending_index: first, shots: 1 });
+    await t.settle();
+    expect(t.store.sunk(0)).toEqual([]);
+    t.set({ pending_index: second, shots: 3 });
+    await t.settle();
+    expect(t.store.sunk(0)).toEqual([ship]);
   });
 
   it("fires right after answering, without waiting for the next tick", async () => {

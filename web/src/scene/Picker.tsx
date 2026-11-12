@@ -12,13 +12,14 @@ interface PickerProps {
   readonly aiming: number | null;
   readonly canFire: boolean;
   readonly onFire: (index: number) => void;
+  readonly blocked?: ReadonlySet<number>;
 }
 
-export function Picker({ marks, aiming, canFire, onFire }: PickerProps) {
+export function Picker({ marks, aiming, canFire, onFire, blocked }: PickerProps) {
   const { uniforms } = useRuntime();
   const o = BOARD_ORIGIN.enemy;
 
-  const open = (cell: number | null): cell is number => cell !== null && canFire && !marks.has(cell) && cell !== aiming;
+  const open = (cell: number | null): cell is number => cell !== null && canFire && !marks.has(cell) && cell !== aiming && !(blocked?.has(cell) ?? false);
 
   const clearHover = () => uniforms.uHover.value.set(OFF_BOARD, OFF_BOARD);
 

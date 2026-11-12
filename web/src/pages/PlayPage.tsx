@@ -13,8 +13,10 @@ import { CalloutBanner } from "@/ui/CalloutBanner";
 import { EncounterCard, type BattleMode } from "@/world/EncounterCard";
 import { useMapCaptains } from "@/world/useMapCaptains";
 import { WorldMap, type Encounter } from "@/world/WorldMap";
+import { layoutForBattle, randomLayout } from "@/scene/layoutChoice";
+import { browserStorage } from "@/lib/storage";
 import { FleetTray } from "@/ui/FleetTray";
-import { confirmedSunk } from "@/lib/sunk";
+import { clearWater, confirmedSunk, mergeSunk } from "@/lib/sunk";
 import type { AppConfig } from "@/lib/config";
 import { txLink } from "@/lib/config";
 import { cryptoRng, placeFleet, ships } from "@/lib/fleet";
@@ -64,17 +66,19 @@ export function PlayPage({ cfg, session, stats, landing, onEnter }: PlayPageProp
   const verifyHref = snap.gameId !== null ? `/verify/${snap.gameId}` : null;
   const txHref = useCallback((h: string | null) => txLink(cfg, h), [cfg]);
 
-  const sunkTheirs = useMemo(() => confirmedSunk(snap.marks.enemy), [snap.marks.enemy]);
+  const sunkTheirs = useMemo(() => mergeSunk(confirmedSunk(snap.marks.enemy), snap.announcedSunk), [snap.marks.enemy, snap.announcedSunk]);
+  const clearCells = useMemo(() => clearWater(sunkTheirs, snap.marks.enemy), [sunkTheirs, snap.marks.enemy]);
   const heat = stats.admiralty && stats.admiralty.boards_counted > 0 ? stats.admiralty.heat : null;
-  const feed = useBattleFeed({ myShips, myMarks: snap.marks.mine, enemyMarks: snap.marks.enemy, heat, boards: stats.admiralty?.boards_counted ?? 0, rival: duel ? (rival ?? "Your friend") : null });
+  const feed = useBattleFeed({ myShips, myMarks: snap.marks.mine, enemyMarks: snap.marks.enemy, sunkTheirs, heat, boards: stats.admiralty?.boards_counted ?? 0, rival: duel ? (rival ?? "Your friend") : null });
   const firedSound = feed.fired;
   const onFire = useCallback(
     (index: number) => {
       sound.unlock();
+      if (clearCells.has(index)) return;
       firedSound(index);
       void session.fire(index);
     },
-    [session, firedSound],
+    [session, firedSound, clearCells],
   );
   const sail = useCallback(() => {
     sound.unlock();
@@ -95,9 +99,12 @@ export function PlayPage({ cfg, session, stats, landing, onEnter }: PlayPageProp
   const [view, setView] = useState<"chart" | "setup">("chart");
   const [encounter, setEncounter] = useState<Encounter | null>(null);
   const captains = useMapCaptains(cfg);
+  const [layoutPick, setLayoutPick] = useState(() => randomLayout());
+  const layout = useMemo(() => layoutForBattle(browserStorage(), snap.gameId, layoutPick), [snap.gameId, layoutPick]);
   const again = useCallback(() => {
     session.leave();
     setDraft(placeFleet(cryptoRng()));
+    setLayoutPick(randomLayout());
     setView("chart");
   }, [session]);
   const [mode, setMode] = useState<BattleMode>("nauarch");
@@ -114,6 +121,10 @@ export function PlayPage({ cfg, session, stats, landing, onEnter }: PlayPageProp
   useEffect(() => {
     if (landing && snap.gameId !== null) onEnter();
   }, [landing, snap.gameId, onEnter]);
+  const announceSunk = feed.announce;
+  useEffect(() => {
+    for (const ship of snap.announcedSunk) announceSunk(ship);
+  }, [snap.announcedSunk, announceSunk]);
   const heard = useRef(result);
   useEffect(() => {
     if (result === heard.current) return;
@@ -144,8 +155,9 @@ export function PlayPage({ cfg, session, stats, landing, onEnter }: PlayPageProp
           myLook={myLook}
           enemyLabel={enemyLabel}
           enemyHulls={duel ? "brine" : "pirate"}
-          layout={snap.gameId}
+          layout={layout}
           enemyWrecks={sunkTheirs}
+          enemyClear={clearCells}
           onLaunch={feed.onLaunch}
           onLand={feed.onLand}
         />
@@ -156,7 +168,7 @@ export function PlayPage({ cfg, session, stats, landing, onEnter }: PlayPageProp
 
       {inBattle && step !== "invite" && step !== "lost-board" && (
         <div className="fixed top-[calc(76px+env(safe-area-inset-top))] left-[max(16px,env(safe-area-inset-left))] z-10 w-[268px] max-md:hidden">
-          <FleetTray look={myLook} myShips={myShips} myMarks={snap.marks.mine} sunkTheirs={sunkTheirs} enemyLabel={duel ? (rival ?? "Your friend") : "The Nauarch"} />
+          <FleetTray look={myLook} enemyMarks={snap.marks.enemy} myShips={myShips} myMarks={snap.marks.mine} sunkTheirs={sunkTheirs} enemyLabel={duel ? (rival ?? "Your friend") : "The Nauarch"} />
         </div>
       )}
 

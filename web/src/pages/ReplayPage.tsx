@@ -81,7 +81,7 @@ function Theatre({ replay }: { readonly replay: Replay }) {
   const marks = useMemo(() => marksFrom(shown, game.a), [shown, game.a]);
   const done = step >= history.length;
   const wrecks = useMemo(() => confirmedSunk(marks.enemy), [marks.enemy]);
-  const feed = useBattleFeed({ myShips: replay.captainShips, myMarks: marks.mine, enemyMarks: marks.enemy, heat: null, boards: 0, rival: null });
+  const feed = useBattleFeed({ myShips: replay.captainShips, myMarks: marks.mine, enemyMarks: marks.enemy, sunkTheirs: wrecks, heat: null, boards: 0, rival: null });
   const lastNauarch = [...shown].reverse().find((s) => s.by === game.b && replay.lines.has(s.n));
   const spoken = lastNauarch ? replay.lines.get(lastNauarch.n) : undefined;
 

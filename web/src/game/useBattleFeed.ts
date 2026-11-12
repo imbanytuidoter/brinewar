@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { sound } from "@/lib/sound";
-import { confirmedSunk, shipAt, sunkOwn } from "@/lib/sunk";
+import { shipAt, sunkOwn } from "@/lib/sunk";
 import { cellName } from "@/lib/utils";
 import type { Mark, Side } from "@/scene/types";
 
@@ -20,6 +20,7 @@ export interface FeedContext {
   readonly myShips: readonly (readonly number[])[];
   readonly myMarks: ReadonlyMap<number, Mark>;
   readonly enemyMarks: ReadonlyMap<number, Mark>;
+  readonly sunkTheirs: readonly (readonly number[])[];
   readonly heat: readonly number[] | null;
   readonly boards: number;
   readonly rival: string | null;
@@ -45,6 +46,7 @@ export function useBattleFeed(ctx: FeedContext): {
   readonly last: CalloutTone | null;
   readonly onLaunch: (side: Side, cell: number, hit: boolean) => void;
   readonly fired: (cell: number) => void;
+  readonly announce: (ship: readonly number[]) => void;
   readonly onLand: (side: Side, cell: number, hit: boolean) => void;
 } {
   const ref = useRef(ctx);
@@ -70,6 +72,19 @@ export function useBattleFeed(ctx: FeedContext): {
   }, []);
 
   const heard = useRef(new Set<number>());
+  const shownSunk = useRef(new Set<string>());
+  const landedHits = useRef(new Set<number>());
+  const announce = useCallback(
+    (ship: readonly number[]) => {
+      const key = [...ship].sort((a, b) => a - b).join();
+      if (shownSunk.current.has(key)) return;
+      shownSunk.current.add(key);
+      if (!ship.some((c) => landedHits.current.has(c))) return;
+      sound.sunk();
+      show("Sunk!", `${shipName(ship.length)} down · ${cellName(ship[ship.length - 1] ?? 0)}`, "sunk");
+    },
+    [show],
+  );
   const fired = useCallback((cell: number) => {
     heard.current.add(cell);
     sound.cannon();
@@ -90,8 +105,10 @@ export function useBattleFeed(ctx: FeedContext): {
           return;
         }
         streak.current += 1;
-        const sunk = confirmedSunk(c.enemyMarks).find((s) => s.includes(cell));
+        landedHits.current.add(cell);
+        const sunk = c.sunkTheirs.find((s) => s.includes(cell));
         if (sunk) {
+          shownSunk.current.add([...sunk].sort((a, b) => a - b).join());
           sound.sunk();
           show("Sunk!", `${shipName(sunk.length)} down · ${cellName(cell)}`, "sunk");
           return;
@@ -119,5 +136,5 @@ export function useBattleFeed(ctx: FeedContext): {
     [show],
   );
 
-  return { callout, last, onLaunch, fired, onLand };
+  return { callout, last, onLaunch, fired, announce, onLand };
 }

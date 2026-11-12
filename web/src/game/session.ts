@@ -37,6 +37,7 @@ export interface Snapshot {
   readonly opponentName: string | null;
   readonly invite: string | null;
   readonly deadlineAt: number | null;
+  readonly announcedSunk: readonly (readonly number[])[];
 }
 
 const STATUS_ORDER: Readonly<Record<string, number>> = { Waiting: 0, Placing: 1, Playing: 2, Revealing: 3, Finished: 4 };
@@ -85,6 +86,7 @@ export interface SessionDeps {
 }
 
 export const BLOCK_MS = 587;
+const SUNK_RETRIES = 2;
 
 export function inviteKey(accountId: string, gameId: number): string {
   return `brinewar.invite.${accountId}.${gameId}`;
@@ -120,13 +122,15 @@ export class GameSession {
   #lastRefuel = -Infinity;
   #stall: { key: string; since: number } | null = null;
   #settled: number | null = null;
+  #hitsSeen = 0;
+  #hitRetries = 0;
 
   constructor(d: SessionDeps) {
     this.#d = d;
     this.#now = d.now ?? Date.now;
     this.#snap = {
       accountId: d.accountId, gameId: null, game: null, history: [], marks: EMPTY_MARKS, step: null,
-      board: null, lines: [], busy: null, error: null, lastTx: null, offline: false, enemyFleet: null, enemyRevealTx: null, captain: null, rewards: null, opponentName: null, invite: null, deadlineAt: null,
+      board: null, lines: [], busy: null, error: null, lastTx: null, offline: false, enemyFleet: null, enemyRevealTx: null, captain: null, rewards: null, opponentName: null, invite: null, deadlineAt: null, announcedSunk: [],
     };
   }
 
@@ -256,7 +260,7 @@ export class GameSession {
     this.#nauarchShots = -1;
     this.#evidenceTries = 0;
     this.#settled = null;
-    this.#set({ gameId: id, game: null, history: [], marks: EMPTY_MARKS, step: null, board, lines: [], error: null, enemyFleet: null, enemyRevealTx: null, rewards: null, opponentName: null, invite: null, deadlineAt: null });
+    this.#set({ gameId: id, game: null, history: [], marks: EMPTY_MARKS, step: null, board, lines: [], error: null, enemyFleet: null, enemyRevealTx: null, rewards: null, opponentName: null, invite: null, deadlineAt: null, announcedSunk: [] });
   }
 
   async #captain(): Promise<Captain | null> {
@@ -417,11 +421,20 @@ export class GameSession {
     const wantFarewell = g.farewell_said && !this.#snap.lines.some((l) => l.kind === "Farewell");
     const wantFleet = g.revealed_b && this.#snap.enemyFleet === null;
     const newShots = nauarchShots.length !== this.#nauarchShots;
-    if (!newShots && !((wantFarewell || wantFleet) && this.#evidenceTries < EVIDENCE_TRIES)) return;
+    const myHits = history.filter((s) => s.by !== g.b && s.result === "Hit").length;
+    const newHit = myHits !== this.#hitsSeen || this.#hitRetries > 0;
+    if (!newShots && !newHit && !((wantFarewell || wantFleet) && this.#evidenceTries < EVIDENCE_TRIES)) return;
+    if (myHits !== this.#hitsSeen) {
+      this.#hitsSeen = myHits;
+      this.#hitRetries = SUNK_RETRIES;
+    } else if (this.#hitRetries > 0) this.#hitRetries -= 1;
     if (!newShots) this.#evidenceTries += 1;
     const ev = await this.#d.evidence(g.id);
     if (!ev) return;
     this.#nauarchShots = nauarchShots.length;
+    const hit = new Set(history.filter((s) => s.by !== g.b && s.result === "Hit").map((s) => s.index));
+    const announced = ev.sunk.filter((ship) => ship.every((c) => hit.has(c)));
+    if (announced.length !== this.#snap.announcedSunk.length) this.#set({ announcedSunk: announced });
     if (wantFleet && ev.reveal && g.root_b) {
       const fleet = verifiedFleet(ev.reveal.cells, ev.reveal.salts, g.root_b);
       if (fleet) this.#set({ enemyFleet: fleet, enemyRevealTx: ev.reveal.tx });

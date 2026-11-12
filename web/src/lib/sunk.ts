@@ -58,3 +58,30 @@ export function sunkOwn(ships: readonly (readonly number[])[], marks: ReadonlyMa
 export function shipAt(ships: readonly (readonly number[])[], cell: number): readonly number[] | null {
   return ships.find((s) => s.includes(cell)) ?? null;
 }
+
+export function mergeSunk(...lists: ReadonlyArray<readonly (readonly number[])[]>): number[][] {
+  const seen = new Map<string, number[]>();
+  for (const list of lists) for (const ship of list) {
+    const sorted = [...ship].sort((a, b) => a - b);
+    seen.set(sorted.join(), sorted);
+  }
+  return [...seen.values()];
+}
+
+export function clearWater(sunk: readonly (readonly number[])[], marks: ReadonlyMap<number, Mark>): Set<number> {
+  const out = new Set<number>();
+  const ship = new Set(sunk.flat());
+  for (const cell of ship) {
+    const x = cell % SIZE;
+    const y = Math.floor(cell / SIZE);
+    for (let dy = -1; dy <= 1; dy++)
+      for (let dx = -1; dx <= 1; dx++) {
+        const nx = x + dx;
+        const ny = y + dy;
+        if (nx < 0 || ny < 0 || nx >= SIZE || ny >= SIZE) continue;
+        const n = ny * SIZE + nx;
+        if (!ship.has(n) && !marks.has(n)) out.add(n);
+      }
+  }
+  return out;
+}

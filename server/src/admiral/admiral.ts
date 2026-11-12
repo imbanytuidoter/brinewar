@@ -3,7 +3,7 @@ import { answerArgs, newBoard, revealArgs, rootHex, type Board, freshSalts } fro
 import type { ConfigView, GameView, MoveKind } from "../lib/contract.js";
 import { GAME_GAS_TGAS, PAGE } from "../lib/contract.js";
 import type { Store } from "../lib/db.js";
-import { cryptoRng, placeFleet, type Rng } from "../lib/fleet.js";
+import { cryptoRng, placeFleet, ships, type Rng } from "../lib/fleet.js";
 import { fromHex, sha256, toHex } from "../lib/merkle.js";
 import type { Caller, Viewer } from "../lib/near.js";
 import { withTimeout } from "../lib/near.js";
@@ -167,8 +167,17 @@ export class Admiral {
     if (!board) throw new Error(`no board for game ${g.id}`);
     const args = answerArgs(board, g.id, index);
     const r = await this.#send(g.id, "answer", args);
-    if (r.ok) this.#o.store.saveAnswer(g.id, { idx: index, cell: args.cell, salt: args.salt, proof: args.proof, tx: r.tx });
-    return r.ok;
+    if (!r.ok) return false;
+    this.#o.store.saveAnswer(g.id, { idx: index, cell: args.cell, salt: args.salt, proof: args.proof, tx: r.tx });
+    if (args.cell === 1) this.#announceSunk(g.id, board, index);
+    return true;
+  }
+
+  #announceSunk(gameId: number, board: Board, index: number): void {
+    const ship = ships(board.cells).find((s) => s.includes(index));
+    if (!ship) return;
+    const hits = new Set(this.#o.store.answers(gameId).filter((a) => a.cell === 1).map((a) => a.idx));
+    if (ship.every((c) => hits.has(c))) this.#o.store.saveSunk(gameId, ship);
   }
 
   async #followUp(gameId: number): Promise<void> {
