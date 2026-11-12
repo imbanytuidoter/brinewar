@@ -1,4 +1,4 @@
-import { Anchor, BadgeCheck, Coins, ExternalLink, Map as MapIcon, ShieldCheck } from "lucide-react";
+import { Anchor, BadgeCheck, Coins, ExternalLink, Map as MapIcon, ShieldCheck, Swords } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { accountLink, networkOf, type AppConfig } from "@/lib/config";
 import { cn } from "@/lib/utils";
@@ -17,6 +17,7 @@ const STACK = ["near-sdk 5.30.1", "near-api-js 7.4.0", "NEP-245", "NEP-297", "NE
 
 const DOORS = [
   { href: "/", icon: Anchor, title: "Play the Nauarch", line: "Open it in a fresh browser. No wallet, no seed phrase, no popup: a guest account and 100 gold appear in a few seconds." },
+  { href: "/", icon: Swords, title: "Duel a friend", line: "Press Challenge a friend and send the link. They play from their own browser, no wallet either, with the same proofs on every answer." },
   { href: "/admiralty", icon: MapIcon, title: "Admiralty map", line: "Where captains hide ships, built only from boards the contract verified. The Nauarch hunts the hot cells first." },
   { href: "/treasury", icon: Coins, title: "Treasury", line: "Bounties shrink and entry fees rise as he grows poor. Fast-forward 50 battles with the contract's own formulas." },
 ] as const;
@@ -132,7 +133,7 @@ export function JudgesPage({ cfg }: { readonly cfg: AppConfig }) {
     >
       {chapters && <DemoVideo chapters={chapters} />}
 
-      <section className="grid gap-3 md:grid-cols-3">
+      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {DOORS.map(({ href, icon: Icon, title, line }) => (
           <a key={href} href={href} className="grid gap-2 rounded-2xl border border-line bg-glass p-4 backdrop-blur-md transition-colors hover:border-brass">
             <Icon className="size-5 text-brass" aria-hidden />

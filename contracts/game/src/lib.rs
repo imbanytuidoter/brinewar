@@ -31,6 +31,11 @@ use tokens::GOLD;
 pub const MAX_PAGE: u32 = 100;
 pub const MAX_MISSES: u8 = (CELLS - SHIP_CELLS) as u8;
 pub const PVP_JOIN_WINDOW: u64 = 15;
+const INVITE_PREFIX: &[u8] = b"i";
+
+fn invite_key(game_id: u64) -> Vec<u8> {
+    [INVITE_PREFIX, &game_id.to_le_bytes()].concat()
+}
 
 #[near(contract_state)]
 #[derive(PanicOnDefault)]
@@ -175,7 +180,8 @@ impl Brinewar {
         id
     }
 
-    pub fn new_game_pvp(&mut self) -> u64 {
+    pub fn new_game_pvp(&mut self, invite_hash: String) -> u64 {
+        let invite = ok_or_fail(parse_hash(&invite_hash, "invite"));
         let player = env::predecessor_account_id();
         require!(player != self.nauarch, "the Nauarch cannot play itself");
         require!(
@@ -219,6 +225,7 @@ impl Brinewar {
         };
         self.active_game.insert(player.clone(), id);
         self.games.insert(id, game);
+        env::storage_write(&invite_key(id), &invite);
         emit(
             "game_created",
             json!({"game_id": id, "mode": "PvP", "a": player, "stake": U128(0)}),
@@ -248,6 +255,7 @@ impl Brinewar {
         );
         self.require_before_deadline(&game);
         self.count_game_today(&joiner);
+        env::storage_remove(&invite_key(game_id));
         game.b = joiner.clone();
         game.status = Status::Placing;
         game.deadline_block = env::block_height() + self.settings.move_timeout_blocks;
@@ -395,13 +403,16 @@ impl Brinewar {
         game.set_revealed(side);
         let mut counted = false;
         if fleet.is_ok() {
-            let human = game.mode == Mode::PvP || side == Side::A;
-            if human {
-                let account = game.account(side).clone();
-                self.add_zones(&account, &cells);
-                counted = self.count_board(&game, side, &cells);
-            }
-            if game.mode == Mode::PvP || side == Side::B {
+            if game.mode == Mode::VsNauarch {
+                match side {
+                    Side::A => {
+                        let account = game.a.clone();
+                        self.add_zones(&account, &cells);
+                        counted = self.count_board(&game, Side::A, &cells);
+                    }
+                    Side::B => self.award_sunk(&game, Side::A, &cells),
+                }
+            } else if self.full_duel(&game) {
                 self.award_sunk(&game, side.other(), &cells);
             }
         }
@@ -569,11 +580,15 @@ impl Brinewar {
             self.open_games = self.open_games.saturating_sub(1);
             self.settle(game, winner, reason);
             if winner.is_some() {
-                self.record_result(game, Side::A, winner == Some(Side::A));
+                self.record_result(game, Side::A, winner == Some(Side::A), true);
             }
-        } else if let Some(w) = winner {
-            self.record_result(game, w, true);
-            self.record_result(game, w.other(), false);
+        } else {
+            env::storage_remove(&invite_key(game.id));
+            if let Some(w) = winner {
+                let full = self.full_duel(game);
+                self.record_result(game, w, true, full);
+                self.record_result(game, w.other(), false, full);
+            }
         }
         game.status = Status::Finished;
         game.winner = winner;
@@ -626,7 +641,12 @@ impl Brinewar {
         )
     }
 
-    fn record_result(&mut self, game: &Game, side: Side, player_won: bool) {
+    fn full_duel(&self, game: &Game) -> bool {
+        let min = self.settings.min_heat_shots as usize;
+        game.sank_fleet() && game.answered_by(Side::A) >= min && game.answered_by(Side::B) >= min
+    }
+
+    fn record_result(&mut self, game: &Game, side: Side, player_won: bool, earns_xp: bool) {
         let now = env::block_height();
         let account = game.account(side).clone();
         if game.mode == Mode::VsNauarch {
@@ -649,7 +669,11 @@ impl Brinewar {
         } else {
             0
         };
-        let xp = game.hits_on(side.other()) as u64 * XP_HIT + win_xp;
+        let xp = if earns_xp {
+            game.hits_on(side.other()) as u64 * XP_HIT + win_xp
+        } else {
+            0
+        };
         if let Some(s) = self.ships.get_mut(&ship) {
             s.xp += xp;
             if player_won {

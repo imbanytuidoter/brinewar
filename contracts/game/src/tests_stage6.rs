@@ -110,6 +110,12 @@ fn refuels_stop_at_the_daily_guest_limit() {
     assert!(msg.contains("daily guest limit"), "{msg}");
 }
 
+const SECRET: &str = "5ec2e75ec2e75ec2e75ec2e75ec2e75ec2e75ec2e75ec2e75ec2e75ec2e75ec2";
+
+fn invite_hash() -> String {
+    hex::encode(env::sha256(hex::decode(SECRET).unwrap()))
+}
+
 fn friend() -> AccountId {
     acc("friend.testnet")
 }
@@ -133,7 +139,7 @@ impl Duel {
         chain.act(&registrar());
         c.register_player(friend(), Some("Ishmael".into()));
         chain.act(&player());
-        let id = c.new_game_pvp();
+        let id = c.new_game_pvp(invite_hash());
         chain.act(&friend());
         c.join_game(id);
         Duel {
@@ -201,7 +207,7 @@ fn only_a_free_registered_captain_can_join_a_waiting_duel() {
     chain.act(&registrar());
     c.register_player(friend(), None);
     chain.act(&player());
-    let id = c.new_game_pvp();
+    let id = c.new_game_pvp(invite_hash());
     assert_eq!(c.get_game(id).unwrap().status, Status::Waiting);
     let msg = panics(|| c.join_game(id));
     assert!(msg.contains("your own"), "{msg}");
@@ -226,11 +232,15 @@ fn an_unjoined_duel_is_cancelled_by_its_creator_or_by_time() {
     let mut chain = Chain { height: 100 };
     let mut c = contract(&mut chain);
     chain.act(&player());
-    let id = c.new_game_pvp();
+    let id = c.new_game_pvp(invite_hash());
     c.resign(id);
     assert!(c.get_game(id).is_none());
     assert_eq!(c.active_game_of(player()), None);
-    let id = c.new_game_pvp();
+    let msg = panics(|| {
+        c.new_game_pvp("abc".into());
+    });
+    assert!(msg.contains("invite"), "{msg}");
+    let id = c.new_game_pvp(invite_hash());
     chain.skip(settings().move_timeout_blocks * 20);
     chain.act(&acc("anyone.testnet"));
     c.claim_timeout(id);
@@ -274,6 +284,7 @@ fn a_full_duel_moves_no_gold_and_grows_both_flagships() {
     assert_eq!(sa.sunk, 10);
     assert!(sa.xp >= 200 + 100 + 300, "{}", sa.xp);
     assert_eq!(pa.games_vs_nauarch, 0);
+    assert_eq!(d.c.admiralty_map().boards_counted, 0);
     assert_eq!(d.c.active_game_of(player()), None);
     assert_eq!(d.c.active_game_of(friend()), None);
 }
@@ -288,4 +299,34 @@ fn the_second_captain_fires_and_answers_in_a_duel() {
     assert_eq!(h.len(), 2);
     assert_eq!(h[1].by, friend());
     assert_ne!(h[1].result, ShotResult::Pending);
+}
+
+#[test]
+fn a_resigned_or_short_duel_gives_no_xp() {
+    let mut d = Duel::joined();
+    d.commit();
+    let targets = d.b.ship_cells();
+    let misses = d.a.water_cells();
+    for k in 0..3 {
+        d.shot(&player(), targets[k]);
+        d.shot(&friend(), misses[k]);
+    }
+    d.chain.act(&friend());
+    d.c.resign(d.id);
+    let pa = d.c.get_player(player()).unwrap();
+    let sa = d.c.get_ship(pa.flagship).unwrap();
+    assert_eq!(sa.xp, 0);
+    assert_eq!(sa.wins, 1);
+}
+
+#[test]
+fn the_nauarch_methods_refuse_a_duel() {
+    let mut d = Duel::joined();
+    d.commit();
+    d.chain.act(&nauarch());
+    let msg = panics(|| d.c.nauarch_fallback(d.id));
+    assert!(
+        msg.contains("not a player") || msg.contains("Nauarch battle"),
+        "{msg}"
+    );
 }

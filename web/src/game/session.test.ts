@@ -316,6 +316,7 @@ describe("duels with a friend", () => {
     expect(await session.startDuel(placeFleet(seededRng(7)))).toBe(true);
     expect(session.snapshot.step).toEqual({ kind: "invite" });
     expect(chain.calls).toEqual(["new_game_pvp"]);
+    expect(session.snapshot.invite).toMatch(/^[0-9a-f]{64}$/);
     const g = chain.game as GameView;
     g.b = FRIEND;
     g.status = "Placing";
@@ -333,12 +334,19 @@ describe("duels with a friend", () => {
       winner: null, finish_reason: null, hits_on_a: 0, hits_on_b: 0, shots: 0, pending_index: null, revealed_a: false,
       revealed_b: false, created_block: 1, stake: "0", farewell_said: false,
     };
-    expect(await session.join(9, placeFleet(seededRng(7)))).toBe(true);
+    expect(await session.join(9, "ab".repeat(32), placeFleet(seededRng(7)))).toBe(true);
     expect(chain.calls).toEqual(["join_game", "commit_board"]);
     expect(chain.game.root_b).not.toBeNull();
     expect(chain.game.status).toBe("Playing");
     expect(store.get(boardKey(ME, 9))).not.toBeNull();
     expect(session.snapshot.step).toEqual({ kind: "thinking" });
+  });
+
+  it("refuses a link without its secret before sending anything", async () => {
+    const { chain, session } = setup();
+    expect(await session.join(9, "", placeFleet(seededRng(7)))).toBe(false);
+    expect(chain.calls).toEqual([]);
+    expect(session.snapshot.error).toMatch(/incomplete/);
   });
 
   it("claims the win when the other captain goes quiet", async () => {

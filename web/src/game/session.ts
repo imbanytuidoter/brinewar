@@ -3,7 +3,7 @@ import type { Caller, CallResult, Viewer } from "@/lib/chain";
 import type { GameView, ModelView, PlayerView, ShipStatsView, ShotView } from "@/lib/contract";
 import { isLegalFleet, ships } from "@/lib/fleet";
 import { boardKey } from "@/lib/guest";
-import { buildTree, fromHex, toHex } from "@/lib/merkle";
+import { buildTree, fromHex, sha256, toHex } from "@/lib/merkle";
 import { bindMoves } from "@/lib/nauarch";
 import type { NauarchEvidence } from "@/lib/proofs";
 import type { KeyValue } from "@/lib/storage";
@@ -35,6 +35,7 @@ export interface Snapshot {
   readonly captain: Captain | null;
   readonly rewards: Rewards | null;
   readonly opponentName: string | null;
+  readonly invite: string | null;
 }
 
 export interface Captain {
@@ -70,6 +71,10 @@ export interface SessionDeps {
   readonly now?: () => number;
 }
 
+export function inviteKey(accountId: string, gameId: number): string {
+  return `brinewar.invite.${accountId}.${gameId}`;
+}
+
 const EMPTY_MARKS: Marks = { mine: new Map(), enemy: new Map(), aiming: null };
 const BACKOFF_BASE_MS = 1500;
 const BACKOFF_MAX_MS = 60_000;
@@ -78,7 +83,7 @@ const EVIDENCE_TRIES = 8;
 const OUT_OF_FUEL = /NotEnoughBalance|LackBalance|not enough balance/i;
 const REFUEL_GAP_MS = 60_000;
 const CLAIM_AFTER_MS = 150_000;
-const FINAL = /board already committed|board already revealed|board not committed|index does not match|no shot to answer|game is not/;
+const FINAL = /invite link is not valid|board already committed|board already revealed|board not committed|index does not match|no shot to answer|game is not/;
 
 interface Attempt {
   n: number;
@@ -106,7 +111,7 @@ export class GameSession {
     this.#now = d.now ?? Date.now;
     this.#snap = {
       accountId: d.accountId, gameId: null, game: null, history: [], marks: EMPTY_MARKS, step: null,
-      board: null, lines: [], busy: null, error: null, lastTx: null, offline: false, enemyFleet: null, enemyRevealTx: null, captain: null, rewards: null, opponentName: null,
+      board: null, lines: [], busy: null, error: null, lastTx: null, offline: false, enemyFleet: null, enemyRevealTx: null, captain: null, rewards: null, opponentName: null, invite: null,
     };
   }
 
@@ -188,11 +193,26 @@ export class GameSession {
   }
 
   async startDuel(cells: readonly number[]): Promise<boolean> {
-    return this.#open(cells, "Opening a duel", "new_game_pvp", {}, null);
+    const secret = toHex(crypto.getRandomValues(new Uint8Array(32)));
+    const ok = await this.#open(cells, "Opening a duel", "new_game_pvp", { invite_hash: toHex(sha256(fromHex(secret))) }, null);
+    const id = this.#snap.gameId;
+    if (ok && id !== null) {
+      try {
+        this.#d.store.set(inviteKey(this.#d.accountId, id), secret);
+      } catch {
+        this.#set({ error: "This browser could not keep the invite; copy the link now." });
+      }
+      this.#set({ invite: secret });
+    }
+    return ok;
   }
 
-  async join(gameId: number, cells: readonly number[]): Promise<boolean> {
-    return this.#open(cells, "Joining the duel", "join_game", { game_id: gameId }, gameId);
+  async join(gameId: number, secret: string, cells: readonly number[]): Promise<boolean> {
+    if (!/^[0-9a-f]{64}$/.test(secret)) {
+      this.#set({ error: "This invite link is incomplete. Ask your friend to send it again." });
+      return false;
+    }
+    return this.#open(cells, "Joining the duel", "join_game", { game_id: gameId, secret }, gameId);
   }
 
   async #open(cells: readonly number[], label: string, method: string, args: object, known: number | null): Promise<boolean> {
@@ -220,7 +240,7 @@ export class GameSession {
     this.#nauarchShots = -1;
     this.#evidenceTries = 0;
     this.#settled = null;
-    this.#set({ gameId: id, game: null, history: [], marks: EMPTY_MARKS, step: null, board, lines: [], error: null, enemyFleet: null, enemyRevealTx: null, rewards: null, opponentName: null });
+    this.#set({ gameId: id, game: null, history: [], marks: EMPTY_MARKS, step: null, board, lines: [], error: null, enemyFleet: null, enemyRevealTx: null, rewards: null, opponentName: null, invite: null });
   }
 
   async #captain(): Promise<Captain | null> {
@@ -325,7 +345,8 @@ export class GameSession {
     const board = this.#boardFor(id) ?? (game.status === "Placing" ? this.#adoptPending(id) : null);
     const planned = nextStep(game, me, board !== null);
     const step: Step = planned.kind === "reveal" && this.#given.has(`reveal:${id}`) ? { kind: "done" } : planned;
-    this.#set({ game, history, marks: marksFrom(history, me), step, board });
+    const invite = step.kind === "invite" ? (this.#snap.invite ?? this.#d.store.get(inviteKey(me, id))) : null;
+    this.#set({ game, history, marks: marksFrom(history, me), step, board, invite });
     const acted = await this.#act(game, step, board);
     await this.#claimIfLate(game, step);
     if (game.mode === "VsNauarch") await this.#refreshEvidence(game, history).catch(() => undefined);

@@ -1,6 +1,6 @@
 import { Flag, Loader2, WifiOff } from "lucide-react";
 import { lazy, Suspense, useCallback, useMemo, useState } from "react";
-import { DuelInvite, duelFromSearch, JoinDuel } from "@/ui/DuelCards";
+import { DuelInvite, duelFromLocation, JoinDuel, type DuelInviteRef } from "@/ui/DuelCards";
 import { Button } from "@/components/ui/button";
 import { hitsOnMe, hitsOnThem, opponentOf, outcome, sideOf } from "@/game/engine";
 import type { GameSession } from "@/game/session";
@@ -40,7 +40,8 @@ export function PlayPage({ cfg, session }: PlayPageProps) {
   const rival = duel ? (snap.opponentName ?? (g && opponentOf(g, snap.accountId) !== snap.accountId ? "Your friend" : null)) : null;
   const enemyLabel = duel ? (rival ?? "Your friend") : "The Nauarch";
   const theyRevealed = g ? (sideOf(g, snap.accountId) === "a" ? g.revealed_b : g.revealed_a) : false;
-  const [joinId, setJoinId] = useState<number | null>(() => duelFromSearch(window.location.search));
+  const [joinRef, setJoinRef] = useState<DuelInviteRef | null>(() => duelFromLocation(window.location.search, window.location.hash));
+  const joinId = joinRef?.gameId ?? null;
   const line = snap.lines.at(-1) ?? null;
   const lastHis = g && !duel ? snap.history.filter((s) => s.by === g.b).at(-1) : undefined;
   const note = lastHis?.source === "Deterministic" ? "Last shot without the model: deterministic fallback by the contract." : lastHis?.source === "ModelFallback" ? "The model's cell was invalid, so the contract chose this shot." : null;
@@ -51,13 +52,13 @@ export function PlayPage({ cfg, session }: PlayPageProps) {
   const sail = useCallback(() => void session.start(draft), [session, draft]);
   const challenge = useCallback(() => void session.startDuel(draft), [session, draft]);
   const forgetInvite = useCallback(() => {
-    setJoinId(null);
+    setJoinRef(null);
     window.history.replaceState(null, "", "/");
   }, []);
   const accept = useCallback(() => {
-    if (joinId === null) return;
-    void session.join(joinId, draft).then((ok) => ok && forgetInvite());
-  }, [session, draft, joinId, forgetInvite]);
+    if (joinRef === null) return;
+    void session.join(joinRef.gameId, joinRef.secret, draft).then((ok) => ok && forgetInvite());
+  }, [session, draft, joinRef, forgetInvite]);
   const again = useCallback(() => {
     session.leave();
     setDraft(placeFleet(cryptoRng()));
@@ -108,7 +109,7 @@ export function PlayPage({ cfg, session }: PlayPageProps) {
           <JoinDuel cfg={cfg} gameId={joinId} me={snap.accountId} busy={snap.busy !== null} onShuffle={() => setDraft(placeFleet(cryptoRng()))} onAccept={accept} onDecline={forgetInvite} />
         )}
         {!inBattle && joinId === null && <Harbour busy={snap.busy !== null} onShuffle={() => setDraft(placeFleet(cryptoRng()))} onSail={sail} onDuel={challenge} />}
-        {inBattle && step === "invite" && snap.gameId !== null && <DuelInvite gameId={snap.gameId} busy={snap.busy !== null} onCancel={() => void session.resign()} />}
+        {inBattle && step === "invite" && snap.gameId !== null && <DuelInvite gameId={snap.gameId} secret={snap.invite} busy={snap.busy !== null} onCancel={() => void session.resign()} />}
         {inBattle && joinId !== null && step !== "done" && <p className="m-0 max-w-[280px] rounded-xl border border-line bg-glass px-3 py-2 text-xs backdrop-blur-md">Finish this battle first, then open the duel link again.</p>}
         {inBattle && result && verifyHref && <EndCard outcome={result} reason={g?.finish_reason ?? null} verifyHref={verifyHref} done={step === "done"} onAgain={again} rewards={snap.rewards} opponent={duel ? rival : null} />}
         {inBattle && step === "lost-board" && (

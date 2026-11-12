@@ -14,6 +14,7 @@ Track: **Games**. Network: **NEAR testnet only**.
 | Tap a cell in the fog | Your shot lands in about a second. The Nauarch thinks, fires back and adds one line, marked **signed ✓**: your browser re-checked the model signature against the key in the contract. |
 | Win or lose | The fog lifts, his fleet rises, a **Fleet verified ✓** seal links to his reveal transaction, and the card shows your gold, XP and rank change. |
 | Press **Verify** | `/verify/<id>` reads the battle from the contract and recomputes every Merkle proof, his reveal and every model signature in your browser. |
+| Press **Challenge a friend**, send the link | Your friend opens it in any browser, also with no wallet, accepts, and you duel: same Merkle proofs, no gold at stake, XP for both flagships. |
 | Open **Admiralty** | The heat map of where captains hide ships, built only from boards the contract verified, with a day slider. The Nauarch fires at the hot cells first. |
 | Open **Treasury**, press **Simulate 50 battles** | Live treasury, entry fee and bounty, then a fast-forward of 50 battles using the contract's own formulas (labelled as a simulation). |
 | Open **For judges** | This page in one screen, with the demo video and its chapters. |

@@ -1,6 +1,6 @@
 use crate::events::emit;
 use crate::fleet::{BOARD_SIZE, CELLS, SHIP_CELLS};
-use crate::game::{Game, ShotResult, ShotSource, Side, Status};
+use crate::game::{Game, Mode, ShotResult, ShotSource, Side, Status};
 use crate::{Brinewar, BrinewarExt};
 use near_sdk::serde_json::{json, Value};
 use near_sdk::{env, near, require};
@@ -421,6 +421,7 @@ impl Brinewar {
     }
 
     fn require_nauarch_can(&self, game: &Game, kind: MoveKind) {
+        require!(game.mode == Mode::VsNauarch, "not a Nauarch battle");
         match kind {
             MoveKind::Shot => {
                 require!(game.status == Status::Playing, "game is not in play");
