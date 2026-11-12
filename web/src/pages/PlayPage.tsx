@@ -98,7 +98,7 @@ export function PlayPage({ cfg, session, stats, landing, onEnter }: PlayPageProp
   }, [session, draft, joinRef, forgetInvite]);
   const [view, setView] = useState<"chart" | "setup">("chart");
   const [encounter, setEncounter] = useState<Encounter | null>(null);
-  const captains = useMapCaptains(cfg);
+  const captains = useMapCaptains(cfg, snap.accountId);
   const [layoutPick, setLayoutPick] = useState(() => randomLayout());
   const layout = useMemo(() => layoutForBattle(browserStorage(), snap.gameId, layoutPick), [snap.gameId, layoutPick]);
   const again = useCallback(() => {

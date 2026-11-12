@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CaptainEntry } from "@/lib/api";
 import { sound } from "@/lib/sound";
+import type { RankedCaptain } from "./useMapCaptains";
 import { CAPTAIN_SLOTS, DECOR, ENCOUNTER, ISLANDS, nearest, PATROLS, PLACES, patrolAt, START, steer, WORLD_H, WORLD_W, type Helm, type Place, type Vec } from "./world";
 
 const SPRITES = ["hull", "hull-wreck", "flag-2", "sail-2", "sail-1", "sail-3", "sail-4", "sail-5", "sail-6", "sail-wreck", "flag-1", "flag-3", "flag-4", "flag-5", "flag-6"] as const;
@@ -18,7 +19,7 @@ export type Encounter =
   | { readonly kind: "place"; readonly place: Place };
 
 interface WorldMapProps {
-  readonly captains: readonly CaptainEntry[];
+  readonly captains: readonly RankedCaptain[];
   readonly mySail: number;
   readonly myFlag: number;
   readonly reducedMotion: boolean;
@@ -117,7 +118,7 @@ export function WorldMap({ captains, mySail, myFlag, reducedMotion, paused, onEn
   const pausedRef = useRef(paused);
   const encounterRef = useRef(onEncounter);
   const [hint, setHint] = useState(true);
-  const fleet = useMemo(() => captains.slice(0, CAPTAIN_SLOTS.length).map((captain, i) => ({ captain, rank: i + 1, ...(CAPTAIN_SLOTS[i] as Vec) })), [captains]);
+  const fleet = useMemo(() => captains.slice(0, CAPTAIN_SLOTS.length).map((c, i) => ({ ...c, ...(CAPTAIN_SLOTS[i] as Vec) })), [captains]);
   const fleetRef = useRef(fleet);
 
   useEffect(() => {
