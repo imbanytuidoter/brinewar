@@ -2,13 +2,12 @@ import type { ReactNode } from "react";
 import { Nav } from "./Nav";
 
 interface PageShellProps {
-  readonly kicker: string;
   readonly title: string;
   readonly lede: ReactNode;
   readonly children: ReactNode;
 }
 
-export function PageShell({ kicker, title, lede, children }: PageShellProps) {
+export function PageShell({ title, lede, children }: PageShellProps) {
   return (
     <main className="min-h-full bg-[radial-gradient(120%_80%_at_50%_0%,#174b61,#0b2230_60%)] px-4 pt-[calc(16px+env(safe-area-inset-top))] pb-16">
       <div className="mx-auto grid max-w-5xl gap-8">
@@ -18,10 +17,9 @@ export function PageShell({ kicker, title, lede, children }: PageShellProps) {
           </a>
           <Nav />
         </header>
-        <section className="grid gap-2">
-          <p className="m-0 text-xs font-semibold tracking-[0.16em] text-brass uppercase">{kicker}</p>
-          <h1 className="m-0 font-display text-4xl leading-[0.95] font-bold text-balance sm:text-6xl">{title}</h1>
-          <div className="max-w-2xl text-muted">{lede}</div>
+        <section className="grid gap-3 pt-4">
+          <h1 className="m-0 font-display text-[clamp(36px,6vw,64px)] leading-[0.95] font-bold tracking-[0.01em] uppercase">{title}</h1>
+          <div className="max-w-[62ch] text-base leading-relaxed text-muted">{lede}</div>
         </section>
         {children}
       </div>

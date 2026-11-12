@@ -5,8 +5,8 @@ import type { Side } from "./types";
 
 const TEX = 1024;
 const COLUMNS = "ABCDEFGHIJ";
-const BODY_FONT = "600 34px Satoshi, system-ui, sans-serif";
-const TITLE_FONT = "700 46px Boska, Georgia, serif";
+const BODY_FONT = "600 34px Archivo, system-ui, sans-serif";
+const TITLE_FONT = "700 44px \"Bespoke Stencil\", Archivo, sans-serif";
 
 function draw(canvas: HTMLCanvasElement, title: string): void {
   const g = canvas.getContext("2d");

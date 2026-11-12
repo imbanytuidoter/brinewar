@@ -35,12 +35,11 @@ export function TreasuryPage({ cfg }: { readonly cfg: AppConfig }) {
 
   return (
     <PageShell
-      kicker="The Nauarch's treasury"
-      title="An economy nobody tunes by hand"
+      title="The Nauarch's treasury"
       lede={
         <p className="m-0">
-          Lose, and your stake fills his treasury. Sink his fleet, and he pays a bounty out of it. When the treasury runs low he grows poor: bounties shrink and entry fees rise until
-          captains refill it. The formula lives in the contract, not on our server.
+          Lose a battle and your entry goes into his treasury. Sink his fleet and he pays you a bounty from it. When the treasury runs low, bounties shrink and entries go up until
+          captains fill it again. The formula sits in the contract, so our server cannot change it.
         </p>
       }
     >

@@ -12,7 +12,7 @@ interface TreasuryNow {
 }
 
 const PROSE =
-  "grid gap-3 text-[15px] leading-relaxed text-ink/90 [&_b]:text-ink [&_code]:rounded [&_code]:bg-white/10 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:text-[13px] [&_li]:pl-1 [&_ol]:grid [&_ol]:list-decimal [&_ol]:gap-2 [&_ol]:pl-5 [&_p]:m-0 [&_ul]:grid [&_ul]:list-disc [&_ul]:gap-2 [&_ul]:pl-5 [&_ol]:m-0 [&_ul]:m-0";
+  "grid max-w-[72ch] gap-3 text-base leading-[1.65] text-ink/90 [&_b]:text-ink [&_code]:rounded [&_code]:bg-white/10 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:text-[13px] [&_li]:pl-1 [&_ol]:grid [&_ol]:list-decimal [&_ol]:gap-2 [&_ol]:pl-5 [&_p]:m-0 [&_ul]:grid [&_ul]:list-disc [&_ul]:gap-2 [&_ul]:pl-5 [&_ol]:m-0 [&_ul]:m-0";
 
 function useLive(cfg: AppConfig): Live {
   const [config, setConfig] = useState<ConfigView | null>(null);
@@ -82,11 +82,10 @@ export function DocsPage({ cfg }: { readonly cfg: AppConfig }) {
   const active = useActive(ids);
   return (
     <PageShell
-      kicker="Docs"
       title="How Brinewar works"
-      lede="The rules, the proofs behind every shot, the AI admiral, the economy and the tokens. Prices, limits, the model name and the counts are read from the contract when you open this page."
+      lede="Rules, proofs, the Nauarch, gold and tokens. Prices, limits, the model name and the counts on this page come from the contract when it loads."
     >
-      <div className="grid grid-cols-1 gap-8 lg:grid-cols-[220px_1fr]">
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-[200px_minmax(0,1fr)] lg:gap-12">
         <nav aria-label="Docs sections" className="min-w-0 lg:sticky lg:top-6 lg:self-start">
           <ol className="m-0 flex list-none gap-1 overflow-x-auto p-0 pb-1 lg:grid lg:overflow-visible">
             {list.map((s) => (
@@ -94,9 +93,9 @@ export function DocsPage({ cfg }: { readonly cfg: AppConfig }) {
                 <a
                   href={`#${s.id}`}
                   aria-current={active === s.id ? "location" : undefined}
-                  className="block rounded-lg border border-transparent px-3 py-1.5 text-sm whitespace-nowrap text-muted transition-colors hover:text-ink aria-[current=location]:border-line aria-[current=location]:bg-white/10 aria-[current=location]:text-ink"
+                  className="block rounded-lg border border-transparent px-3 py-1.5 text-sm whitespace-nowrap text-muted lg:whitespace-normal transition-colors hover:text-ink aria-[current=location]:border-line aria-[current=location]:bg-white/10 aria-[current=location]:text-ink"
                 >
-                  {s.title}
+                  {s.short}
                 </a>
               </li>
             ))}
@@ -105,7 +104,7 @@ export function DocsPage({ cfg }: { readonly cfg: AppConfig }) {
         <div className="grid min-w-0 gap-10">
           {list.map((s) => (
             <section key={s.id} id={s.id} aria-labelledby={`${s.id}-h`} className="grid scroll-mt-6 gap-3">
-              <h2 id={`${s.id}-h`} className="m-0 font-display text-3xl leading-tight font-bold">
+              <h2 id={`${s.id}-h`} className="m-0 font-display text-[28px] leading-tight font-bold tracking-[0.01em] sm:text-[32px]">
                 <a href={`#${s.id}`} className="hover:text-brass">{s.title}</a>
               </h2>
               <div className={PROSE}>{s.body}</div>

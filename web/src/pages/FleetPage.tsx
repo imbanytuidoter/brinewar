@@ -19,12 +19,11 @@ export function FleetPage({ cfg }: { readonly cfg: AppConfig }) {
   const { boot, retry } = useBoot(cfg);
   return (
     <PageShell
-      kicker="Your fleet"
-      title="A flagship that grows in battle"
+      title="Your fleet"
       lede={
         <p className="m-0">
-          Your flagship is a NEP-245 token with its own record. Rank and abilities are earned only in battle and never sold. Skins are cosmetic tokens: they change how your sails
-          look and nothing else.
+          Your flagship is a NEP-245 token with its own battle record, and it ranks up only by fighting. Skins are tokens too. They change sails, flag, hull and the colour of
+          your cannon trail, and nothing about how the ship plays.
         </p>
       }
     >

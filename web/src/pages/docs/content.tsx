@@ -1,3 +1,4 @@
+import { ArrowLeftRight } from "lucide-react";
 import type { ReactNode } from "react";
 
 export interface Live {
@@ -23,6 +24,7 @@ export interface Live {
 export interface Section {
   readonly id: string;
   readonly title: string;
+  readonly short: string;
   readonly body: ReactNode;
 }
 
@@ -53,9 +55,9 @@ function Flow() {
   return (
     <div className="grid gap-2 sm:grid-cols-[1fr_auto_1fr_auto_1fr] sm:items-center">
       <div className={box}><b>Your browser</b><span className="text-muted">Holds your board and salts. Signs moves with a game-only key.</span></div>
-      <span aria-hidden className="text-center text-brass">⇄</span>
+      <ArrowLeftRight aria-hidden className="mx-auto size-4 text-brass max-sm:rotate-90" />
       <div className={box}><b>Game contract on NEAR</b><span className="text-muted">Checks every proof, signature, turn and deadline. Holds gold and tokens.</span></div>
-      <span aria-hidden className="text-center text-brass">⇄</span>
+      <ArrowLeftRight aria-hidden className="mx-auto size-4 text-brass max-sm:rotate-90" />
       <div className={box}><b>The Nauarch</b><span className="text-muted">A server that answers with proofs and asks NEAR AI for signed moves.</span></div>
     </div>
   );
@@ -66,9 +68,10 @@ export function sections(l: Live): Section[] {
     {
       id: "overview",
       title: "Overview",
+      short: "Overview",
       body: (
         <>
-          <p>Brinewar is a naval battle on NEAR where the chain stays out of sight. You open the site, get a guest account in the background and play: no wallet, no seed phrase, no gas prompt. Every shot is still a real transaction, and the contract refuses any answer that does not come with a proof.</p>
+          <p>Brinewar is a naval battle on NEAR that you play straight from the browser. A guest account is made for you in the background, and the game pays the gas, so you never connect a wallet. Each shot is still a real transaction, and the contract rejects any answer that arrives without a proof.</p>
           <p>Your opponent is <b>the Nauarch</b>, an AI admiral. He has studied every board the contract verified, fires first where captains like to hide, and speaks one line per shot. Each of his moves is produced by a model running in a trusted enclave on NEAR AI, signed there, and checked by the contract before it counts.</p>
           <p>Live on NEAR testnet: <b>{v(l.players)}</b> captains, <b>{v(l.games)}</b> battles, contract <code>{l.contract}</code>.</p>
         </>
@@ -77,6 +80,7 @@ export function sections(l: Live): Section[] {
     {
       id: "quick-start",
       title: "Quick start",
+      short: "Quick start",
       body: (
         <ol>
           <li>Open the site and press <b>Take command</b>. A guest account, a flagship, {v(l.startGold)} gold and three skins are created for you.</li>
@@ -90,6 +94,7 @@ export function sections(l: Live): Section[] {
     {
       id: "rules",
       title: "Rules of the sea",
+      short: "Rules",
       body: (
         <>
           <ul>
@@ -106,6 +111,7 @@ export function sections(l: Live): Section[] {
     {
       id: "fair-play",
       title: "Fair play: how every shot is proven",
+      short: "Proofs",
       body: (
         <>
           <p>Nobody, including our server, can see your board, and nobody can change theirs mid-battle.</p>
@@ -122,6 +128,7 @@ export function sections(l: Live): Section[] {
     {
       id: "nauarch",
       title: "The Nauarch: a verifiable AI opponent",
+      short: "The Nauarch",
       body: (
         <>
           <ul>
@@ -137,6 +144,7 @@ export function sections(l: Live): Section[] {
     {
       id: "admiralty",
       title: "The Admiralty map",
+      short: "Admiralty map",
       body: (
         <>
           <p>The Admiralty map is a heat map of where captains hide their ships. It is built only from boards the contract verified at reveal, which is why the Nauarch can learn from it without trusting anyone.</p>
@@ -152,6 +160,7 @@ export function sections(l: Live): Section[] {
     {
       id: "economy",
       title: "Gold and the treasury",
+      short: "Gold and treasury",
       body: (
         <>
           <p>Gold is a token in the contract (NEP-245 multi-token, id <code>gold</code>). Every captain starts with {v(l.startGold)}. The Nauarch keeps a treasury, and the prices move with it, by formula, with nobody tuning them by hand.</p>
@@ -176,6 +185,7 @@ export function sections(l: Live): Section[] {
     {
       id: "progression",
       title: "Flagship, ranks and skins",
+      short: "Ranks and skins",
       body: (
         <>
           <p>Your flagship is a token too (<code>ship:N</code>). It earns XP in battle: 10 for each hit, 30 for each ship you sink and 100 for a win by sinking the fleet. A win on time or a short duel earns no win XP.</p>
@@ -196,6 +206,7 @@ export function sections(l: Live): Section[] {
     {
       id: "duels",
       title: "Duels with a friend",
+      short: "Duels",
       body: (
         <ul>
           <li>Press <b>Invite a friend</b> on the chart. You get a link with a secret in the part after <code>#</code>. Browsers never send that part to a web server; the contract stores only its hash until your friend presents the secret to join.</li>
@@ -207,6 +218,7 @@ export function sections(l: Live): Section[] {
     {
       id: "accounts",
       title: "Accounts, keys and gas",
+      short: "Accounts and gas",
       body: (
         <ul>
           <li>Your browser creates a key pair and asks the harbour for a guest account <code>p-…​.{l.contract}</code>. The sponsor account creates it on chain and adds your key.</li>
@@ -219,6 +231,7 @@ export function sections(l: Live): Section[] {
     {
       id: "architecture",
       title: "Architecture",
+      short: "Architecture",
       body: (
         <>
           <Flow />
@@ -234,6 +247,7 @@ export function sections(l: Live): Section[] {
     {
       id: "threats",
       title: "What stops cheating",
+      short: "Threat model",
       body: (
         <Rows
           rows={[
@@ -255,6 +269,7 @@ export function sections(l: Live): Section[] {
     {
       id: "faq",
       title: "FAQ",
+      short: "FAQ",
       body: (
         <>
           <p><b>Is this real money?</b> No. Everything runs on NEAR testnet; gold and skins are testnet tokens.</p>

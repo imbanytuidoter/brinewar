@@ -27,9 +27,8 @@ export function CaptainsPage({ cfg }: { readonly cfg: AppConfig }) {
 
   return (
     <PageShell
-      kicker="Leaderboard"
-      title="Captains against the Nauarch"
-      lede="Ranked by the XP their flagships earned in battle. Every number is read from the contract: wins, ships sunk, gold. The Nauarch's record is the sum of everyone's battles against him."
+      title="Captains"
+      lede="Ranked by flagship XP. Wins, ships sunk and gold are read from the contract. The Nauarch's record adds up every battle fought against him."
     >
       {load.kind === "loading" && <Loader2 className="size-5 animate-spin text-muted" aria-label="Loading the leaderboard" />}
       {load.kind === "error" && <p className="m-0 text-muted">Could not read the leaderboard. Try again in a moment.</p>}

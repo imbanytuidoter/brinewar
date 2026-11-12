@@ -110,8 +110,7 @@ export function JudgesPage({ cfg }: { readonly cfg: AppConfig }) {
   const contractHref = accountLink(cfg, cfg.contractId);
   return (
     <PageShell
-      kicker="For judges"
-      title="Brinewar in one minute"
+      title="Brinewar for judges"
       lede={
         <div className="grid gap-3">
           <p className="m-0 inline-flex items-center gap-2 justify-self-start rounded-full border border-ok/40 bg-ok/10 px-3 py-1 text-xs font-semibold tracking-[0.12em] text-ok uppercase">
@@ -119,8 +118,8 @@ export function JudgesPage({ cfg }: { readonly cfg: AppConfig }) {
             Live on {networkOf(cfg.contractId)}
           </p>
           <p className="m-0">
-            A naval battle where the blockchain stays out of sight. You play from a fresh browser with no wallet; every shot is a NEAR transaction, every answer is proven
-            with a Merkle proof, and your opponent, the Nauarch, is an AI admiral whose moves are signed inside a TEE and checked by the contract.
+            A naval battle you play from a fresh browser without a wallet. Each shot is a NEAR transaction and each answer carries a Merkle proof. Your opponent, the Nauarch,
+            is an AI admiral: his moves are signed inside a TEE on NEAR AI and checked by the contract before they count.
           </p>
           <ul className="m-0 flex list-none flex-wrap gap-1.5 p-0">
             {STACK.map((s) => (

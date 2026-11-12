@@ -98,7 +98,7 @@ function drawShip(c: CanvasRenderingContext2D, img: Images, at: Vec, heading: nu
 }
 
 function label(c: CanvasRenderingContext2D, text: string, x: number, y: number, tone: "place" | "enemy" | "captain" | "bot"): void {
-  c.font = tone === "place" ? "700 15px Boska, Georgia, serif" : "600 12px Satoshi, system-ui, sans-serif";
+  c.font = tone === "place" ? "700 15px \"Bespoke Stencil\", Archivo, sans-serif" : "600 12px Archivo, system-ui, sans-serif";
   const w = c.measureText(text).width + 14;
   c.fillStyle = tone === "enemy" ? "rgba(122,31,61,0.9)" : "rgba(9,24,33,0.78)";
   c.beginPath();

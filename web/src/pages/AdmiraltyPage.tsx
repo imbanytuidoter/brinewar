@@ -45,13 +45,11 @@ export function AdmiraltyPage({ cfg }: { readonly cfg: AppConfig }) {
 
   return (
     <PageShell
-      kicker="Admiralty map"
-      title="Where the Nauarch hunts now"
+      title="Admiralty map"
       lede={
         <p className="m-0">
-          Every captain's board that passes the final check on chain is added to this map: one board per captain per day, only from battles of at least ten moves. The Nauarch fires
-          at the hottest cells first. Hide where everyone hides and he will find you. Move, and the map moves with you. No patch, no retraining: it is statistics kept by the
-          contract.
+          Each board that passes the final check on chain adds to this map, one per captain per day, and only from battles of ten moves or more. The Nauarch opens fire on the
+          hottest cells. If you hide where most captains hide, expect him there early. The counts are kept by the contract itself.
         </p>
       }
     >

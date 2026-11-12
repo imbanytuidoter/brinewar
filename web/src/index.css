@@ -1,14 +1,15 @@
 @import "tailwindcss";
 
-@font-face { font-family: "Satoshi"; font-weight: 400; font-display: swap; src: url("/fonts/satoshi-400.woff2") format("woff2"); }
-@font-face { font-family: "Satoshi"; font-weight: 500; font-display: swap; src: url("/fonts/satoshi-500.woff2") format("woff2"); }
-@font-face { font-family: "Satoshi"; font-weight: 700; font-display: swap; src: url("/fonts/satoshi-700.woff2") format("woff2"); }
-@font-face { font-family: "Boska"; font-weight: 500; font-display: swap; src: url("/fonts/boska-500.woff2") format("woff2"); }
-@font-face { font-family: "Boska"; font-weight: 700; font-display: swap; src: url("/fonts/boska-700.woff2") format("woff2"); }
+@font-face { font-family: "Archivo"; font-weight: 400; font-display: swap; src: url("/fonts/archivo-400.woff2") format("woff2"); }
+@font-face { font-family: "Archivo"; font-weight: 500; font-display: swap; src: url("/fonts/archivo-500.woff2") format("woff2"); }
+@font-face { font-family: "Archivo"; font-weight: 600; font-display: swap; src: url("/fonts/archivo-600.woff2") format("woff2"); }
+@font-face { font-family: "Archivo"; font-weight: 700; font-display: swap; src: url("/fonts/archivo-700.woff2") format("woff2"); }
+@font-face { font-family: "Bespoke Stencil"; font-weight: 700; font-display: swap; src: url("/fonts/stencil-700.woff2") format("woff2"); }
+@font-face { font-family: "Archivo Fallback"; src: local("Arial"); size-adjust: 104%; ascent-override: 92%; descent-override: 24%; }
 
 @theme {
-  --font-sans: "Satoshi", "Segoe UI", system-ui, sans-serif;
-  --font-display: "Boska", Georgia, serif;
+  --font-sans: "Archivo", "Archivo Fallback", system-ui, sans-serif;
+  --font-display: "Bespoke Stencil", "Archivo", Impact, sans-serif;
   --font-mono: ui-monospace, Menlo, Consolas, monospace;
   --color-ink: #f4f7f8;
   --color-muted: #b9c7cd;
@@ -21,9 +22,9 @@
   --color-ok: #7fe0b5;
   --color-wax: #b02a6b;
   --animate-think: think 1s ease-in-out infinite;
-  --animate-rise: rise 0.35s cubic-bezier(0.2, 1.3, 0.4, 1) both;
-  --animate-stamp: stamp 0.5s cubic-bezier(0.2, 1.5, 0.4, 1) both;
-  --animate-callout: callout 1.6s cubic-bezier(0.2, 1.2, 0.3, 1) both;
+  --animate-rise: rise 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+  --animate-stamp: stamp 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+  --animate-callout: callout 1.6s cubic-bezier(0.16, 1, 0.3, 1) both;
   @keyframes think { 50% { box-shadow: 0 0 0 6px rgb(255 207 90 / 0.25); } }
   @keyframes rise { from { opacity: 0; transform: translateY(8px); } }
   @keyframes callout { 0% { opacity: 0; transform: scale(1.45); } 12% { opacity: 1; transform: scale(1); } 78% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: translateY(-12px) scale(0.98); } }
@@ -31,7 +32,10 @@
 }
 
 html, body, #root { height: 100%; }
-body { margin: 0; background: var(--color-deep); color: var(--color-ink); font: 14px/1.45 var(--font-sans); -webkit-font-smoothing: antialiased; }
+body { margin: 0; background: var(--color-deep); color: var(--color-ink); font: 15px/1.5 var(--font-sans); letter-spacing: 0.005em; font-variant-numeric: tabular-nums; -webkit-font-smoothing: antialiased; caret-color: var(--color-brass); scrollbar-color: rgb(255 255 255 / 0.28) transparent; }
+::selection { background: rgb(255 207 90 / 0.85); color: var(--color-deep); }
+h1, h2, h3 { text-wrap: balance; }
+.font-display { font-feature-settings: "lnum" 1, "tnum" 1; }
 :focus-visible { outline: 2px solid var(--color-brass); outline-offset: 2px; }
 
 @media (prefers-reduced-motion: reduce) {

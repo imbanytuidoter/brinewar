@@ -11,9 +11,9 @@ interface LandingProps {
 }
 
 const STEPS: ReadonlyArray<readonly [title: string, text: string]> = [
-  ["Hide ten ships", "Your board never leaves this browser. The chain keeps a sealed Merkle root of it."],
-  ["Trade shots", "Every answer comes with a proof against that root, so nobody can move a ship mid-battle."],
-  ["Take his gold", "Sink his fleet and the contract pays you a bounty from his treasury. Duels with friends are free."],
+  ["Place ten ships.", "Only a hash of your board goes on chain; the board stays in this browser."],
+  ["Fire.", "Each answer carries a Merkle proof, so no ship can move once the battle starts."],
+  ["Sink his fleet.", "His treasury pays the bounty. Duels with friends cost nothing."],
 ];
 
 export function Landing({ stats, ready, onEnter }: LandingProps) {
@@ -23,24 +23,21 @@ export function Landing({ stats, ready, onEnter }: LandingProps) {
     <section aria-labelledby="landing-title" className="fixed inset-0 z-[5] overflow-y-auto bg-[linear-gradient(90deg,rgb(11_34_48/0.94)_0%,rgb(11_34_48/0.78)_45%,rgb(11_34_48/0.1)_100%)] max-md:bg-[linear-gradient(180deg,rgb(11_34_48/0.55)_0%,rgb(11_34_48/0.95)_55%)]">
       <div className="mx-auto flex min-h-full max-w-6xl flex-col justify-center gap-7 px-4 pt-[calc(96px+env(safe-area-inset-top))] pb-[calc(28px+env(safe-area-inset-bottom))] sm:px-8 max-md:justify-end">
         <div className="grid max-w-[620px] gap-4">
-          <h1 id="landing-title" className="m-0 font-display text-[clamp(34px,6vw,64px)] leading-[1.02] font-bold text-balance">
-            Hide your fleet from an admiral who has studied every captain.
+          <h1 id="landing-title" className="m-0 font-display text-[clamp(38px,6.4vw,72px)] leading-[0.95] font-bold tracking-[0.01em] uppercase">
+            {a && a.boards_counted > 0 ? `The Nauarch has read ${a.boards_counted.toLocaleString("en-US")} fleets. Hide yours.` : "The Nauarch has read every captain's fleet. Hide yours."}
           </h1>
-          <p className="m-0 max-w-[52ch] text-[15px] text-muted">
-            The Nauarch is an AI on NEAR AI Cloud. He learns where captains hide their ships, and the contract proves he never sees yours. No wallet and no popups: every shot is a NEAR transaction, and the game pays the gas.
+          <p className="m-0 max-w-[54ch] text-base leading-relaxed text-ink/85">
+            He is an AI admiral on NEAR AI Cloud who learns from every board revealed on chain, and the contract never lets him see yours. Play right here in the browser; each shot is a NEAR transaction and the game covers the gas.
           </p>
         </div>
         <ul aria-label="Live from the chain" className="m-0 flex list-none flex-wrap gap-2 p-0">
-          {a && a.boards_counted > 0 && <Chip value={a.boards_counted.toLocaleString("en-US")} label="boards studied" />}
           {stats.treasury && <Chip value={Number(stats.treasury.balance).toLocaleString("en-US")} label="gold in his treasury" />}
           {hot && <Chip value={cellName(hot.cell)} label={`his first guess · ${Math.round(hot.share * 100)}% of fleets sat there`} />}
         </ul>
-        <ol className="m-0 grid max-w-[760px] list-none gap-3 p-0 max-sm:order-last max-sm:gap-2 sm:grid-cols-3">
-          {STEPS.map(([title, text], i) => (
-            <li key={title} className="grid gap-1 rounded-2xl border border-line bg-glass p-3 backdrop-blur-md max-sm:py-2">
-              <span className="font-mono text-[11px] text-brass">0{i + 1}</span>
-              <span className="font-semibold">{title}</span>
-              <span className="text-[13px] text-muted">{text}</span>
+        <ol className="m-0 grid max-w-[600px] list-none gap-2 p-0 max-sm:order-last">
+          {STEPS.map(([title, text]) => (
+            <li key={title} className="text-[15px] leading-snug text-muted">
+              <b className="font-semibold text-ink">{title}</b> {text}
             </li>
           ))}
         </ol>
