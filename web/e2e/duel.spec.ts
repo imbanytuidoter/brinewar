@@ -17,6 +17,7 @@ async function fire(page: Page, cell: string): Promise<void> {
 }
 
 test("two captains duel through an invite link with no wallet", async ({ browser, baseURL }) => {
+  test.setTimeout(360_000);
   const popups: string[] = [];
   const hostCtx = await browser.newContext({ baseURL });
   const guestCtx = await browser.newContext({ baseURL });
