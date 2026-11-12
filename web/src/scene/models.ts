@@ -23,13 +23,15 @@ export function preloadModels(): void {
 
 export function useShipProtos(set: Hullset = "brine"): ReadonlyMap<number, THREE.Object3D> {
   const scenes = useGLTF(SHIP_MODELS.map(url), false, false);
-  const byName = new Map(SHIP_MODELS.map((n, i) => [n, scenes[i]?.scene] as const));
-  const out = new Map<number, THREE.Object3D>();
-  for (const [len, name] of Object.entries(HULLSETS[set])) {
-    const scene = byName.get(name);
-    if (scene) out.set(Number(len), scene);
-  }
-  return out;
+  return useMemo(() => {
+    const byName = new Map(SHIP_MODELS.map((n, i) => [n, scenes[i]?.scene] as const));
+    const out = new Map<number, THREE.Object3D>();
+    for (const [len, name] of Object.entries(HULLSETS[set])) {
+      const scene = byName.get(name);
+      if (scene) out.set(Number(len), scene);
+    }
+    return out;
+  }, [scenes, set]);
 }
 
 export function useBallProto(): THREE.Object3D {

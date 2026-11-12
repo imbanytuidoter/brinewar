@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { fetchAdmiralty, fetchTreasury } from "@/lib/api";
 import { makeViewer } from "@/lib/chain";
 import type { AppConfig } from "@/lib/config";
@@ -72,5 +72,6 @@ export function useSkins(cfg: AppConfig, accountId: string): Skins {
     },
     [accountId],
   );
-  return { all, owned, equipped, look: equipped ? skinLook(equipped) : null, failed, equip };
+  const look = useMemo(() => (equipped ? skinLook(equipped) : null), [equipped]);
+  return { all, owned, equipped, look, failed, equip };
 }

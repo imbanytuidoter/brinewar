@@ -40,7 +40,8 @@ export function FleetTray({ myShips, myMarks, sunkTheirs, enemyLabel, look, enem
           const hits = ship.map((c) => myMarks.get(c) === "hit");
           const lost = hits.every(Boolean);
           return (
-            <span key={ship[0]} title={`${shipName(ship.length)}${lost ? ", sunk" : ""}`} style={{ width: ship.length * GLYPH }}>
+            <span key={ship[0]} title={`${shipName(ship.length)}${lost ? ", sunk" : ""}`} className="relative" style={{ width: ship.length * GLYPH }}>
+              {lost && <Cross />}
               <SpriteShip vertical={false} length={ship.length} hits={hits} state={lost ? "sunk" : hits.some(Boolean) ? "damaged" : "intact"} sail={look?.sprite ?? 1} flag={look?.pennant ?? 5} className="h-[24px] w-full" />
             </span>
           );
@@ -59,14 +60,23 @@ export function FleetTray({ myShips, myMarks, sunkTheirs, enemyLabel, look, enem
           ))}
         </div>
       </div>
-      <Row label="His ships, sunk ones burn">
+      <Row label="His ships · sunk ones crossed out">
         {theirs.map((s, i) => (
-          <span key={i} title={`${shipName(s.length)}${s.sunk ? ", sunk" : ""}`} style={{ width: s.length * GLYPH }} >
+          <span key={i} title={`${shipName(s.length)}${s.sunk ? ", sunk" : ""}`} className="relative" style={{ width: s.length * GLYPH }}>
+            {s.sunk && <Cross />}
             <SpriteShip vertical={false} length={s.length} state={s.sunk ? "sunk" : "intact"} sail={2} flag={2} className={s.sunk ? "h-[24px] w-full" : "h-[24px] w-full opacity-30 grayscale"} />
           </span>
         ))}
       </Row>
     </aside>
+  );
+}
+
+function Cross() {
+  return (
+    <svg viewBox="0 0 10 10" preserveAspectRatio="none" className="pointer-events-none absolute inset-0 z-10 size-full" aria-hidden>
+      <path d="M1 1 L9 9 M9 1 L1 9" stroke="#ff3b2f" strokeWidth="1.6" strokeLinecap="round" vectorEffect="non-scaling-stroke" style={{ strokeWidth: 2.5 }} />
+    </svg>
   );
 }
 

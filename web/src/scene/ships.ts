@@ -165,7 +165,7 @@ export class ShipActor {
   }
 
   get gone(): boolean {
-    return this.side === "mine" && this.sink >= WRECK_DEPTH;
+    return false;
   }
 
   update(f: ShipFrame): void {
