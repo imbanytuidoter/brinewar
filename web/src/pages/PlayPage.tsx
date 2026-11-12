@@ -144,6 +144,7 @@ export function PlayPage({ cfg, session, stats, landing, onEnter }: PlayPageProp
           myLook={myLook}
           enemyLabel={enemyLabel}
           enemyHulls={duel ? "brine" : "pirate"}
+          layout={snap.gameId}
           enemyWrecks={sunkTheirs}
           onLaunch={feed.onLaunch}
           onLand={feed.onLand}

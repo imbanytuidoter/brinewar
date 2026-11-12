@@ -1,63 +1,42 @@
 import { useGLTF } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import * as THREE from "three";
 import { isHorizontal, shipCenter } from "./grid";
 import { url, useWreckProto } from "./models";
+import { setCalmIsles } from "./gerstner";
+import type { Layout } from "./layouts";
 import { useRuntime } from "./runtime";
+import { setIsleUniforms } from "./seaMaterial";
 
-interface Prop {
-  readonly model: string;
-  readonly x: number;
-  readonly z: number;
-  readonly scale: number;
-  readonly turn?: number;
-  readonly y?: number;
-}
+const GROUND = 0.05;
 
-const PROPS: readonly Prop[] = [
-  { model: "patch-sand", x: -16.5, z: -11, scale: 0.85 },
-  { model: "tower-complete-large", x: -17.5, z: -11.8, scale: 0.42, y: 0.1 },
-  { model: "palm-straight", x: -15, z: -10.2, scale: 0.55, y: 0.1 },
-  { model: "rocks-sand-a", x: -14.2, z: -12.4, scale: 0.42 },
-  { model: "patch-grass", x: 15.5, z: -11.5, scale: 1 },
-  { model: "palm-bend", x: 14.6, z: -11.2, scale: 0.6, turn: 1.2, y: 0.12 },
-  { model: "palm-detailed-straight", x: 16.4, z: -12.2, scale: 0.55, y: 0.12 },
-  { model: "structure", x: 15.8, z: -10.4, scale: 0.45, turn: 0.4, y: 0.1 },
-  { model: "flag-pirate-high", x: 17.2, z: -11, scale: 0.5, y: 0.1 },
-  { model: "rocks-a", x: 0, z: -10.5, scale: 0.45, turn: 0.6 },
-  { model: "tower-watch", x: 0.3, z: -10.8, scale: 0.42, y: 0.55 },
-  { model: "rocks-b", x: 19, z: -2, scale: 0.5, turn: 2.1 },
-  { model: "rocks-c", x: 18, z: 3.5, scale: 0.45, turn: 0.9 },
-  { model: "rocks-sand-b", x: -18.5, z: 1.5, scale: 0.5, turn: 1.7 },
-  { model: "patch-sand", x: -19, z: -4.5, scale: 0.55, turn: 0.8 },
-  { model: "palm-straight", x: -19.2, z: -4.8, scale: 0.5, y: 0.1 },
-  { model: "barrel", x: -18.4, z: -3.9, scale: 0.35, y: 0.1 },
-  { model: "rocks-c", x: -15.5, z: 9, scale: 0.4, turn: 2.6 },
-  { model: "patch-sand", x: 16, z: 9.5, scale: 0.5, turn: 2.2 },
-  { model: "chest", x: 15.6, z: 9.3, scale: 0.35, turn: 0.5, y: 0.12 },
-  { model: "palm-bend", x: 16.6, z: 9.8, scale: 0.45, turn: 4, y: 0.1 },
-  { model: "ship-wreck", x: -7, z: -12.5, scale: 0.3, turn: 0.7, y: -0.35 },
-];
-
-const MODELS = [...new Set(PROPS.map((p) => p.model))];
-
-export function Scenery() {
-  const scenes = useGLTF(MODELS.map(url), false, false);
+export function Scenery({ layout }: { readonly layout: Layout }) {
+  const { uniforms } = useRuntime();
+  const models = useMemo(() => [...new Set(layout.props.map((p) => p.model))], [layout]);
+  const scenes = useGLTF(models.map(url), false, false);
+  useEffect(() => {
+    setCalmIsles(layout.isles);
+    setIsleUniforms(uniforms, layout.isles);
+    return () => {
+      setCalmIsles([]);
+      setIsleUniforms(uniforms, []);
+    };
+  }, [layout, uniforms]);
   const group = useMemo(() => {
-    const byName = new Map(MODELS.map((m, i) => [m, scenes[i]?.scene] as const));
+    const byName = new Map(models.map((m, i) => [m, scenes[i]?.scene] as const));
     const g = new THREE.Group();
-    for (const p of PROPS) {
+    for (const p of layout.props) {
       const src = byName.get(p.model);
       if (!src) continue;
       const o = src.clone(true);
       o.scale.setScalar(p.scale);
-      o.position.set(p.x, p.y ?? 0, p.z);
+      o.position.set(p.x, p.y ?? GROUND, p.z);
       o.rotation.y = p.turn ?? 0;
       g.add(o);
     }
     return g;
-  }, [scenes]);
+  }, [scenes, models, layout]);
   return <primitive object={group} />;
 }
 

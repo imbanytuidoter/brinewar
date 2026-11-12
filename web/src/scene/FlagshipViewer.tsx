@@ -2,6 +2,8 @@ import { useGLTF } from "@react-three/drei";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { Suspense, useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
+import { useShipParts } from "./models";
+import { haunt, RIG_FLAG, rigUp } from "./ships";
 import type { ShipLook } from "./types";
 
 export const MODEL_FOR_RANK: Readonly<Record<string, string>> = {
@@ -22,9 +24,13 @@ export interface FlagshipViewerProps {
   readonly reducedMotion: boolean;
 }
 
+const RANK_LENGTH: Readonly<Record<string, number>> = { Ensign: 2, Lieutenant: 3, Captain: 4, Commodore: 4, Admiral: 4 };
+
 function Ship({ rank, look, reducedMotion }: FlagshipViewerProps) {
   const name = MODEL_FOR_RANK[rank] ?? "ship-small";
   const { scene } = useGLTF(`/models/${name}.glb`, false, false);
+  const parts = useShipParts();
+  const rig = look?.rig ?? "plain";
   const group = useRef<THREE.Group>(null);
   const { model, sails, flags, hulls, sailBase, hullBase } = useMemo(() => {
     const m = scene.clone(true);
@@ -49,12 +55,18 @@ function Ship({ rank, look, reducedMotion }: FlagshipViewerProps) {
     });
     const box = new THREE.Box3().setFromObject(m);
     const size = box.getSize(new THREE.Vector3());
+    const extra: THREE.Material[] = [];
+    rigUp(m, box, size, size.z >= size.x, RANK_LENGTH[rank] ?? 2, rig, parts, extra);
+    m.traverse((o) => {
+      if (o.name === RIG_FLAG && o instanceof THREE.Mesh && o.material instanceof THREE.MeshStandardMaterial) f.push(o.material);
+    });
+    if (rig === "ghost") haunt([...s, ...f, ...h]);
     const scale = 2.6 / Math.max(size.x, size.y, size.z);
     m.scale.setScalar(scale);
     const c = box.getCenter(new THREE.Vector3());
     m.position.set(-c.x * scale, -box.min.y * scale - 0.25, -c.z * scale);
     return { model: m, sails: s, flags: f, hulls: h, sailBase: base, hullBase: hullTone };
-  }, [scene]);
+  }, [scene, parts, rig, rank]);
 
   useEffect(() => {
     for (const m of sails) m.color.copy(look ? new THREE.Color(look.sail) : sailBase);

@@ -110,3 +110,18 @@ describe("calm water over the boards", () => {
     expect(peak).toBeLessThan(0.1);
   });
 });
+
+describe("battle surroundings", () => {
+  it("picks one of several layouts by battle number, each with calm water at its islands", async () => {
+    const { LAYOUTS, layoutFor } = await import("./layouts");
+    expect(LAYOUTS.length).toBeGreaterThanOrEqual(4);
+    expect(new Set([0, 1, 2, 3].map((id) => layoutFor(id).name)).size).toBe(4);
+    expect(layoutFor(null)).toBe(LAYOUTS[0]);
+    for (const l of LAYOUTS) expect(l.isles.length).toBeLessThanOrEqual(10);
+    const { calm, setCalmIsles } = await import("./gerstner");
+    setCalmIsles([{ x: 20, z: -12, r: 2 }]);
+    expect(calm(20, -12)).toBeLessThan(0.1);
+    setCalmIsles([]);
+    expect(calm(20, -12)).toBeGreaterThan(0.9);
+  });
+});

@@ -28,11 +28,33 @@ export const CALM_HALF_X = 11.5;
 export const CALM_HALF_Z = 5.5;
 export const CALM_FADE = 6;
 
+export const MAX_ISLES = 10;
+export const ISLE_CALM = 0.08;
+export const ISLE_FADE = 2.5;
+
+export interface CalmIsle {
+  readonly x: number;
+  readonly z: number;
+  readonly r: number;
+}
+
+const isles: CalmIsle[] = [];
+
+export function setCalmIsles(list: readonly CalmIsle[]): void {
+  isles.splice(0, isles.length, ...list.slice(0, MAX_ISLES));
+}
+
+const ease = (s: number): number => s * s * (3 - 2 * s);
+
 export function calm(x: number, z: number): number {
   const dx = Math.max(Math.abs(x) - CALM_HALF_X, 0);
   const dz = Math.max(Math.abs(z) - CALM_HALF_Z, 0);
-  const s = Math.min(1, Math.hypot(dx, dz) / CALM_FADE);
-  return CALM + (1 - CALM) * s * s * (3 - 2 * s);
+  let f = CALM + (1 - CALM) * ease(Math.min(1, Math.hypot(dx, dz) / CALM_FADE));
+  for (const i of isles) {
+    const d = Math.max(Math.hypot(x - i.x, z - i.z) - i.r, 0);
+    f = Math.min(f, ISLE_CALM + (1 - ISLE_CALM) * ease(Math.min(1, d / ISLE_FADE)));
+  }
+  return f;
 }
 
 export function seaHeight(waves: readonly Wave[], x: number, z: number, t: number): number {

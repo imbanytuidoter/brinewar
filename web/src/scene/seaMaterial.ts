@@ -1,4 +1,4 @@
-import { CALM, CALM_FADE, CALM_HALF_X, CALM_HALF_Z } from "./gerstner";
+import { CALM, CALM_FADE, CALM_HALF_X, CALM_HALF_Z, ISLE_CALM, ISLE_FADE, MAX_ISLES, type CalmIsle } from "./gerstner";
 import * as THREE from "three";
 import type { Wave } from "./gerstner";
 import { BOARD_ORIGIN } from "./grid";
@@ -22,7 +22,16 @@ export type SeaUniforms = {
   uCam: THREE.IUniform<THREE.Vector3>;
   uBoardA: THREE.IUniform<THREE.Vector2>;
   uBoardB: THREE.IUniform<THREE.Vector2>;
+  uIsles: THREE.IUniform<THREE.Vector3[]>;
 };
+
+export function setIsleUniforms(u: SeaUniforms, list: readonly CalmIsle[]): void {
+  u.uIsles.value.forEach((v, i) => {
+    const isle = list[i];
+    if (isle) v.set(isle.x, isle.z, isle.r);
+    else v.set(OFF_BOARD, OFF_BOARD, 0);
+  });
+}
 
 export function createSeaUniforms(waves: readonly Wave[]): SeaUniforms {
   return {
@@ -39,16 +48,23 @@ export function createSeaUniforms(waves: readonly Wave[]): SeaUniforms {
     uCam: { value: new THREE.Vector3() },
     uBoardA: { value: new THREE.Vector2(BOARD_ORIGIN.mine.x, BOARD_ORIGIN.mine.z) },
     uBoardB: { value: new THREE.Vector2(BOARD_ORIGIN.enemy.x, BOARD_ORIGIN.enemy.z) },
+    uIsles: { value: Array.from({ length: MAX_ISLES }, () => new THREE.Vector3(OFF_BOARD, OFF_BOARD, 0)) },
   };
 }
 
 const VERTEX = `
-uniform float uTime; uniform vec4 uWaves[3]; uniform float uSpeeds[3];
+uniform float uTime; uniform vec4 uWaves[3]; uniform float uSpeeds[3]; uniform vec3 uIsles[${MAX_ISLES}];
 varying vec3 vPos; varying vec3 vNormal; varying float vCrest;
 float calm(vec2 q) {
   vec2 d = max(abs(q) - vec2(${CALM_HALF_X.toFixed(2)}, ${CALM_HALF_Z.toFixed(2)}), 0.);
   float s = clamp(length(d) / ${CALM_FADE.toFixed(2)}, 0., 1.);
-  return ${CALM.toFixed(2)} + ${(1 - CALM).toFixed(2)} * s * s * (3. - 2. * s);
+  float f = ${CALM.toFixed(2)} + ${(1 - CALM).toFixed(2)} * s * s * (3. - 2. * s);
+  for (int i = 0; i < ${MAX_ISLES}; i++) {
+    vec3 isle = uIsles[i];
+    float e = clamp(max(length(q - isle.xy) - isle.z, 0.) / ${ISLE_FADE.toFixed(2)}, 0., 1.);
+    f = min(f, ${ISLE_CALM.toFixed(2)} + ${(1 - ISLE_CALM).toFixed(2)} * e * e * (3. - 2. * e));
+  }
+  return f;
 }
 void main() {
   vec3 p = position.xzy; p.z = -p.z;

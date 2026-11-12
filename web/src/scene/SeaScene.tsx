@@ -10,6 +10,7 @@ import { preloadModels } from "./models";
 import { Picker } from "./Picker";
 import { createRuntime, RuntimeContext, useRuntime, type SceneRuntime } from "./runtime";
 import { Sea } from "./Sea";
+import { layoutFor } from "./layouts";
 import { Scenery, Wrecks } from "./Scenery";
 import { FOG_FAR, FOG_NEAR, SEA_FOG } from "./seaMaterial";
 import type { Hullset, Mark, SeaSceneProps, ShipLook, Side } from "./types";
@@ -115,7 +116,7 @@ function World(props: SeaSceneProps) {
         <Picker marks={props.enemyMarks} aiming={props.aiming} canFire={props.canFire} onFire={props.onFire} />
         <Suspense fallback={null}>
           <Effects />
-          <Scenery />
+          <Scenery layout={layoutFor(props.layout ?? null)} />
           <Board side="mine" ships={props.myShips} marks={props.myMarks} look={props.myLook ?? null} hulls={props.myLook?.hulls ?? "brine"} />
           <Board side="enemy" ships={props.enemyShips ?? NO_SHIPS} marks={props.enemyMarks} hulls={props.enemyHulls ?? "pirate"} />
           {props.enemyShips === null && props.enemyWrecks && props.enemyWrecks.length > 0 && <Wrecks ships={props.enemyWrecks} />}

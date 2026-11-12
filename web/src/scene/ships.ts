@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { seaHeight, seaTilt, type Wave } from "./gerstner";
 import { BOARD_ORIGIN, cellCenter, isHorizontal, revealRise, shipCenter, type Point2 } from "./grid";
-import type { ShipLook, Side } from "./types";
+import type { Rig, ShipLook, ShipParts, Side } from "./types";
 
 const SAIL = /sail|flag/;
 const FLAG = /flag/;
@@ -26,6 +26,65 @@ export interface ShipFrame {
   readonly bubble: (x: number, z: number) => void;
 }
 
+const GHOST_TINT = "#d7e8ee";
+const GHOST_GLOW = "#6fa3b5";
+const GHOST_OPACITY = 0.78;
+
+export function haunt(materials: readonly THREE.Material[]): void {
+  for (const m of materials) {
+    if (!(m instanceof THREE.MeshStandardMaterial)) continue;
+    m.transparent = true;
+    m.opacity = GHOST_OPACITY;
+    m.emissive.set(GHOST_GLOW);
+    m.emissiveIntensity = 0.45;
+    m.color.lerp(new THREE.Color(GHOST_TINT), 0.6);
+  }
+}
+
+export const RIG_FLAG = "flag-rig";
+
+function place(model: THREE.Object3D, proto: THREE.Object3D, at: THREE.Vector3, scale: number, turn: number, materials: THREE.Material[], flag = false): void {
+  const o = proto.clone(true);
+  o.traverse((m) => {
+    if (flag) m.name = RIG_FLAG;
+    if (m instanceof THREE.Mesh && !Array.isArray(m.material)) {
+      m.material = (m.material as THREE.Material).clone();
+      materials.push(m.material as THREE.Material);
+    }
+  });
+  o.scale.setScalar(scale);
+  o.position.copy(at);
+  o.rotation.y = turn;
+  model.add(o);
+}
+
+export function rigUp(model: THREE.Object3D, box: THREE.Box3, size: THREE.Vector3, alongZ: boolean, n: number, rig: Rig, parts: ShipParts, materials: THREE.Material[]): void {
+  const deck = box.min.y + size.y * 0.24;
+  const c = box.getCenter(new THREE.Vector3());
+  const long = alongZ ? size.z : size.x;
+  const wide = alongZ ? size.x : size.z;
+  const at = (along: number, across: number, y: number): THREE.Vector3 =>
+    alongZ ? new THREE.Vector3(c.x + across, y, c.z + along) : new THREE.Vector3(c.x + along, y, c.z + across);
+  const turn = (side: number): number => (alongZ ? (side > 0 ? Math.PI / 2 : -Math.PI / 2) : side > 0 ? 0 : Math.PI);
+  const cannons = rig === "cannons" || rig === "warship";
+  const pennants = rig === "pennants" || rig === "warship";
+  const banners = rig === "banners" || rig === "warship";
+  if (cannons) {
+    const count = Math.max(1, n - 1);
+    for (let k = 0; k < count; k++) {
+      const along = (count === 1 ? 0 : -0.22 + (0.44 * k) / (count - 1)) * long;
+      for (const side of [-1, 1]) place(model, parts.cannon, at(along, side * wide * 0.4, deck), 1.05, turn(side), materials);
+    }
+  }
+  if (pennants) {
+    for (const end of [-1, 1]) place(model, parts.pennant, at(end * long * 0.4, 0, deck), 1.9, alongZ ? 0 : Math.PI / 2, materials, true);
+  }
+  if (banners) {
+    place(model, parts.banner, at(-long * 0.36, wide * 0.25, deck), 2.2, alongZ ? 0 : Math.PI / 2, materials, true);
+    place(model, parts.banner, at(-long * 0.36, -wide * 0.25, deck), 2.2, alongZ ? 0 : Math.PI / 2, materials, true);
+  }
+}
+
 export class ShipActor {
   readonly root = new THREE.Group();
   readonly pivot = new THREE.Group();
@@ -43,7 +102,7 @@ export class ShipActor {
   readonly #hullMats: THREE.MeshStandardMaterial[] = [];
   readonly #hullBase = new THREE.Color();
 
-  constructor(proto: THREE.Object3D, cells: readonly number[], side: Side, risen: boolean) {
+  constructor(proto: THREE.Object3D, cells: readonly number[], side: Side, risen: boolean, rig: Rig = "plain", parts: ShipParts | null = null) {
     this.cells = cells;
     this.side = side;
     this.rise = side === "enemy" && !risen ? 0 : 1;
@@ -75,6 +134,13 @@ export class ShipActor {
     const alongZ = size.z >= size.x;
     const len = alongZ ? size.z : size.x;
     const scale = (n === 1 ? 0.95 : n * 0.92) / len;
+    if (!enemy && parts && n > 1) {
+      rigUp(model, box, size, alongZ, n, rig, parts, this.#materials);
+      model.traverse((o) => {
+        if (o.name === RIG_FLAG && o instanceof THREE.Mesh && o.material instanceof THREE.MeshStandardMaterial) this.#flagMats.push(o.material);
+      });
+    }
+    if (!enemy && rig === "ghost") haunt(this.#materials);
     model.scale.setScalar(scale);
     const c = box.getCenter(new THREE.Vector3());
     model.position.set(-c.x * scale, -box.min.y * scale - 0.18 * scale * size.y, -c.z * scale);

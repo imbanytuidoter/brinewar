@@ -119,6 +119,7 @@ function Theatre({ replay }: { readonly replay: Replay }) {
           onFire={() => undefined}
           enemyLabel="The Nauarch"
           enemyWrecks={wrecks}
+          layout={game.id}
           onLaunch={feed.onLaunch}
           onLand={feed.onLand}
         />

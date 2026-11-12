@@ -1,7 +1,7 @@
 import { useFrame } from "@react-three/fiber";
 import { useEffect, useMemo } from "react";
 import { REVEAL_END } from "./grid";
-import { useShipProtos } from "./models";
+import { useShipParts, useShipProtos } from "./models";
 import { shipKey, useRuntime } from "./runtime";
 import { ShipActor } from "./ships";
 import type { Hullset, ShipLook, Side } from "./types";
@@ -17,6 +17,8 @@ interface FleetProps {
 export function Fleet({ side, ships, sunk, look = null, hulls = "brine" }: FleetProps) {
   const runtime = useRuntime();
   const protos = useShipProtos(hulls);
+  const parts = useShipParts();
+  const rig = look?.rig ?? "plain";
   const shape = JSON.stringify(ships);
 
   const actors = useMemo(() => {
@@ -24,9 +26,9 @@ export function Fleet({ side, ships, sunk, look = null, hulls = "brine" }: Fleet
     const fleet = JSON.parse(shape) as number[][];
     return fleet.flatMap((cells) => {
       const proto = protos.get(cells.length);
-      return proto ? [new ShipActor(proto, cells, side, risen)] : [];
+      return proto ? [new ShipActor(proto, cells, side, risen, rig, parts)] : [];
     });
-  }, [shape, protos, side, runtime]);
+  }, [shape, protos, side, runtime, rig, parts]);
 
   useEffect(() => {
     for (const a of actors) for (const c of a.cells) runtime.ships.set(shipKey(side, c), a);

@@ -1,9 +1,11 @@
 import { useGLTF } from "@react-three/drei";
 import type * as THREE from "three";
-import type { Hullset } from "./types";
+import { useMemo } from "react";
+import type { Hullset, ShipParts } from "./types";
 
 const BASE = "/models/";
 const BALL = "cannon-ball";
+const PARTS = ["cannon", "flag-pennant", "flag-high-pennant"] as const;
 const WRECK = "ship-wreck";
 
 export const HULLSETS: Readonly<Record<Hullset, Readonly<Record<number, string>>>> = {
@@ -16,7 +18,7 @@ const SHIP_MODELS = [...new Set(Object.values(HULLSETS).flatMap((set) => Object.
 export const url = (name: string): string => `${BASE}${name}.glb`;
 
 export function preloadModels(): void {
-  for (const n of [...SHIP_MODELS, BALL, WRECK]) useGLTF.preload(url(n), false, false);
+  for (const n of [...SHIP_MODELS, BALL, WRECK, ...PARTS]) useGLTF.preload(url(n), false, false);
 }
 
 export function useShipProtos(set: Hullset = "brine"): ReadonlyMap<number, THREE.Object3D> {
@@ -36,4 +38,9 @@ export function useBallProto(): THREE.Object3D {
 
 export function useWreckProto(): THREE.Object3D {
   return useGLTF(url(WRECK), false, false).scene;
+}
+
+export function useShipParts(): ShipParts {
+  const [cannon, pennant, banner] = useGLTF(PARTS.map(url), false, false);
+  return useMemo(() => ({ cannon: (cannon as { scene: THREE.Object3D }).scene, pennant: (pennant as { scene: THREE.Object3D }).scene, banner: (banner as { scene: THREE.Object3D }).scene }), [cannon, pennant, banner]);
 }
