@@ -22,7 +22,7 @@ const rpc = provider(need("NEAR_RPC_URL"));
 const secret = readFileSync(need("DEPLOYER_KEY_FILE"), "utf8").trim() as KeyPairString;
 const owner = new Account(cfg.contract, rpc, KeyPairSigner.fromSecretKey(secret));
 
-async function send(label: string, acts: ReturnType<typeof actions.functionCall>[]): Promise<void> {
+async function send(label: string, acts: Parameters<typeof owner.signAndSendTransaction>[0]["actions"]): Promise<void> {
   const resp = await owner.signAndSendTransaction({ receiverId: cfg.contract, actions: acts, waitUntil: "FINAL", throwOnFailure: false });
   const r = resultFromResponse(resp);
   console.log(JSON.stringify({ step: label, ok: r.ok, tx: r.txHash, error: r.error ?? null }));
@@ -46,10 +46,13 @@ const step = process.argv[2];
 if (step === "deploy") {
   const wasm = readFileSync(need("WASM_PATH"));
   await send("deploy+new", [actions.deployContract(wasm), actions.functionCall("new", cfg.init, teraToGas(INIT_GAS_TGAS), 0n)]);
+} else if (step === "upgrade") {
+  const wasm = readFileSync(need("WASM_PATH"));
+  await send("upgrade", [actions.deployContract(wasm)]);
 } else if (step === "set-model") {
   const key = await attestedKey();
   console.log(JSON.stringify({ step: "attestation", model: cfg.model.name, key }));
   await send("set_model", [actions.functionCall("set_model", { model: cfg.model.name, public_key_hex: key }, teraToGas(INIT_GAS_TGAS), 0n)]);
 } else {
-  throw new Error("usage: deploy.ts deploy | set-model");
+  throw new Error("usage: deploy.ts deploy | upgrade | set-model");
 }
