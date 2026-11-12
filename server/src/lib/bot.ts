@@ -1,4 +1,4 @@
-import { Account, actions, KeyPairSigner, teraToGas, type JsonRpcProvider, type KeyPairString } from "near-api-js";
+import { Account, actions, KeyPairSigner, teraToGas, type KeyPairString, type Provider } from "near-api-js";
 import { answerArgs, newBoard, revealArgs, rootHex, type Board } from "./board.js";
 import type { GameView, ShotView } from "./contract.js";
 import { GAME_GAS_TGAS } from "./contract.js";
@@ -8,7 +8,7 @@ import { resultFromResponse, withTimeout, type CallResult, type Viewer } from ".
 export interface BotOptions {
   readonly accountId: string;
   readonly secretKey: string;
-  readonly provider: JsonRpcProvider;
+  readonly provider: Provider;
   readonly contractId: string;
   readonly viewer: Viewer;
   readonly rng: Rng;

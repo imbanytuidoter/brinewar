@@ -1,4 +1,4 @@
-import { Account, actions, JsonRpcProvider, KeyPairSigner, teraToGas, type KeyPairString } from "near-api-js";
+import { Account, actions, FailoverRpcProvider, JsonRpcProvider, KeyPairSigner, teraToGas, type KeyPairString, type Provider } from "near-api-js";
 
 export function withTimeout<T>(promise: Promise<T>, ms: number, what: string): Promise<T> {
   let timer: NodeJS.Timeout | undefined;
@@ -54,7 +54,7 @@ export function resultFromResponse(resp: unknown): CallResult {
 
 export class NearViewer implements Viewer {
   constructor(
-    private readonly provider: JsonRpcProvider,
+    private readonly provider: Provider,
     private readonly contractId: string,
     private readonly timeoutMs: number,
   ) {}
@@ -75,7 +75,7 @@ export class NearCaller implements Caller {
 
   constructor(
     readonly accountId: string,
-    provider: JsonRpcProvider,
+    provider: Provider,
     secretKey: string,
     private readonly contractId: string,
     private readonly timeoutMs: number,
@@ -107,11 +107,14 @@ export class NearCaller implements Caller {
   }
 }
 
-export function provider(url: string): JsonRpcProvider {
-  return new JsonRpcProvider({ url });
+export function provider(urls: string): Provider {
+  const list = urls.split(",").map((u) => u.trim()).filter(Boolean);
+  if (list.length === 0) throw new Error("no RPC URL");
+  const providers = list.map((url) => new JsonRpcProvider({ url }));
+  return providers.length === 1 ? (providers[0] as JsonRpcProvider) : new FailoverRpcProvider(providers);
 }
 
-export async function blockHeight(p: JsonRpcProvider, timeoutMs: number): Promise<number> {
+export async function blockHeight(p: Provider, timeoutMs: number): Promise<number> {
   const block = await withTimeout(p.viewBlock({ finality: "optimistic" }), timeoutMs, "block");
   return Number(block.header.height);
 }

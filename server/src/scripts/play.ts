@@ -1,6 +1,6 @@
 import { KeyPair } from "near-api-js";
 import { Bot } from "../lib/bot.js";
-import { accountId, int, url } from "../lib/config.js";
+import { accountId, int, url, urls } from "../lib/config.js";
 import { cryptoRng, seededRng, type Rng } from "../lib/fleet.js";
 import { NearViewer, provider } from "../lib/near.js";
 
@@ -58,7 +58,7 @@ export async function playOne(o: PlayOptions): Promise<{ accountId: string; game
 export function playEnv(env: Record<string, string | undefined>) {
   return {
     apiUrl: url(env, "API_URL", "http://127.0.0.1:8791"),
-    rpcUrl: url(env, "NEAR_RPC_URL", "https://rpc.testnet.fastnear.com"),
+    rpcUrl: urls(env, "NEAR_RPC_URL", "https://rpc.testnet.fastnear.com"),
     contract: accountId(env, "GAME_CONTRACT"),
     seed: int(env, "SEED", 0),
   };

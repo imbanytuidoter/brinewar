@@ -55,3 +55,20 @@ describe("bot targeting", () => {
     expect(new Set(fired.map((s) => s.index)).size).toBe(100);
   });
 });
+
+describe("several RPC endpoints", () => {
+  it("parses a comma list and refuses plain http outside localhost", async () => {
+    const { urls, ConfigError } = await import("../src/lib/config.js");
+    expect(urls({ NEAR_RPC_URL: "https://a.example/, https://b.example" }, "NEAR_RPC_URL", "https://x.example")).toBe("https://a.example,https://b.example");
+    expect(urls({}, "NEAR_RPC_URL", "https://x.example")).toBe("https://x.example");
+    expect(() => urls({ NEAR_RPC_URL: "https://a.example,http://evil.example" }, "NEAR_RPC_URL", "https://x.example")).toThrow(ConfigError);
+  });
+
+  it("fails over when the list has more than one endpoint", async () => {
+    const { FailoverRpcProvider, JsonRpcProvider } = await import("near-api-js");
+    const { provider } = await import("../src/lib/near.js");
+    expect(provider("https://a.example")).toBeInstanceOf(JsonRpcProvider);
+    expect(provider("https://a.example,https://b.example")).toBeInstanceOf(FailoverRpcProvider);
+    expect(() => provider(" , ")).toThrow();
+  });
+});

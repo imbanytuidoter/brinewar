@@ -47,6 +47,12 @@ export function url(env: Env, key: string, fallback: string): string {
   return v.replace(/\/$/, "");
 }
 
+export function urls(env: Env, key: string, fallback: string): string {
+  const list = (optional(env, key) ?? fallback).split(",").map((u) => u.trim()).filter(Boolean);
+  if (list.length === 0) throw new ConfigError(`${key} must list at least one URL`);
+  return list.map((u) => url({ [key]: u }, key, fallback)).join(",");
+}
+
 export interface AdmiralConfig {
   rpcUrl: string;
   contract: string;
@@ -62,7 +68,7 @@ export interface AdmiralConfig {
 
 export function admiralConfig(env: Env): AdmiralConfig {
   return {
-    rpcUrl: url(env, "NEAR_RPC_URL", "https://rpc.testnet.fastnear.com"),
+    rpcUrl: urls(env, "NEAR_RPC_URL", "https://rpc.testnet.fastnear.com"),
     contract: accountId(env, "GAME_CONTRACT"),
     admiral: accountId(env, "ADMIRAL_ACCOUNT"),
     admiralKey: secretKey(env, "ADMIRAL_KEY"),
@@ -91,7 +97,7 @@ export interface ApiConfig {
 
 export function apiConfig(env: Env): ApiConfig {
   return {
-    rpcUrl: url(env, "NEAR_RPC_URL", "https://rpc.testnet.fastnear.com"),
+    rpcUrl: urls(env, "NEAR_RPC_URL", "https://rpc.testnet.fastnear.com"),
     contract: accountId(env, "GAME_CONTRACT"),
     sponsor: accountId(env, "SPONSOR_ACCOUNT"),
     sponsorKey: secretKey(env, "SPONSOR_KEY"),
