@@ -1,4 +1,4 @@
-import { Account, actions, JsonRpcProvider, KeyPairSigner, teraToGas, type KeyPairString } from "near-api-js";
+import { Account, actions, FailoverRpcProvider, JsonRpcProvider, KeyPairSigner, teraToGas, type KeyPairString, type Provider } from "near-api-js";
 
 export const PLAYER_GAS_TGAS = 10;
 export const PLAYER_REVEAL_GAS_TGAS = 30;
@@ -65,8 +65,42 @@ export interface Caller {
   call(method: string, args: object): Promise<CallResult>;
 }
 
+export function rotate<T extends object>(items: readonly T[]): T {
+  const first = items[0];
+  if (!first) throw new Error("nothing to rotate");
+  let turn = 0;
+  return new Proxy(first, {
+    get(target, prop) {
+      const value = Reflect.get(target, prop, target) as unknown;
+      if (typeof value !== "function") return value;
+      return (...args: unknown[]) => {
+        const item = items[turn % items.length] as T;
+        turn += 1;
+        const fn = Reflect.get(item, prop, item) as (...a: unknown[]) => unknown;
+        return fn.apply(item, args);
+      };
+    },
+  });
+}
+
+function endpoints(rpcUrl: string): JsonRpcProvider[] {
+  return rpcUrl.split(",").map((u) => u.trim()).filter(Boolean).map((url) => new JsonRpcProvider({ url }));
+}
+
+export function readRpc(rpcUrl: string): Provider {
+  const list = endpoints(rpcUrl);
+  if (list.length <= 1) return list[0] ?? new JsonRpcProvider({ url: rpcUrl });
+  return rotate(list.map((_, i) => new FailoverRpcProvider([...list.slice(i), ...list.slice(0, i)])));
+}
+
+export function writeRpc(rpcUrl: string): Provider {
+  const list = endpoints(rpcUrl);
+  if (list.length <= 1) return list[0] ?? new JsonRpcProvider({ url: rpcUrl });
+  return new FailoverRpcProvider(list);
+}
+
 export function makeViewer(rpcUrl: string, contractId: string): Viewer {
-  const provider = new JsonRpcProvider({ url: rpcUrl });
+  const provider = readRpc(rpcUrl);
   return {
     async view<T>(method: string, args: object = {}): Promise<T> {
       const out = await withTimeout(
@@ -80,7 +114,7 @@ export function makeViewer(rpcUrl: string, contractId: string): Viewer {
 }
 
 export function makeCaller(rpcUrl: string, contractId: string, accountId: string, secretKey: string): Caller {
-  const provider = new JsonRpcProvider({ url: rpcUrl });
+  const provider = writeRpc(rpcUrl);
   const account = new Account(accountId, provider, KeyPairSigner.fromSecretKey(secretKey as KeyPairString));
   let queue: Promise<unknown> = Promise.resolve();
   return {

@@ -55,6 +55,23 @@ describe("guest", () => {
 });
 
 describe("config", () => {
+  it("accepts a comma list of RPC endpoints and checks each one", () => {
+    const cfg = readConfig({ VITE_NEAR_RPC_URL: "https://a.org/, https://b.org", VITE_GAME_CONTRACT: "brinewar.testnet" });
+    expect(cfg.rpcUrl).toBe("https://a.org,https://b.org");
+    expect(() => readConfig({ VITE_NEAR_RPC_URL: "https://a.org,http://evil.org", VITE_GAME_CONTRACT: "brinewar.testnet" })).toThrow();
+  });
+
+  it("spreads reads over endpoints in turn", async () => {
+    const { rotate } = await import("./chain");
+    const hits: string[] = [];
+    const make = (name: string) => ({ ping: () => hits.push(name) });
+    const r = rotate([make("a"), make("b")]);
+    r.ping();
+    r.ping();
+    r.ping();
+    expect(hits).toEqual(["a", "b", "a"]);
+  });
+
   it("requires https except on localhost", () => {
     expect(checkUrl("X", "https://rpc.testnet.near.org/", false)).toBe("https://rpc.testnet.near.org");
     expect(checkUrl("X", "http://127.0.0.1:3030", false)).toBe("http://127.0.0.1:3030");

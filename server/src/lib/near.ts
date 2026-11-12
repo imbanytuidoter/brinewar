@@ -133,6 +133,32 @@ export function provider(urls: string): Provider {
   return providers.length === 1 ? (providers[0] as JsonRpcProvider) : new FailoverRpcProvider(providers);
 }
 
+export function rotate<T extends object>(items: readonly T[]): T {
+  const first = items[0];
+  if (!first) throw new Error("nothing to rotate");
+  let turn = 0;
+  return new Proxy(first, {
+    get(target, prop) {
+      const value = Reflect.get(target, prop, target) as unknown;
+      if (typeof value !== "function") return value;
+      return (...args: unknown[]) => {
+        const item = items[turn % items.length] as T;
+        turn += 1;
+        const fn = Reflect.get(item, prop, item) as (...a: unknown[]) => unknown;
+        return fn.apply(item, args);
+      };
+    },
+  });
+}
+
+export function readProvider(urls: string): Provider {
+  const list = urls.split(",").map((u) => u.trim()).filter(Boolean);
+  if (list.length === 0) throw new Error("no RPC URL");
+  const providers = list.map((url) => new JsonRpcProvider({ url }));
+  if (providers.length === 1) return providers[0] as JsonRpcProvider;
+  return rotate(providers.map((_, i) => new FailoverRpcProvider([...providers.slice(i), ...providers.slice(0, i)])));
+}
+
 export async function blockHeight(p: Provider, timeoutMs: number): Promise<number> {
   const block = await withTimeout(p.viewBlock({ finality: "optimistic" }), timeoutMs, "block");
   return Number(block.header.height);

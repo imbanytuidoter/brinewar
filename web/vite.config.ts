@@ -15,7 +15,8 @@ function origin(raw: string | undefined): string | null {
 
 function contentSecurityPolicy(mode: string): Plugin {
   const env = loadEnv(mode, process.cwd(), "VITE_");
-  const connect = ["'self'", origin(env.VITE_NEAR_RPC_URL), origin(env.VITE_API_URL)].filter(Boolean).join(" ");
+  const rpcs = (env.VITE_NEAR_RPC_URL ?? "").split(",").map((u) => origin(u.trim()));
+  const connect = [...new Set(["'self'", ...rpcs, origin(env.VITE_API_URL)].filter(Boolean))].join(" ");
   const policy = [
     "default-src 'self'",
     "script-src 'self'",

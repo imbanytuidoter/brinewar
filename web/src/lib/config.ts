@@ -29,12 +29,18 @@ export function checkUrl(name: string, raw: string | undefined, allowEmpty: bool
   return value;
 }
 
+export function checkUrls(name: string, raw: string | undefined): string {
+  const list = (raw ?? "").split(",").map((u) => u.trim()).filter(Boolean);
+  if (list.length === 0) throw new Error(`${name} is not set`);
+  return list.map((u) => checkUrl(name, u, false)).join(",");
+}
+
 export function readConfig(env: Record<string, string | undefined>): AppConfig {
   const contractId = (env.VITE_GAME_CONTRACT ?? "").trim();
   if (!ACCOUNT.test(contractId)) throw new Error("VITE_GAME_CONTRACT is not a NEAR account id");
   return {
     apiUrl: checkUrl("VITE_API_URL", env.VITE_API_URL, true),
-    rpcUrl: checkUrl("VITE_NEAR_RPC_URL", env.VITE_NEAR_RPC_URL, false),
+    rpcUrl: checkUrls("VITE_NEAR_RPC_URL", env.VITE_NEAR_RPC_URL),
     contractId,
     explorerTxUrl: checkUrl("VITE_EXPLORER_TX_URL", env.VITE_EXPLORER_TX_URL, true),
     explorerAccountUrl: checkUrl("VITE_EXPLORER_ACCOUNT_URL", env.VITE_EXPLORER_ACCOUNT_URL, true),

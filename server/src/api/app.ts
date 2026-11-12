@@ -12,9 +12,9 @@ const HOUR = 3_600_000;
 const DAY = 24 * HOUR;
 const NICKNAME = /^[A-Za-z0-9_-]{3,16}$/;
 const CACHE_MS = 5000;
-const LEADERBOARD_MS = 120_000;
+const LEADERBOARD_MS = 600_000;
 const LEADERBOARD_TOP = 50;
-const LEADERBOARD_BATCH = 6;
+const LEADERBOARD_BATCH = 3;
 
 export function limitKey(ip: string): string {
   if (!ip.includes(":")) return ip;

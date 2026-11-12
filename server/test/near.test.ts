@@ -73,6 +73,28 @@ describe("several RPC endpoints", () => {
   });
 });
 
+describe("spreading reads over providers", () => {
+  it("sends each call to the next provider in turn and keeps plain properties", async () => {
+    const { rotate } = await import("../src/lib/near.js");
+    const hits: string[] = [];
+    const make = (name: string) => ({ name, view: async (x: number) => (hits.push(name), x * 2) });
+    const spread = rotate([make("a"), make("b"), make("c")]);
+    expect(await spread.view(1)).toBe(2);
+    await spread.view(2);
+    await spread.view(3);
+    await spread.view(4);
+    expect(hits).toEqual(["a", "b", "c", "a"]);
+    expect(spread.name).toBe("a");
+  });
+
+  it("builds read rings only when there is more than one endpoint", async () => {
+    const { JsonRpcProvider } = await import("near-api-js");
+    const { readProvider } = await import("../src/lib/near.js");
+    expect(readProvider("https://a.example")).toBeInstanceOf(JsonRpcProvider);
+    expect(typeof readProvider("https://a.example,https://b.example").callFunction).toBe("function");
+  });
+});
+
 describe("NEAR amounts in config", () => {
   it("reads decimal NEAR into yocto", async () => {
     const { nearAmount, ConfigError } = await import("../src/lib/config.js");
