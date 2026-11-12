@@ -10,6 +10,7 @@ import type { AppConfig } from "@/lib/config";
 import type { ConfigView, GameView, ModelView, ShotView } from "@/lib/contract";
 import { fetchEvidence } from "@/lib/proofs";
 import { sound } from "@/lib/sound";
+import { confirmedSunk } from "@/lib/sunk";
 import { CalloutBanner } from "@/ui/CalloutBanner";
 import { MuteToggle } from "@/ui/MuteToggle";
 import { NauarchBubble } from "@/ui/NauarchBubble";
@@ -79,6 +80,7 @@ function Theatre({ replay }: { readonly replay: Replay }) {
   const shown = useMemo(() => history.slice(0, step), [history, step]);
   const marks = useMemo(() => marksFrom(shown, game.a), [shown, game.a]);
   const done = step >= history.length;
+  const wrecks = useMemo(() => confirmedSunk(marks.enemy), [marks.enemy]);
   const feed = useBattleFeed({ myShips: replay.captainShips, myMarks: marks.mine, enemyMarks: marks.enemy, heat: null, boards: 0, rival: null });
   const lastNauarch = [...shown].reverse().find((s) => s.by === game.b && replay.lines.has(s.n));
   const spoken = lastNauarch ? replay.lines.get(lastNauarch.n) : undefined;
@@ -116,6 +118,7 @@ function Theatre({ replay }: { readonly replay: Replay }) {
           reducedMotion={reduced}
           onFire={() => undefined}
           enemyLabel="The Nauarch"
+          enemyWrecks={wrecks}
           onLaunch={feed.onLaunch}
           onLand={feed.onLand}
         />

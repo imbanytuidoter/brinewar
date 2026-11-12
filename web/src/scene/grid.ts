@@ -14,13 +14,6 @@ export const BOARD_ORIGIN: Readonly<Record<Side, Point2>> = {
   enemy: { x: 1, z: -5 },
 };
 
-export const MODEL_FOR_LENGTH: Readonly<Record<number, string>> = {
-  4: "ship-large",
-  3: "ship-medium",
-  2: "ship-small",
-  1: "boat-row-large",
-};
-
 export function cellCenter(side: Side, index: number): Point2 {
   const o = BOARD_ORIGIN[side];
   return { x: o.x + (index % SIZE) + 0.5, z: o.z + Math.floor(index / SIZE) + 0.5 };

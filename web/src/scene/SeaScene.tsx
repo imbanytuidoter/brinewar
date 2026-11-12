@@ -10,8 +10,9 @@ import { preloadModels } from "./models";
 import { Picker } from "./Picker";
 import { createRuntime, RuntimeContext, useRuntime, type SceneRuntime } from "./runtime";
 import { Sea } from "./Sea";
+import { Scenery, Wrecks } from "./Scenery";
 import { FOG_FAR, FOG_NEAR, SEA_FOG } from "./seaMaterial";
-import type { Mark, SeaSceneProps, ShipLook, Side } from "./types";
+import type { Hullset, Mark, SeaSceneProps, ShipLook, Side } from "./types";
 import { useMarkFlights } from "./useMarkFlights";
 import { useReveal } from "./useReveal";
 
@@ -56,9 +57,10 @@ interface BoardProps {
   readonly ships: readonly (readonly number[])[];
   readonly marks: ReadonlyMap<number, Mark>;
   readonly look?: ShipLook | null;
+  readonly hulls?: Hullset;
 }
 
-function Board({ side, ships, marks, look = null }: BoardProps) {
+function Board({ side, ships, marks, look = null, hulls = "brine" }: BoardProps) {
   const { effects } = useRuntime();
   const landed = useMarkFlights(side, marks);
   useEffect(() => {
@@ -69,7 +71,7 @@ function Board({ side, ships, marks, look = null }: BoardProps) {
     if (side === "mine") effects.setTrail(look?.trail ?? null);
   }, [effects, side, look]);
   const sunk = useMemo(() => sunkShips(ships, landed), [ships, landed]);
-  return <Fleet side={side} ships={ships} sunk={sunk} look={look} />;
+  return <Fleet side={side} ships={ships} sunk={sunk} look={look} hulls={hulls} />;
 }
 
 const SHAKE_DECAY = 5;
@@ -113,8 +115,10 @@ function World(props: SeaSceneProps) {
         <Picker marks={props.enemyMarks} aiming={props.aiming} canFire={props.canFire} onFire={props.onFire} />
         <Suspense fallback={null}>
           <Effects />
-          <Board side="mine" ships={props.myShips} marks={props.myMarks} look={props.myLook ?? null} />
-          <Board side="enemy" ships={props.enemyShips ?? NO_SHIPS} marks={props.enemyMarks} />
+          <Scenery />
+          <Board side="mine" ships={props.myShips} marks={props.myMarks} look={props.myLook ?? null} hulls={props.myLook?.hulls ?? "brine"} />
+          <Board side="enemy" ships={props.enemyShips ?? NO_SHIPS} marks={props.enemyMarks} hulls={props.enemyHulls ?? "pirate"} />
+          {props.enemyShips === null && props.enemyWrecks && props.enemyWrecks.length > 0 && <Wrecks ships={props.enemyWrecks} />}
         </Suspense>
       </Shaker>
     </>

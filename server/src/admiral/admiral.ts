@@ -107,7 +107,8 @@ export class Admiral {
         case "commit":
           return await this.#commit(g);
         case "answer":
-          return await this.#answer(g, action.index);
+          if (await this.#answer(g, action.index)) await this.#followUp(g.id);
+          return;
         case "move":
           return await this.#move(g);
         case "reveal":
@@ -161,12 +162,18 @@ export class Admiral {
     await this.#send(g.id, "commit_board", { game_id: g.id, root: rootHex(board) });
   }
 
-  async #answer(g: GameView, index: number): Promise<void> {
+  async #answer(g: GameView, index: number): Promise<boolean> {
     const board = this.#board(g.id);
     if (!board) throw new Error(`no board for game ${g.id}`);
     const args = answerArgs(board, g.id, index);
     const r = await this.#send(g.id, "answer", args);
     if (r.ok) this.#o.store.saveAnswer(g.id, { idx: index, cell: args.cell, salt: args.salt, proof: args.proof, tx: r.tx });
+    return r.ok;
+  }
+
+  async #followUp(gameId: number): Promise<void> {
+    const [next, height] = await Promise.all([this.#o.viewer.view<GameView | null>("get_game", { game_id: gameId }), this.#o.height()]);
+    if (next && this.#decide(next, height).kind === "move") await this.#move(next);
   }
 
   async #reveal(g: GameView): Promise<void> {

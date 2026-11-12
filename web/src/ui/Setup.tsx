@@ -34,6 +34,7 @@ interface SetupProps {
   readonly onSail: () => void;
   readonly onDuel: () => void;
   readonly onBack?: () => void;
+  readonly mode: "nauarch" | "friend";
 }
 
 type Tab = "fleet" | "colours";
@@ -112,13 +113,20 @@ export function Setup(p: SetupProps) {
       )}
 
       <div className="sticky bottom-0 -mx-3 -mb-3 grid gap-2 border-t border-line bg-[#0c2431]/95 p-3 backdrop-blur-md">
-        <span className="text-xs font-semibold tracking-[0.12em] text-muted uppercase">Choose your opponent</span>
-        <div className="grid grid-cols-2 gap-2">
+        <span className="text-xs font-semibold tracking-[0.12em] text-muted uppercase">{p.mode === "friend" ? "Duel a friend" : "Battle the Nauarch"}</span>
+        {p.mode === "friend" ? (
+          <Opponent title="A friend" text="You get a link to send. Your friend opens it in any browser, no wallet, places a fleet and the duel starts." stakes="Free · no stakes · XP for both flagships" foot={null} warn={false}>
+            <Button variant="brass" size="sm" onClick={p.onDuel} disabled={p.busy} aria-label="Challenge a friend" className="w-full">
+              <Swords aria-hidden />
+              Create the duel link
+            </Button>
+          </Opponent>
+        ) : (
           <Opponent
             title="The Nauarch"
-            text="AI admiral on NEAR AI Cloud. Every move signed."
+            text="AI admiral on NEAR AI Cloud. Every move signed and checked by the contract."
             stakes={p.treasury ? `Entry ${p.treasury.entry} · win ${p.treasury.bounty} gold` : "Entry and bounty from his treasury"}
-            foot={short ? "Not enough gold for the entry. Duels are free." : p.gold !== null ? `You hold ${p.gold.toString()} gold` : null}
+            foot={short ? "Not enough gold for the entry. Duels with friends are free." : p.gold !== null ? `You hold ${p.gold.toString()} gold` : null}
             warn={short}
           >
             <Button variant="brass" size="sm" onClick={p.onSail} disabled={p.busy || short} aria-label="Set sail against the Nauarch" className="w-full">
@@ -126,14 +134,7 @@ export function Setup(p: SetupProps) {
               Set sail
             </Button>
           </Opponent>
-          <Opponent title="A friend" text="Send a link. They play from any browser, no wallet." stakes="Free · no stakes" foot={null} warn={false}>
-            <Button size="sm" onClick={p.onDuel} disabled={p.busy} aria-label="Challenge a friend" className="w-full">
-              <Swords aria-hidden />
-              <span className="max-sm:hidden">Challenge a friend</span>
-              <span className="sm:hidden">Invite</span>
-            </Button>
-          </Opponent>
-        </div>
+        )}
       </div>
     </section>
   );
@@ -168,7 +169,7 @@ function Opponent({ title, text, stakes, foot, warn, children }: OpponentProps) 
     <div className="grid content-between gap-2 rounded-xl border border-line bg-black/20 p-2.5">
       <div className="grid gap-1">
         <span className="font-display text-[17px] leading-tight font-bold max-sm:text-[15px]">{title}</span>
-        <span className="text-[11px] leading-snug text-muted max-sm:hidden">{text}</span>
+        <span className="text-[11px] leading-snug text-muted">{text}</span>
         <span className="text-[11px] font-semibold text-brass">{stakes}</span>
         {foot && <span className={cn("text-[10px]", warn ? "text-hit" : "text-muted max-sm:hidden")}>{foot}</span>}
       </div>

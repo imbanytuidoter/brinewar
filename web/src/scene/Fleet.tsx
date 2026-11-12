@@ -4,18 +4,19 @@ import { REVEAL_END } from "./grid";
 import { useShipProtos } from "./models";
 import { shipKey, useRuntime } from "./runtime";
 import { ShipActor } from "./ships";
-import type { ShipLook, Side } from "./types";
+import type { Hullset, ShipLook, Side } from "./types";
 
 interface FleetProps {
   readonly side: Side;
   readonly ships: readonly (readonly number[])[];
   readonly sunk: readonly boolean[];
   readonly look?: ShipLook | null;
+  readonly hulls?: Hullset;
 }
 
-export function Fleet({ side, ships, sunk, look = null }: FleetProps) {
+export function Fleet({ side, ships, sunk, look = null, hulls = "brine" }: FleetProps) {
   const runtime = useRuntime();
-  const protos = useShipProtos();
+  const protos = useShipProtos(hulls);
   const shape = JSON.stringify(ships);
 
   const actors = useMemo(() => {

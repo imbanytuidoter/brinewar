@@ -1,4 +1,4 @@
-import { Anchor, Flag, Loader2, WifiOff } from "lucide-react";
+import { Anchor, Flag, Loader2, Swords, WifiOff } from "lucide-react";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DuelInvite, duelFromLocation, JoinDuel, type DuelInviteRef } from "@/ui/DuelCards";
 import { Button } from "@/components/ui/button";
@@ -10,7 +10,7 @@ import type { Mood } from "@/ui/NauarchPortrait";
 import { useSkins, type HarbourStats } from "@/game/useHarbour";
 import { sound } from "@/lib/sound";
 import { CalloutBanner } from "@/ui/CalloutBanner";
-import { EncounterCard } from "@/world/EncounterCard";
+import { EncounterCard, type BattleMode } from "@/world/EncounterCard";
 import { useMapCaptains } from "@/world/useMapCaptains";
 import { WorldMap, type Encounter } from "@/world/WorldMap";
 import { FleetTray } from "@/ui/FleetTray";
@@ -66,12 +66,14 @@ export function PlayPage({ cfg, session, stats, landing, onEnter }: PlayPageProp
   const sunkTheirs = useMemo(() => confirmedSunk(snap.marks.enemy), [snap.marks.enemy]);
   const heat = stats.admiralty && stats.admiralty.boards_counted > 0 ? stats.admiralty.heat : null;
   const feed = useBattleFeed({ myShips, myMarks: snap.marks.mine, enemyMarks: snap.marks.enemy, heat, boards: stats.admiralty?.boards_counted ?? 0, rival: duel ? (rival ?? "Your friend") : null });
+  const firedSound = feed.fired;
   const onFire = useCallback(
     (index: number) => {
       sound.unlock();
+      firedSound(index);
       void session.fire(index);
     },
-    [session],
+    [session, firedSound],
   );
   const sail = useCallback(() => {
     sound.unlock();
@@ -97,13 +99,15 @@ export function PlayPage({ cfg, session, stats, landing, onEnter }: PlayPageProp
     setDraft(placeFleet(cryptoRng()));
     setView("chart");
   }, [session]);
-  const toSetup = useCallback(() => {
+  const [mode, setMode] = useState<BattleMode>("nauarch");
+  const toSetup = useCallback((next: BattleMode) => {
     sound.unlock();
     setEncounter(null);
+    setMode(next);
     setView("setup");
   }, []);
 
-  const status = statusText(step, snap.busy, snap.marks.aiming, rival);
+  const status = statusText(step, snap.busy, snap.marks.aiming, rival, g?.status ?? null);
   const showLanding = landing && !inBattle && joinId === null;
   const onChart = !inBattle && joinId === null && !landing && view === "chart";
   useEffect(() => {
@@ -138,6 +142,8 @@ export function PlayPage({ cfg, session, stats, landing, onEnter }: PlayPageProp
           onFire={onFire}
           myLook={myLook}
           enemyLabel={enemyLabel}
+          enemyHulls={duel ? "brine" : "pirate"}
+          enemyWrecks={sunkTheirs}
           onLaunch={feed.onLaunch}
           onLand={feed.onLand}
         />
@@ -179,14 +185,21 @@ export function PlayPage({ cfg, session, stats, landing, onEnter }: PlayPageProp
         )}
         {onChart && encounter && <EncounterCard encounter={encounter} stats={stats} busy={snap.busy !== null} onBattle={toSetup} onClose={() => setEncounter(null)} />}
         {onChart && (
-          <Button variant="brass" onClick={toSetup} disabled={snap.busy !== null}>
-            <Anchor aria-hidden />
-            Prepare for battle
-          </Button>
+          <div className="flex flex-wrap justify-end gap-2">
+            <Button variant="glass" onClick={() => toSetup("friend")} disabled={snap.busy !== null}>
+              <Swords aria-hidden />
+              Invite a friend
+            </Button>
+            <Button variant="brass" onClick={() => toSetup("nauarch")} disabled={snap.busy !== null}>
+              <Anchor aria-hidden />
+              Prepare for battle
+            </Button>
+          </div>
         )}
         {!inBattle && joinId === null && !landing && view === "setup" && (
           <Setup
             onBack={() => setView("chart")}
+            mode={mode}
             cells={draft}
             onCells={setDraft}
             onShuffle={shuffle}
@@ -231,7 +244,7 @@ export function PlayPage({ cfg, session, stats, landing, onEnter }: PlayPageProp
   );
 }
 
-function statusText(step: string | null, busy: string | null, aiming: number | null, rival: string | null): string | null {
+export function statusText(step: string | null, busy: string | null, aiming: number | null, rival: string | null, phase: string | null = null): string | null {
   if (busy) return aiming !== null && busy === "Firing" ? `Firing at ${cellName(aiming)}…` : `${busy}…`;
   switch (step) {
     case "fire":
@@ -241,7 +254,10 @@ function statusText(step: string | null, busy: string | null, aiming: number | n
     case "invite":
       return "Waiting for your friend to accept the duel…";
     case "wait":
-      return aiming !== null ? `Shot at ${cellName(aiming)} is on its way…` : "Waiting for the chain…";
+      if (aiming !== null) return rival ? `Shot at ${cellName(aiming)} is flying. ${rival} answers with a proof…` : `Shot at ${cellName(aiming)} is flying. He answers with a proof…`;
+      if (phase === "Placing") return rival ? `${rival} is placing their fleet…` : "The Nauarch is sealing his fleet…";
+      if (phase === "Revealing" || phase === "Finished") return "The fleets are being revealed for the final check…";
+      return rival ? `${rival} is answering…` : "The Nauarch is answering…";
     case "commit":
       return "Sealing your board…";
     case "answer":

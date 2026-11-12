@@ -22,16 +22,21 @@ function game(over: Partial<GameView> = {}): GameView {
   };
 }
 
-function setup(opts: { model?: FakeModel | null; reject?: (m: string) => boolean; timeoutMs?: number } = {}) {
+function setup(opts: { model?: FakeModel | null; reject?: (m: string) => boolean; timeoutMs?: number; answerPassesTurn?: boolean } = {}) {
   const store = new Store(join(mkdtempSync(join(tmpdir(), "bw-")), "db.sqlite"));
   let current = game();
   const viewer = new FakeViewer((method) => {
     if (method === "config") return { games: 1 };
     if (method === "games_since") return [current];
     if (method === "nauarch_request") return `{"model":"m","req":${current.shots}}`;
+    if (method === "get_game") return current;
     throw new Error(method);
   });
-  const caller = new FakeCaller(ADM, (method) => (opts.reject?.(method) ? { txHash: "bad", ok: false, error: "Smart contract panicked: no" } : { txHash: `tx-${method}`, ok: true }));
+  const caller = new FakeCaller(ADM, (method) => {
+    if (opts.reject?.(method)) return { txHash: "bad", ok: false, error: "Smart contract panicked: no" };
+    if (method === "answer" && opts.answerPassesTurn) current = { ...current, pending_index: null, turn: ADM };
+    return { txHash: `tx-${method}`, ok: true };
+  });
   const admiral = new Admiral({
     viewer, caller, store, vault: new Vault(KEY), model: opts.model === undefined ? null : opts.model, log: silent,
     height: async () => 10, modelTimeoutMs: opts.timeoutMs ?? 2000, maxFarewellTries: 2, cooldownMs: 0, rng: seededRng(3),
@@ -70,6 +75,16 @@ describe("admiral", () => {
     expect(a.index).toBe(37);
     expect(toHex(rootFromProof(37, a.cell, fromHex(a.salt), a.proof.map(fromHex)))).toBe(root);
     expect(t.store.answers(0)).toHaveLength(1);
+  });
+
+  it("fires right after answering, without waiting for the next tick", async () => {
+    const t = setup({ answerPassesTurn: true });
+    await t.settle();
+    t.set({ status: "Playing", root_b: t.store.board(0)?.root as string, turn: ADM, pending_index: 12, shots: 1 });
+    await t.settle();
+    const methods = t.caller.calls.map((c) => c.method);
+    expect(methods.indexOf("answer")).toBeGreaterThan(-1);
+    expect(methods.indexOf("nauarch_fallback")).toBeGreaterThan(methods.indexOf("answer"));
   });
 
   it("moves through the signed model reply", async () => {

@@ -7,16 +7,24 @@ interface EncounterCardProps {
   readonly encounter: Encounter;
   readonly stats: HarbourStats;
   readonly busy: boolean;
-  readonly onBattle: () => void;
+  readonly onBattle: (mode: BattleMode) => void;
   readonly onClose: () => void;
+}
+
+export type BattleMode = "nauarch" | "friend";
+
+interface Act {
+  readonly label: string;
+  readonly href?: string;
+  readonly battle?: BattleMode;
 }
 
 interface Copy {
   readonly title: string;
   readonly body: string;
   readonly note?: string;
-  readonly primary: { readonly label: string; readonly href?: string; readonly battle?: boolean };
-  readonly secondary?: { readonly label: string; readonly href?: string; readonly battle?: boolean };
+  readonly primary: Act;
+  readonly secondary?: Act;
 }
 
 function copyFor(e: Encounter, s: HarbourStats): Copy {
@@ -26,21 +34,21 @@ function copyFor(e: Encounter, s: HarbourStats): Copy {
       title: "A Nauarch patrol",
       body: `One of his frigates crosses your bow. He has studied ${boards.toLocaleString("en-US")} boards and fires first where captains hide.`,
       note: s.treasury ? `Entry ${s.treasury.entry} gold · sink his fleet for ${s.treasury.bounty}` : undefined,
-      primary: { label: "Engage", battle: true },
+      primary: { label: "Engage", battle: "nauarch" },
     };
   if (e.kind === "captain") {
     const c = e.captain;
     return {
       title: `#${e.rank} ${c.name}`,
       body: `${c.rank} · ${c.class}. ${c.wins} won and ${c.losses} lost against the Nauarch, ${c.sunk} of his ships sunk, ${c.xp.toLocaleString("en-US")} XP. Read from the contract.`,
-      note: "Captains do not wait at sea: a duel starts from a link you send.",
-      primary: { label: "Duel a friend", battle: true },
+      note: "Captains do not wait at sea: invite someone you know with a duel link.",
+      primary: { label: "Invite a friend", battle: "friend" },
       secondary: { label: "Captains' board", href: "/captains" },
     };
   }
   switch (e.place.kind) {
     case "port":
-      return { title: e.place.name, body: "Shipwright and sailmaker: your flagship, its rank, and the skins you own on NEAR.", primary: { label: "Prepare for battle", battle: true }, secondary: { label: "Fleet and skins", href: "/fleet" } };
+      return { title: e.place.name, body: "Shipwright and sailmaker: your flagship, its rank, and the skins you own on NEAR.", primary: { label: "Battle the Nauarch", battle: "nauarch" }, secondary: { label: "Fleet and skins", href: "/fleet" } };
     case "admiralty":
       return { title: e.place.name, body: "The chart of where captains hide their ships, built only from boards the contract verified. The Nauarch hunts from it.", primary: { label: "Open the Admiralty map", href: "/admiralty" } };
     case "treasury":
@@ -52,7 +60,7 @@ function copyFor(e: Encounter, s: HarbourStats): Copy {
   }
 }
 
-function Action({ a, busy, onBattle, primary }: { readonly a: NonNullable<Copy["secondary"]>; readonly busy: boolean; readonly onBattle: () => void; readonly primary: boolean }) {
+function Action({ a, busy, onBattle, primary }: { readonly a: Act; readonly busy: boolean; readonly onBattle: (mode: BattleMode) => void; readonly primary: boolean }) {
   if (a.href)
     return (
       <Button asChild variant={primary ? "brass" : "glass"} size="sm">
@@ -60,7 +68,7 @@ function Action({ a, busy, onBattle, primary }: { readonly a: NonNullable<Copy["
       </Button>
     );
   return (
-    <Button variant={primary ? "brass" : "glass"} size="sm" onClick={onBattle} disabled={busy}>
+    <Button variant={primary ? "brass" : "glass"} size="sm" onClick={() => onBattle(a.battle ?? "nauarch")} disabled={busy}>
       {primary ? <Swords aria-hidden /> : <Anchor aria-hidden />}
       {a.label}
     </Button>
