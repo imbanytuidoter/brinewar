@@ -6,18 +6,22 @@ Play: **https://brinewar.imbanytui.xyz** · For judges: **https://brinewar.imban
 
 Track: **Games**. Network: **NEAR testnet only**.
 
+**Who it is for.** Anyone who runs a game of skill against a house AI has the same problem: players assume the bot cheats, because it could. Brinewar shows the fix on NEAR: the house opponent cannot see your board (Merkle commitments), cannot change its own (sealed before the first shot), and every one of its moves is signed by the model in a TEE and checked by the contract. The player never touches a wallet.
+
 ## Try it: do X, see Y
 
 | Do | See |
 |---|---|
-| Open the site in a fresh browser, press **Set sail** | A guest account, a flagship token and 100 gold appear in a few seconds. No wallet window, ever. |
-| Tap a cell in the fog | Your shot lands in about a second. The Nauarch thinks, fires back and adds one line, marked **signed ✓**: your browser re-checked the model signature against the key in the contract. |
+| Open the site in a fresh browser | The landing shows live numbers from the chain: boards the Nauarch has studied, gold in his treasury, and his first guess with the share of fleets that sat there. A guest account, a flagship, 100 gold and three skins are created in the background. No wallet window, ever. |
+| Press **Take command** | Drag and turn your ships on a grid, switch on **Heat map** to see where he hunts first and how risky your layout is, pick a name and a skin, then choose the Nauarch (entry and bounty shown) or a friend (free). |
+| Press **Set sail**, tap a cell in the fog | Your first shot is open within seconds. Each shot lands with a callout (hit, miss, sunk) and sound. The Nauarch fires back with one line marked **signed ✓**: your browser re-checked the model signature against the key in the contract. When he fires into hot water from the map, the callout says *Hunting from the Admiralty map* with the share of fleets that sat there. |
 | Win or lose | The fog lifts, his fleet rises, a **Fleet verified ✓** seal links to his reveal transaction, and the card shows your gold, XP and rank change. |
 | Press **Verify** | `/verify/<id>` reads the battle from the contract and recomputes every Merkle proof, his reveal and every model signature in your browser. |
 | Press **Challenge a friend**, send the link | Your friend opens it in any browser, also with no wallet, accepts, and you duel: same Merkle proofs, no gold at stake, XP for both flagships. |
-| Open **Admiralty** | The heat map of where captains hide ships, built only from boards the contract verified, with a day slider. The Nauarch fires at the hot cells first. |
+| Open **Admiralty** | The heat map of where captains hide ships, built only from boards the contract verified (one per captain per day). A day slider appears once more than one day is recorded. The Nauarch fires at the hot cells first. |
 | Open **Treasury**, press **Simulate 50 battles** | Live treasury, entry fee and bounty, then a fast-forward of 50 battles using the contract's own formulas (labelled as a simulation). |
-| Open **For judges** | This page in one screen, with the demo video and its chapters. |
+| Open **For judges**, then **Watch a finished battle** | A real battle the Nauarch won, replayed from the chain with his signed lines, ending with his fleet rising from the root he sealed. The page also holds the demo video once it is published. |
+| Open **Fleet** | Your flagship token, rank and XP. Every new rank mints a skin (Lieutenant, Captain, Commodore, Admiral) as a NEP-245 token. |
 
 ## How it works
 
@@ -26,7 +30,7 @@ Track: **Games**. Network: **NEAR testnet only**.
 - **No wallet.** The browser keeps an ed25519 key in `localStorage`. The contract creates `p-<16 hex>.<contract>` with that key as a function-call key limited to the game methods and a 0.25 NEAR allowance. The board and its salts never leave the browser until the reveal.
 - **Economy without patches.** Losers' stakes fill the Nauarch's treasury; sinking his fleet pays a bounty of 5% of it, capped. Below a threshold the entry fee rises and bounties shrink, all inside the contract.
 - **The map that teaches him.** Every verified board adds to a 10×10 heat map (one per captain per day, battles of 10+ moves). His deterministic hunt and his prompt both use it. "Learns" means statistics over all battles, not a neural network.
-- **Flagship.** A NEP-245 token per player with XP, wins, losses and ships sunk. Rank (Ensign → Admiral) is earned only in battle. A transferred flagship keeps its record but its rank freezes. Skins are cosmetic NEP-245 tokens; they are the only thing meant to be sold.
+- **Flagship.** A NEP-245 token per player with XP, wins, losses and ships sunk. Rank (Ensign → Admiral) is earned only in battle. A transferred flagship keeps its record but its rank freezes. Skins are cosmetic NEP-245 tokens: three at sign-up, one more for each rank reached; they are the only thing meant to be sold.
 
 ## What we use from NEAR
 
@@ -55,7 +59,8 @@ Example transactions are linked from the Verify page of any battle. Deployment s
 - Our server keeps the Nauarch's board and salts. It cannot change them after the commit, but it can see them. Moving that into a TEE (OutLayer) is future work.
 - The admin pins the NEAR AI model key after checking its attestation; the contract does not verify a TDX quote itself.
 - A sponsor account pays for guest accounts and gas.
-- The admiralty map was seeded with 30 scripted battles by test captains `Seed_01` … `Seed_30` so it is not empty on day one.
+- The admiralty map was seeded with scripted battles by test captains named `Seed_NN` so it is not empty on day one; the landing and the Admiralty page show the live count of boards it holds.
+- The replay rebuilds the captain's fleet from the Nauarch's hits, so it only shows battles he won by sinking the whole fleet. A captain's board is revealed in a transaction, not kept in contract state.
 - "Save progress with Google" (NEAR Auth) is not shipped: the shared testnet client only accepts `localhost:3000`. See [`docs/research/2026-11-11-near-auth.md`](docs/research/2026-11-11-near-auth.md).
 
 ## Run it locally
@@ -83,7 +88,7 @@ cd web && BRINEWAR_API_PROXY=http://127.0.0.1:8797 VITE_NEAR_RPC_URL=<rpcUrl fro
 
 Without `NEAR_AI_API_KEY` the Nauarch plays only deterministic moves, and the UI labels them. A full scripted battle on the sandbox: `cd server && npm run e2e` (about 10 minutes).
 
-Tests at the time of writing: 108 contract, 53 server, 78 web.
+Tests at the time of writing: 120 contract, 61 server, 109 web, plus 2 Playwright runs against the live testnet site (a battle with the Nauarch and a two-browser duel).
 
 ## Prior art
 
