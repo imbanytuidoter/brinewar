@@ -42,12 +42,12 @@ describe("leaderboard", () => {
     const board = await buildLeaderboard(v, 10, 2);
     expect(board.captains.find((c) => c.name === "Seed_07")?.seed).toBe(true);
     const top1 = await buildLeaderboard(v, 1, 2);
-    expect(top1.captains.map((c) => c.name)).toEqual(["Seed_07", "Bo"]);
+    expect(top1.captains.map((c) => c.name)).toEqual(["Seed_07", "Bo", "Anna"]);
   });
 
-  it("keeps the top entries only", async () => {
-    const board = await buildLeaderboard(viewer(), 1, 2);
-    expect(board.captains).toHaveLength(1);
+  it("keeps every live captain however short the seed list is", async () => {
+    const board = await buildLeaderboard(viewer(), 0, 2);
+    expect(board.captains.map((c) => c.name)).toEqual(["Bo", "Anna"]);
   });
 
   it("serves the last snapshot while one refresh runs in the background", async () => {

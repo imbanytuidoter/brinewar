@@ -56,7 +56,7 @@ async function inBatches<T, R>(items: readonly T[], size: number, fn: (item: T) 
   return out;
 }
 
-export async function buildLeaderboard(viewer: Viewer, top: number, batch: number): Promise<Leaderboard> {
+export async function buildLeaderboard(viewer: Viewer, topSeeds: number, batch: number): Promise<Leaderboard> {
   const { players } = await patient<{ players: number }>(viewer, "config", {});
   const ids = Array.from({ length: players }, (_, i) => i + 1);
   const ships = (await inBatches(ids, batch, (id) => patient<ShipRow | null>(viewer, "get_ship", { token_id: `ship:${id}` }))).filter((s): s is ShipRow => s !== null);
@@ -67,8 +67,8 @@ export async function buildLeaderboard(viewer: Viewer, top: number, batch: numbe
   const nauarch = entries.reduce((acc, e) => ({ wins: acc.wins + e.losses, losses: acc.losses + e.wins, battles: acc.battles + e.wins + e.losses }), { wins: 0, losses: 0, battles: 0 });
   const played = entries.filter((e) => e.wins + e.losses > 0 || e.xp > 0);
   const ranked = [...played].sort((a, b) => b.xp - a.xp || b.wins - a.wins || b.sunk - a.sunk);
-  const keep = new Set([...ranked.filter((e) => !e.seed).slice(0, top), ...ranked.filter((e) => e.seed).slice(0, top)]);
-  const captains = ranked.filter((e) => keep.has(e));
+  const seeds = new Set(ranked.filter((e) => e.seed).slice(0, topSeeds));
+  const captains = ranked.filter((e) => !e.seed || seeds.has(e));
   return { captains, nauarch, total: entries.length };
 }
 

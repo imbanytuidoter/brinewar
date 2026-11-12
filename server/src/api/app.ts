@@ -13,7 +13,7 @@ const DAY = 24 * HOUR;
 const NICKNAME = /^[A-Za-z0-9_-]{3,16}$/;
 const CACHE_MS = 5000;
 const LEADERBOARD_MS = 600_000;
-const LEADERBOARD_TOP = 50;
+const LEADERBOARD_SEEDS = 50;
 const LEADERBOARD_BATCH = 3;
 
 export function limitKey(ip: string): string {
@@ -141,7 +141,7 @@ export async function buildApp(o: AppOptions) {
     };
   });
 
-  const leaderboard = new Snapshots(() => buildLeaderboard(o.viewer, LEADERBOARD_TOP, LEADERBOARD_BATCH), LEADERBOARD_MS, now);
+  const leaderboard = new Snapshots(() => buildLeaderboard(o.viewer, LEADERBOARD_SEEDS, LEADERBOARD_BATCH), LEADERBOARD_MS, now);
   app.get("/api/leaderboard", { config: { rateLimit: { max: 60, timeWindow: "1 minute" } } }, async () => leaderboard.get());
 
   app.get("/api/treasury", async () =>
