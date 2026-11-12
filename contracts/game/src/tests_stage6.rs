@@ -260,13 +260,12 @@ fn a_full_duel_moves_no_gold_and_grows_both_flagships() {
     let treasury = d.c.treasury().balance.0;
     d.commit();
     let targets = d.b.ship_cells();
+    let water = d.b.water_cells();
     let misses = d.a.water_cells();
     for (k, &t) in targets.iter().enumerate() {
-        d.shot(&player(), t);
-        if d.c.get_game(d.id).unwrap().status != Status::Playing {
-            break;
-        }
+        d.shot(&player(), water[k]);
         d.shot(&friend(), misses[k]);
+        d.shot(&player(), t);
     }
     let g = d.c.get_game(d.id).unwrap();
     assert_eq!(g.status, Status::Revealing);
@@ -310,9 +309,11 @@ fn a_resigned_or_short_duel_gives_no_xp() {
     let mut d = Duel::joined();
     d.commit();
     let targets = d.b.ship_cells();
+    let water = d.b.water_cells();
     let misses = d.a.water_cells();
     for k in 0..3 {
         d.shot(&player(), targets[k]);
+        d.shot(&player(), water[k]);
         d.shot(&friend(), misses[k]);
     }
     d.chain.act(&friend());

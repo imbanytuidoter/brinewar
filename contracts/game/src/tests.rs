@@ -250,7 +250,7 @@ impl Match {
     pub fn exchange(&mut self, a_shot: u8, b_shot: u8) {
         self.fire(&player(), a_shot);
         self.answer_truthfully(&nauarch(), a_shot);
-        if self.view().status != Status::Playing {
+        if self.view().status != Status::Playing || self.view().turn != nauarch() {
             return;
         }
         self.fire(&nauarch(), b_shot);
@@ -259,9 +259,12 @@ impl Match {
 
     pub fn a_sinks_b(&mut self) {
         let targets = self.b.ship_cells();
+        let water = self.b.water_cells();
         let misses = self.a.water_cells();
         for (k, &t) in targets.iter().enumerate() {
-            self.exchange(t, misses[k]);
+            self.exchange(water[k], misses[k]);
+            self.fire(&player(), t);
+            self.answer_truthfully(&nauarch(), t);
         }
     }
 
@@ -404,20 +407,50 @@ fn repeated_or_off_board_cell_fails() {
 #[test]
 fn honest_answers_record_hit_and_miss() {
     let mut m = Match::started();
+    let water = m.b.water_cells()[0];
     m.fire(&player(), 0);
     m.answer_truthfully(&nauarch(), 0);
+    m.fire(&player(), water);
+    m.answer_truthfully(&nauarch(), water);
     m.fire(&nauarch(), 9);
     m.answer_truthfully(&player(), 9);
     let h = m.c.get_history(m.id);
-    assert_eq!(h.len(), 2);
+    assert_eq!(h.len(), 3);
     assert_eq!(h[0].result, ShotResult::Hit);
     assert_eq!(h[0].by, player());
     assert_eq!(h[1].result, ShotResult::Miss);
+    assert_eq!(h[2].result, ShotResult::Miss);
+    assert_eq!(h[2].by, nauarch());
     let v = m.view();
     assert_eq!(v.hits_on_b, 1);
     assert_eq!(v.hits_on_a, 0);
     assert_eq!(v.turn, player());
     assert_eq!(events("shot_answered").len(), 1);
+}
+
+#[test]
+fn a_hit_earns_another_shot_and_a_miss_passes_the_turn() {
+    let mut m = Match::started();
+    let ship = m.b.ship_cells()[0];
+    let water = m.b.water_cells()[0];
+    m.fire(&player(), ship);
+    m.answer_truthfully(&nauarch(), ship);
+    assert_eq!(m.view().turn, player());
+    let msg = panics(|| {
+        m.chain.act(&nauarch());
+        m.c.nauarch_fallback(m.id);
+    });
+    assert!(
+        msg.contains("not your turn") || msg.contains("turn"),
+        "{msg}"
+    );
+    m.fire(&player(), water);
+    m.answer_truthfully(&nauarch(), water);
+    assert_eq!(m.view().turn, nauarch());
+    let mine = m.a.ship_cells()[0];
+    m.fire(&nauarch(), mine);
+    m.answer_truthfully(&player(), mine);
+    assert_eq!(m.view().turn, nauarch());
 }
 
 #[test]

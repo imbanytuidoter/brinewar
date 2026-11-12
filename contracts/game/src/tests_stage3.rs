@@ -442,16 +442,16 @@ fn request_is_byte_identical_for_identical_public_state() {
 #[test]
 fn signature_over_an_older_history_is_rejected() {
     let mut m = Match::started();
-    m.fire(&player(), 0);
-    m.answer_truthfully(&nauarch(), 0);
+    m.fire(&player(), 1);
+    m.answer_truthfully(&nauarch(), 1);
     m.chain.act(&nauarch());
     let stale = m.c.nauarch_request(m.id, MoveKind::Shot);
     let response = response_with(r#"{"shot":"J10","line":"Hm."}"#);
     let sig = sign(&stale, &response);
     m.c.submit_ai_move(m.id, MoveKind::Shot, response.clone(), sig.clone());
     m.answer_truthfully(&player(), 99);
-    m.fire(&player(), 1);
-    m.answer_truthfully(&nauarch(), 1);
+    m.fire(&player(), 3);
+    m.answer_truthfully(&nauarch(), 3);
     m.chain.act(&nauarch());
     let msg = panics(|| {
         m.c.submit_ai_move(m.id, MoveKind::Shot, response.clone(), sig.clone())
@@ -462,8 +462,8 @@ fn signature_over_an_older_history_is_rejected() {
 #[test]
 fn tampered_response_or_foreign_key_is_rejected() {
     let mut m = Match::started();
-    m.fire(&player(), 0);
-    m.answer_truthfully(&nauarch(), 0);
+    m.fire(&player(), 1);
+    m.answer_truthfully(&nauarch(), 1);
     m.chain.act(&nauarch());
     let request = m.c.nauarch_request(m.id, MoveKind::Shot);
     let honest = response_with(r#"{"shot":"J10","line":"Hm."}"#);
@@ -489,8 +489,8 @@ fn tampered_response_or_foreign_key_is_rejected() {
 #[test]
 fn only_the_nauarch_submits_ai_moves() {
     let mut m = Match::started();
-    m.fire(&player(), 0);
-    m.answer_truthfully(&nauarch(), 0);
+    m.fire(&player(), 1);
+    m.answer_truthfully(&nauarch(), 1);
     m.chain.act(&player());
     let request = m.c.nauarch_request(m.id, MoveKind::Shot);
     let response = response_with(r#"{"shot":"J10","line":"Hm."}"#);
@@ -506,8 +506,8 @@ fn only_the_nauarch_submits_ai_moves() {
 #[test]
 fn ai_move_records_shot_and_signed_line() {
     let mut m = Match::started();
-    m.fire(&player(), 0);
-    m.answer_truthfully(&nauarch(), 0);
+    m.fire(&player(), 1);
+    m.answer_truthfully(&nauarch(), 1);
     m.ai(
         MoveKind::Shot,
         r#"{"shot":"C4","line":"The left edge again, Captain?\nPredictable."}"#,
@@ -526,15 +526,17 @@ fn ai_move_records_shot_and_signed_line() {
 #[test]
 fn bad_or_repeated_model_shot_falls_back_to_deterministic() {
     let mut m = Match::started();
-    m.fire(&player(), 0);
-    m.answer_truthfully(&nauarch(), 0);
+    m.fire(&player(), 1);
+    m.answer_truthfully(&nauarch(), 1);
     m.ai(MoveKind::Shot, r#"{"shot":"Z99","line":"Hm."}"#);
     let h = m.c.get_history(m.id);
     assert_eq!(h[1].source, ShotSource::ModelFallback);
     let first = h[1].index;
     m.answer_truthfully(&player(), first);
-    m.fire(&player(), 1);
-    m.answer_truthfully(&nauarch(), 1);
+    if m.view().turn == player() {
+        m.fire(&player(), 3);
+        m.answer_truthfully(&nauarch(), 3);
+    }
     m.ai(
         MoveKind::Shot,
         &format!(
@@ -544,8 +546,9 @@ fn bad_or_repeated_model_shot_falls_back_to_deterministic() {
         ),
     );
     let h = m.c.get_history(m.id);
-    assert_eq!(h[3].source, ShotSource::ModelFallback);
-    assert_ne!(h[3].index, first);
+    let last = h.last().unwrap();
+    assert_eq!(last.source, ShotSource::ModelFallback);
+    assert_ne!(last.index, first);
     let said = events("nauarch_said");
     assert_eq!(said[0]["data"][0]["line"].as_str().unwrap().len(), 140);
 }
@@ -553,8 +556,8 @@ fn bad_or_repeated_model_shot_falls_back_to_deterministic() {
 #[test]
 fn reply_without_json_still_moves() {
     let mut m = Match::started();
-    m.fire(&player(), 0);
-    m.answer_truthfully(&nauarch(), 0);
+    m.fire(&player(), 1);
+    m.answer_truthfully(&nauarch(), 1);
     m.ai(MoveKind::Shot, "I refuse to answer in JSON.");
     let h = m.c.get_history(m.id);
     assert_eq!(h[1].source, ShotSource::ModelFallback);
@@ -571,19 +574,15 @@ fn fallback_targets_around_hits_and_skips_diagonals() {
     m.answer_truthfully(&nauarch(), 50);
     m.fire(&nauarch(), 0);
     m.answer_truthfully(&player(), 0);
-    m.fire(&player(), 51);
-    m.answer_truthfully(&nauarch(), 51);
     m.chain.act(&nauarch());
     m.c.nauarch_fallback(m.id);
     let h = m.c.get_history(m.id);
-    assert_eq!(h[3].index, 1);
-    assert_eq!(h[3].source, ShotSource::Deterministic);
+    assert_eq!(h[2].index, 1);
+    assert_eq!(h[2].source, ShotSource::Deterministic);
     m.answer_truthfully(&player(), 1);
-    m.fire(&player(), 53);
-    m.answer_truthfully(&nauarch(), 53);
     m.chain.act(&nauarch());
     m.c.nauarch_fallback(m.id);
-    assert_eq!(m.c.get_history(m.id)[5].index, 2);
+    assert_eq!(m.c.get_history(m.id)[3].index, 2);
 }
 
 #[test]
@@ -612,8 +611,8 @@ fn hunt_follows_the_admiralty_map() {
 #[test]
 fn farewell_only_once_and_only_after_the_game() {
     let mut m = Match::started();
-    m.fire(&player(), 0);
-    m.answer_truthfully(&nauarch(), 0);
+    m.fire(&player(), 1);
+    m.answer_truthfully(&nauarch(), 1);
     m.chain.act(&nauarch());
     let request = m.c.nauarch_request(m.id, MoveKind::Farewell);
     let response = response_with(r#"{"line":"Fair winds."}"#);
@@ -661,6 +660,8 @@ fn timeout_win_refunds_but_pays_no_bounty_or_win_xp() {
     let mut m = Match::started();
     m.fire(&player(), 0);
     m.answer_truthfully(&nauarch(), 0);
+    m.fire(&player(), 1);
+    m.answer_truthfully(&nauarch(), 1);
     m.chain.skip(TIMEOUT + 1);
     m.chain.act(&player());
     m.c.claim_timeout(m.id);

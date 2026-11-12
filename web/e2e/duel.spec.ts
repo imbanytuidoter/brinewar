@@ -1,4 +1,5 @@
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
+import { fireUntilMiss } from "./fire";
 
 test.skip(!process.env.E2E_BASE_URL, "set E2E_BASE_URL to a running Brinewar web app");
 
@@ -8,12 +9,6 @@ function watchPopups(context: BrowserContext, page: Page, sink: string[]): void 
     sink.push(`dialog:${d.message()}`);
     void d.dismiss();
   });
-}
-
-async function fire(page: Page, cell: string): Promise<void> {
-  await expect(page.getByText("Your turn")).toBeVisible({ timeout: 120_000 });
-  await page.getByLabel("Target").fill(cell);
-  await page.getByRole("button", { name: "Fire", exact: true }).click();
 }
 
 test("two captains duel through an invite link with no wallet", async ({ browser, baseURL }) => {
@@ -50,9 +45,8 @@ test("two captains duel through an invite link with no wallet", async ({ browser
   await expect(guest.getByText(/challenges you/)).toBeVisible({ timeout: 90_000 });
   await guest.getByRole("button", { name: "Accept the duel" }).click();
 
-  await fire(host, "E5");
-  await expect(guest.getByText("Your turn")).toBeVisible({ timeout: 180_000 });
-  await fire(guest, "B2");
+  await fireUntilMiss(host);
+  await fireUntilMiss(guest);
   await expect(host.getByText("Your turn")).toBeVisible({ timeout: 180_000 });
 
   await guest.getByRole("button", { name: "Strike colours" }).click();

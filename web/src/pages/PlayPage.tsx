@@ -263,7 +263,7 @@ export function statusText(step: string | null, busy: string | null, aiming: num
   if (busy) return aiming !== null && busy === "Firing" ? `Firing at ${cellName(aiming)}…` : `${busy}…`;
   switch (step) {
     case "fire":
-      return "Your turn: tap a cell in the fog to fire.";
+      return "Your turn: tap a cell in the fog to fire. A hit fires again.";
     case "thinking":
       return rival ? `${rival} is choosing a cell…` : "The Nauarch is choosing his shot…";
     case "invite":

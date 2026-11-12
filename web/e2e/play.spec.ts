@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { fireUntilMiss } from "./fire";
 
 test.skip(!process.env.E2E_BASE_URL, "set E2E_BASE_URL to a running Brinewar web app");
 
@@ -20,8 +21,7 @@ test("a fresh browser plays the Nauarch with no wallet and verifies the battle",
   await expect(page.getByText(/Sink all 10 ships/)).toBeVisible({ timeout: 90_000 });
   await expect(page.getByText("Your turn")).toBeVisible({ timeout: 90_000 });
 
-  await page.getByLabel("Target").fill("E5");
-  await page.getByRole("button", { name: "Fire", exact: true }).click();
+  await fireUntilMiss(page);
   const nauarch = page.getByRole("region", { name: "The Nauarch" });
   await expect(nauarch.getByText("signed")).toBeVisible({ timeout: 120_000 });
   await expect(page.getByText("Your turn")).toBeVisible({ timeout: 90_000 });

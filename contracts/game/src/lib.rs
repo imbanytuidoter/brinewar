@@ -387,6 +387,9 @@ impl Brinewar {
                 json!({"game_id": game_id, "winner": game.account(shot.by), "deadline_block": game.deadline_block}),
             );
         } else {
+            if hit {
+                game.turn = shot.by;
+            }
             game.deadline_block = env::block_height() + self.settings.move_timeout_blocks;
         }
         self.store(game);

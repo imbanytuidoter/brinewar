@@ -249,28 +249,36 @@ async fn full_game_gas() -> anyhow::Result<()> {
         .await?;
 
     let a_water: Vec<usize> = (0..100).filter(|&i| a.cells[i] == 0).collect();
+    let b_water: Vec<usize> = (0..100).filter(|&i| b.cells[i] == 0).collect();
     for (k, &t) in B_SHIPS.iter().enumerate() {
+        m.call(&player, &contract, "fire", json!({"game_id": id, "index": b_water[k]}))
+            .await?;
+        m.call(&nauarch, &contract, "answer", b.answer_args(id, b_water[k]))
+            .await?;
+        let mut fallback = k % 5 == 4;
+        loop {
+            if fallback {
+                m.call(&nauarch, &contract, "nauarch_fallback", json!({"game_id": id}))
+                    .await?;
+            } else {
+                ai_shot(&mut m, &nauarch, &contract, id, a_water[k]).await?;
+            }
+            let history: serde_json::Value = contract
+                .view("get_history")
+                .args_json(json!({"game_id": id}))
+                .await?
+                .json()?;
+            let fired = history.as_array().unwrap().last().unwrap()["index"].as_u64().unwrap() as usize;
+            m.call(&player, &contract, "answer", a.answer_args(id, fired))
+                .await?;
+            if a.cells[fired] == 0 {
+                break;
+            }
+            fallback = true;
+        }
         m.call(&player, &contract, "fire", json!({"game_id": id, "index": t}))
             .await?;
         m.call(&nauarch, &contract, "answer", b.answer_args(id, t))
-            .await?;
-        if k + 1 == B_SHIPS.len() {
-            break;
-        }
-        let s = a_water[k];
-        if k % 5 == 4 {
-            m.call(&nauarch, &contract, "nauarch_fallback", json!({"game_id": id}))
-                .await?;
-        } else {
-            ai_shot(&mut m, &nauarch, &contract, id, s).await?;
-        }
-        let history: serde_json::Value = contract
-            .view("get_history")
-            .args_json(json!({"game_id": id}))
-            .await?
-            .json()?;
-        let fired = history.as_array().unwrap().last().unwrap()["index"].as_u64().unwrap() as usize;
-        m.call(&player, &contract, "answer", a.answer_args(id, fired))
             .await?;
     }
     m.call(&player, &contract, "reveal", a.reveal_args(id))
