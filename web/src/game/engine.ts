@@ -65,7 +65,7 @@ const FRIENDLY: ReadonlyArray<readonly [RegExp, string]> = [
   [/cell already fired at/, "You already fired at that cell."],
   [/not your turn|no shot to answer|index does not match/, "Hold fire, it is not your turn."],
   [/move deadline passed/, "The move deadline passed."],
-  [/NotEnoughBalance|LackBalanceForState|allowance/i, "Your ship ran out of fuel for transactions. Ask for a refill."],
+  [/NotEnoughBalance|LackBalanceForState|not enough balance|allowance/i, "Your ship is low on fuel. Taking on more, then the move is retried."],
   [/timed out|fetch|network/i, "The sea is rough: the network did not answer. Retrying."],
 ];
 

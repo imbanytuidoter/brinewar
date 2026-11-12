@@ -10,7 +10,7 @@ import { FakeCaller, FakeViewer, silent } from "./fakes.js";
 
 const key = () => KeyPair.fromRandom("ed25519").getPublicKey().toString();
 
-async function setup(over: { players?: Set<string>; createOk?: boolean; timeoutButCreated?: boolean; perIp?: number; perDay?: number } = {}) {
+async function setup(over: { players?: Set<string>; createOk?: boolean; timeoutButCreated?: boolean; perIp?: number; perDay?: number; balance?: bigint } = {}) {
   const store = new Store(join(mkdtempSync(join(tmpdir(), "bw-")), "db.sqlite"));
   const players = over.players ?? new Set<string>();
   const viewer = new FakeViewer((method, args) => {
@@ -35,7 +35,10 @@ async function setup(over: { players?: Set<string>; createOk?: boolean; timeoutB
     },
     20,
   );
-  const app = await buildApp({ viewer, sponsor, store, log: silent, guestsPerIpHour: over.perIp ?? 2, guestsPerDay: over.perDay ?? 10, trustProxy: 0 });
+  const app = await buildApp({
+    viewer, sponsor, store, log: silent, guestsPerIpHour: over.perIp ?? 2, guestsPerDay: over.perDay ?? 10, trustProxy: 0,
+    balanceOf: async () => over.balance ?? 10n ** 23n, refuelBelow: 8n * 10n ** 22n,
+  });
   return { app, store, sponsor, viewer };
 }
 
@@ -84,6 +87,31 @@ describe("POST /api/guest", () => {
     expect(res.statusCode).toBe(502);
     expect(res.body).not.toContain("boom");
     expect(t.store.guestsSince(0)).toBe(1);
+  });
+});
+
+describe("refuel", () => {
+  it("tops up a known captain whose balance fell below the threshold", async () => {
+    const pk = key();
+    const id = `p-${pk.slice(8, 24).toLowerCase()}.brinewar.testnet`;
+    const t = await setup({ players: new Set([id]), balance: 3n * 10n ** 22n });
+    const res = await t.app.inject({ method: "POST", url: "/api/guest", payload: { publicKey: pk } });
+    expect(res.json()).toMatchObject({ accountId: id, created: false, refueled: true });
+    expect(t.sponsor.calls).toHaveLength(1);
+    expect(t.sponsor.calls[0]).toMatchObject({ method: "create_guest", args: { public_key: pk, nickname: null } });
+  });
+
+  it("leaves a captain with enough fuel alone and respects the address limit", async () => {
+    const pk = key();
+    const id = `p-${pk.slice(8, 24).toLowerCase()}.brinewar.testnet`;
+    const rich = await setup({ players: new Set([id]) });
+    expect((await rich.app.inject({ method: "POST", url: "/api/guest", payload: { publicKey: pk } })).json()).toEqual({ accountId: id, created: false });
+    expect(rich.sponsor.calls).toHaveLength(0);
+    const poor = await setup({ players: new Set([id]), balance: 1n, perIp: 1 });
+    await poor.app.inject({ method: "POST", url: "/api/guest", payload: { publicKey: pk } });
+    const again = await poor.app.inject({ method: "POST", url: "/api/guest", payload: { publicKey: pk } });
+    expect(again.json()).toMatchObject({ refueled: false });
+    expect(poor.sponsor.calls).toHaveLength(1);
   });
 });
 

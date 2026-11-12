@@ -93,6 +93,14 @@ export interface ApiConfig {
   guestsPerDay: number;
   trustProxy: number;
   sampleMs: number;
+  refuelBelowYocto: bigint;
+}
+
+export function nearAmount(env: Env, key: string, fallback: string): bigint {
+  const raw = optional(env, key) ?? fallback;
+  const m = /^(\d{1,6})(?:\.(\d{1,24}))?$/.exec(raw);
+  if (!m) throw new ConfigError(`${key} must be an amount of NEAR such as 0.08`);
+  return BigInt(m[1] as string) * 10n ** 24n + BigInt((m[2] ?? "").padEnd(24, "0"));
 }
 
 export function apiConfig(env: Env): ApiConfig {
@@ -108,5 +116,6 @@ export function apiConfig(env: Env): ApiConfig {
     guestsPerDay: int(env, "GUESTS_PER_DAY", 200, 1),
     trustProxy: int(env, "TRUST_PROXY", 0),
     sampleMs: int(env, "SAMPLE_MS", 15_000, 1000),
+    refuelBelowYocto: nearAmount(env, "REFUEL_BELOW_NEAR", "0.08"),
   };
 }

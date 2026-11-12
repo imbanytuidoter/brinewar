@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { makeCaller, makeViewer } from "@/lib/chain";
 import type { AppConfig } from "@/lib/config";
-import { ensureGuest, GuestError } from "@/lib/guest";
+import { ensureGuest, GuestError, refuelGuest } from "@/lib/guest";
 import { fetchEvidence } from "@/lib/proofs";
 import { equippedSkin, ownedSkins, skinLook } from "@/lib/skins";
 import { browserStorage } from "@/lib/storage";
@@ -34,6 +34,7 @@ export function useBoot(cfg: AppConfig): { boot: Boot; retry: () => void } {
           caller: makeCaller(cfg.rpcUrl, cfg.contractId, g.accountId, g.secretKey),
           store,
           evidence: (id) => fetchEvidence(cfg.apiUrl, id),
+          refuel: () => refuelGuest(cfg.apiUrl, g.publicKey),
         });
         setBoot({ kind: "ready", session });
       })

@@ -80,3 +80,18 @@ export async function ensureGuest(store: KeyValue, apiUrl: string, contractId: s
 export function boardKey(accountId: string, gameId: number | "next"): string {
   return `brinewar.board.${accountId}.${gameId}`;
 }
+
+export async function refuelGuest(apiUrl: string, publicKey: string, fetchFn: Fetch = fetch): Promise<boolean> {
+  try {
+    const res = await fetchFn(`${apiUrl}/api/guest`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ publicKey }),
+      signal: AbortSignal.timeout(90_000),
+    });
+    const body = (await res.json().catch(() => ({}))) as { refueled?: unknown };
+    return res.ok && body.refueled === true;
+  } catch {
+    return false;
+  }
+}

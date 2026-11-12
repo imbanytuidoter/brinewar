@@ -1,6 +1,11 @@
 import { Account, actions, JsonRpcProvider, KeyPairSigner, teraToGas, type KeyPairString } from "near-api-js";
 
-export const GAME_GAS_TGAS = 30;
+export const PLAYER_GAS_TGAS = 10;
+export const PLAYER_REVEAL_GAS_TGAS = 30;
+
+export function playerGas(method: string): number {
+  return method === "reveal" ? PLAYER_REVEAL_GAS_TGAS : PLAYER_GAS_TGAS;
+}
 const VIEW_TIMEOUT_MS = 15_000;
 const CALL_TIMEOUT_MS = 60_000;
 
@@ -86,7 +91,7 @@ export function makeCaller(rpcUrl: string, contractId: string, accountId: string
           const resp = await withTimeout(
             account.signAndSendTransaction({
               receiverId: contractId,
-              actions: [actions.functionCall(method, { ...args }, teraToGas(GAME_GAS_TGAS), 0n)],
+              actions: [actions.functionCall(method, { ...args }, teraToGas(playerGas(method)), 0n)],
               waitUntil: "EXECUTED_OPTIMISTIC",
               throwOnFailure: false,
             }),

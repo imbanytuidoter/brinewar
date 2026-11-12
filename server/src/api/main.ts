@@ -11,7 +11,8 @@ const rpc = provider(config.rpcUrl);
 const store = new Store(config.dbPath);
 const viewer = new NearViewer(rpc, config.contract, 15_000);
 const sponsor = new NearCaller(config.sponsor, rpc, config.sponsorKey, config.contract, 60_000);
-const app = await buildApp({ viewer, sponsor, store, log, guestsPerIpHour: config.guestsPerIpHour, guestsPerDay: config.guestsPerDay, trustProxy: config.trustProxy });
+const balanceOf = async (accountId: string): Promise<bigint> => BigInt((await rpc.viewAccount({ accountId, blockQuery: { finality: "optimistic" } })).amount);
+const app = await buildApp({ viewer, sponsor, store, log, guestsPerIpHour: config.guestsPerIpHour, guestsPerDay: config.guestsPerDay, trustProxy: config.trustProxy, balanceOf, refuelBelow: config.refuelBelowYocto });
 
 const loop = async (): Promise<void> => {
   try {

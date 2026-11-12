@@ -65,6 +65,7 @@ export interface SessionDeps {
   readonly caller: Caller;
   readonly store: KeyValue;
   readonly evidence: (gameId: number) => Promise<NauarchEvidence | null>;
+  readonly refuel?: () => Promise<boolean>;
   readonly now?: () => number;
 }
 
@@ -73,6 +74,8 @@ const BACKOFF_BASE_MS = 1500;
 const BACKOFF_MAX_MS = 60_000;
 const REVEAL_TRIES = 6;
 const EVIDENCE_TRIES = 8;
+const OUT_OF_FUEL = /NotEnoughBalance|LackBalance|not enough balance/i;
+const REFUEL_GAP_MS = 60_000;
 const FINAL = /board already committed|board already revealed|board not committed|index does not match|no shot to answer|game is not/;
 
 interface Attempt {
@@ -92,6 +95,7 @@ export class GameSession {
   #model: ModelView | null | undefined;
   #nauarchShots = -1;
   #evidenceTries = 0;
+  #lastRefuel = -Infinity;
   #settled: number | null = null;
 
   constructor(d: SessionDeps) {
@@ -144,7 +148,16 @@ export class GameSession {
     this.#set({ busy: label });
     const r = await this.#d.caller.call(method, args);
     this.#set({ busy: null, error: r.ok ? null : friendlyError(r.error), lastTx: r.txHash ?? this.#snap.lastTx });
+    if (!r.ok && OUT_OF_FUEL.test(r.error ?? "")) await this.#refuel();
     return r;
+  }
+
+  async #refuel(): Promise<void> {
+    if (!this.#d.refuel || this.#now() - this.#lastRefuel < REFUEL_GAP_MS) return;
+    this.#lastRefuel = this.#now();
+    this.#set({ busy: "Taking on fuel" });
+    const ok = await this.#d.refuel().catch(() => false);
+    this.#set({ busy: null, error: ok ? null : this.#snap.error });
   }
 
   async #once(key: string, label: string, method: string, args: () => object): Promise<void> {
@@ -176,6 +189,7 @@ export class GameSession {
       return false;
     }
     const before = await this.#captain().catch(() => null);
+    await this.#refuel();
     const created = await this.#send("Opening a battle", "new_game_vs_nauarch", {});
     const id = typeof created.value === "number" ? created.value : null;
     if (!created.ok || id === null) return false;

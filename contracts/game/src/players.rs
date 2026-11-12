@@ -184,6 +184,20 @@ impl Brinewar {
         let parent = env::current_account_id();
         let account_id = guest_account_id(&public_key, &parent);
         self.count_guest();
+        if self.players.contains_key(&account_id) {
+            let fund = self.settings.guest_fund;
+            emit(
+                "guest_refueled",
+                json!({"account": account_id, "amount": fund}),
+            );
+            return Promise::new(account_id.clone())
+                .transfer(NearToken::from_yoctonear(fund.0))
+                .then(
+                    Self::ext(parent)
+                        .with_static_gas(GUEST_CALLBACK_GAS)
+                        .on_guest_refueled(account_id),
+                );
+        }
         self.register(&account_id, nickname);
         let allowance =
             Allowance::limited(NearToken::from_yoctonear(self.settings.guest_allowance.0))
@@ -216,6 +230,20 @@ impl Brinewar {
         self.unregister(&account_id);
         self.guests_today = self.guests_today.saturating_sub(1);
         emit("guest_failed", json!({"account": account_id}));
+        false
+    }
+
+    #[private]
+    pub fn on_guest_refueled(
+        &mut self,
+        account_id: AccountId,
+        #[callback_result] sent: Result<(), PromiseError>,
+    ) -> bool {
+        if sent.is_ok() {
+            return true;
+        }
+        self.guests_today = self.guests_today.saturating_sub(1);
+        emit("guest_refuel_failed", json!({"account": account_id}));
         false
     }
 

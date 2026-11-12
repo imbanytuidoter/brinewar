@@ -1,7 +1,7 @@
 import { Account, actions, KeyPairSigner, teraToGas, type KeyPairString, type Provider } from "near-api-js";
 import { answerArgs, newBoard, revealArgs, rootHex, type Board } from "./board.js";
 import type { GameView, ShotView } from "./contract.js";
-import { GAME_GAS_TGAS } from "./contract.js";
+import { playerGas } from "./contract.js";
 import { placeFleet, type Rng } from "./fleet.js";
 import { resultFromResponse, withTimeout, type CallResult, type Viewer } from "./near.js";
 
@@ -58,7 +58,7 @@ export class Bot {
       const resp = await withTimeout(
         this.#account.signAndSendTransaction({
           receiverId: this.#o.contractId,
-          actions: [actions.functionCall(method, { ...args }, teraToGas(GAME_GAS_TGAS), 0n)],
+          actions: [actions.functionCall(method, { ...args }, teraToGas(playerGas(method)), 0n)],
           waitUntil: "EXECUTED_OPTIMISTIC",
           throwOnFailure: false,
         }),

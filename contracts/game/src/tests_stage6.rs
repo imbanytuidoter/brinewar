@@ -71,3 +71,41 @@ fn a_failed_first_guest_does_not_list_the_starter_skin_twice() {
     let _ = c.create_guest(guest_key(9), None);
     assert_eq!(c.skins().iter().filter(|s| *s == "brine").count(), 1);
 }
+
+#[test]
+fn a_second_create_guest_refuels_the_same_captain_and_counts_against_the_day() {
+    let mut chain = Chain { height: 100 };
+    let mut c = contract(&mut chain);
+    chain.act(&registrar());
+    let account = c.guest_account_for(guest_key(7));
+    let _ = c.create_guest(guest_key(7), Some("Ahab".into()));
+    let before = c.get_player(account.clone()).unwrap();
+    let ships_before = c.mt_supply(before.flagship.clone()).unwrap().0;
+    let _ = c.create_guest(guest_key(7), Some("Other".into()));
+    let after = c.get_player(account.clone()).unwrap();
+    assert_eq!(after.display_name, "Ahab");
+    assert_eq!(after.gold, before.gold);
+    assert_eq!(after.flagship, before.flagship);
+    assert_eq!(c.mt_supply(after.flagship).unwrap().0, ships_before);
+    let refuels = events("guest_refueled");
+    assert_eq!(refuels.len(), 1);
+    assert_eq!(refuels[0]["data"][0]["account"], account.to_string());
+    assert!(c.on_guest_refueled(account.clone(), Ok(())));
+    assert!(!c.on_guest_refueled(account, Err(near_sdk::PromiseError::Failed)));
+}
+
+#[test]
+fn refuels_stop_at_the_daily_guest_limit() {
+    let mut chain = Chain { height: 100 };
+    let mut c = contract(&mut chain);
+    chain.act(&registrar());
+    let _ = c.create_guest(guest_key(8), None);
+    let limit = settings().guests_per_day;
+    for _ in 1..limit {
+        let _ = c.create_guest(guest_key(8), None);
+    }
+    let msg = panics(|| {
+        let _ = c.create_guest(guest_key(8), None);
+    });
+    assert!(msg.contains("daily guest limit"), "{msg}");
+}

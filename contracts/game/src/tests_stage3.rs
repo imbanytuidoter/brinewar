@@ -70,15 +70,10 @@ fn guest_creation_is_limited_and_gated() {
 }
 
 #[test]
-fn same_key_cannot_register_twice() {
+fn the_nauarch_cannot_register_as_a_player() {
     let mut chain = Chain { height: 100 };
     let mut c = contract(&mut chain);
     chain.act(&registrar());
-    let _ = c.create_guest(guest_key(1), None);
-    let msg = panics(|| {
-        let _ = c.create_guest(guest_key(1), None);
-    });
-    assert!(msg.contains("already registered"), "{msg}");
     let msg = panics(|| c.register_player(nauarch(), None));
     assert!(msg.contains("not a player"), "{msg}");
 }

@@ -70,5 +70,11 @@ export interface PlayerView {
 }
 
 export const GAME_GAS_TGAS = 30;
+export const PLAYER_GAS_TGAS = 10;
+export const PLAYER_REVEAL_GAS_TGAS = 30;
+
+export function playerGas(method: string): number {
+  return method === "reveal" ? PLAYER_REVEAL_GAS_TGAS : PLAYER_GAS_TGAS;
+}
 export const GUEST_GAS_TGAS = 100;
 export const PAGE = 100;

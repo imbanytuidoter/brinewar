@@ -288,6 +288,24 @@ describe("GameSession", () => {
   });
 });
 
+describe("fuel", () => {
+  it("asks the harbour for fuel before a battle and after an out-of-fuel refusal, at most once a minute", async () => {
+    let t = 0;
+    const chain = new FakeContract();
+    let refuels = 0;
+    const session = new GameSession({ accountId: ME, viewer: chain, caller: chain, store: memoryStorage(), evidence: chain.evidence, refuel: async () => (refuels++, true), now: () => t });
+    await session.start(placeFleet(seededRng(7)));
+    expect(refuels).toBe(1);
+    t += 61_000;
+    chain.failNext = "InvalidTxError: NotEnoughBalance { signer_id: p }";
+    await session.fire(0);
+    expect(refuels).toBe(2);
+    chain.failNext = "NotEnoughBalance";
+    await session.fire(1);
+    expect(refuels).toBe(2);
+  });
+});
+
 describe("rewards after a battle", () => {
   it("survive a reload between the start and the end of the battle", async () => {
     const { chain, store, session } = setup();

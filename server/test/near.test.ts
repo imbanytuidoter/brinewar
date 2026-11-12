@@ -72,3 +72,12 @@ describe("several RPC endpoints", () => {
     expect(() => provider(" , ")).toThrow();
   });
 });
+
+describe("NEAR amounts in config", () => {
+  it("reads decimal NEAR into yocto", async () => {
+    const { nearAmount, ConfigError } = await import("../src/lib/config.js");
+    expect(nearAmount({}, "X", "0.08")).toBe(8n * 10n ** 22n);
+    expect(nearAmount({ X: "1" }, "X", "0")).toBe(10n ** 24n);
+    expect(() => nearAmount({ X: "-1" }, "X", "0")).toThrow(ConfigError);
+  });
+});

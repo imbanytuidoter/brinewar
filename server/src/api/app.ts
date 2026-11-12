@@ -41,6 +41,8 @@ export interface AppOptions {
   readonly guestsPerIpHour: number;
   readonly guestsPerDay: number;
   readonly trustProxy: number;
+  readonly balanceOf?: (accountId: string) => Promise<bigint>;
+  readonly refuelBelow?: bigint;
   readonly now?: () => number;
 }
 
@@ -86,7 +88,17 @@ export async function buildApp(o: AppOptions) {
       (async (): Promise<{ status: number; body: unknown }> => {
         const accountId = await o.viewer.view<string>("guest_account_for", { public_key: publicKey });
         const existing = await o.viewer.view<PlayerView | null>("get_player", { account_id: accountId });
-        if (existing) return { status: 200, body: { accountId, created: false } };
+        if (existing) {
+          const low = o.balanceOf && o.refuelBelow !== undefined ? (await o.balanceOf(accountId).catch(() => null)) : null;
+          if (low === null || o.refuelBelow === undefined || low >= o.refuelBelow) return { status: 200, body: { accountId, created: false } };
+          const slot = o.store.reserveGuest(limitKey(req.ip), accountId, o.guestsPerIpHour, o.guestsPerDay, now() - HOUR, now() - DAY);
+          if (typeof slot !== "number") return { status: 200, body: { accountId, created: false, refueled: false } };
+          const r = await o.sponsor.call("create_guest", { public_key: publicKey, nickname: null }, GUEST_GAS_TGAS);
+          const refueled = r.ok && r.value === true;
+          o.store.finishGuest(slot, r.txHash, refueled);
+          if (!refueled) req.log.warn({ accountId, tx: r.txHash, error: r.error }, "refuel failed");
+          return { status: 200, body: { accountId, created: false, refueled, txHash: r.txHash } };
+        }
         const slot = o.store.reserveGuest(limitKey(req.ip), accountId, o.guestsPerIpHour, o.guestsPerDay, now() - HOUR, now() - DAY);
         if (slot === "ip") return { status: 429, body: { error: "too many new captains from this address, try again later" } };
         if (slot === "day") return { status: 429, body: { error: "the harbour is full today, try again tomorrow" } };

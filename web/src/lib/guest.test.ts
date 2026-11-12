@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
-import { ensureGuest, GuestError, loadOrCreateKey, validGuestAccount } from "./guest";
+import { ensureGuest, GuestError, loadOrCreateKey, refuelGuest, validGuestAccount } from "./guest";
 import { memoryStorage } from "./storage";
 import { accountLink, checkUrl, networkOf, readConfig, txLink } from "./config";
-import { resultFromResponse } from "./chain";
+import { playerGas, resultFromResponse } from "./chain";
 
 const CONTRACT = "brinewar.testnet";
 const ACC = "p-0123456789abcdef.brinewar.testnet";
@@ -84,5 +84,19 @@ describe("chain results", () => {
     const failed = resultFromResponse({ transaction: { hash: "h" }, status: { Failure: { ActionError: { kind: { FunctionCallError: { ExecutionError: "Smart contract panicked: not your turn" } } } } } });
     expect(failed).toMatchObject({ ok: false, error: /not your turn/ });
     expect(resultFromResponse({ status: {} })).toMatchObject({ ok: false });
+  });
+});
+
+describe("fuel and gas", () => {
+  it("reports a refuel only when the harbour did one", async () => {
+    expect(await refuelGuest("", "ed25519:x", vi.fn(async () => json(200, { refueled: true })))).toBe(true);
+    expect(await refuelGuest("", "ed25519:x", vi.fn(async () => json(200, { created: false })))).toBe(false);
+    expect(await refuelGuest("", "ed25519:x", vi.fn(async () => { throw new Error("down"); }))).toBe(false);
+  });
+
+  it("prepays little gas for moves and more for the reveal", () => {
+    expect(playerGas("fire")).toBe(10);
+    expect(playerGas("answer")).toBe(10);
+    expect(playerGas("reveal")).toBe(30);
   });
 });
