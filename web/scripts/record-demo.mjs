@@ -36,6 +36,118 @@ async function scene(name, run) {
 }
 
 const pause = (page, ms) => page.waitForTimeout(ms);
+const FULL_GAME = process.env.DEMO_FULL_GAME === "1";
+const ENDED = /Victory, Captain\.|The Nauarch prevails\./;
+
+const FLEET = [4, 3, 3, 2, 2, 2, 1, 1, 1, 1];
+
+function neighbours8(i) {
+  const out = [];
+  for (let dy = -1; dy <= 1; dy++)
+    for (let dx = -1; dx <= 1; dx++) {
+      const x = (i % 10) + dx;
+      const y = Math.floor(i / 10) + dy;
+      if ((dx || dy) && x >= 0 && x < 10 && y >= 0 && y < 10) out.push(y * 10 + x);
+    }
+  return out;
+}
+
+function groups(hits) {
+  const left = new Set(hits);
+  const out = [];
+  for (const h of hits) {
+    if (!left.has(h)) continue;
+    const g = [];
+    const stack = [h];
+    left.delete(h);
+    while (stack.length) {
+      const c = stack.pop();
+      g.push(c);
+      for (const n of [c - 10, c + 10, c % 10 > 0 ? c - 1 : -1, c % 10 < 9 ? c + 1 : -1]) if (left.has(n)) (left.delete(n), stack.push(n));
+    }
+    out.push(g.sort((a, b) => a - b));
+  }
+  return out;
+}
+
+function ends(g, blocked) {
+  const horizontal = g.length > 1 ? g[1] - g[0] === 1 : null;
+  const cand = [];
+  const a = g[0];
+  const b = g[g.length - 1];
+  if (horizontal !== false) {
+    if (a % 10 > 0) cand.push(a - 1);
+    if (b % 10 < 9) cand.push(b + 1);
+  }
+  if (horizontal !== true) {
+    if (a >= 10) cand.push(a - 10);
+    if (b < 90) cand.push(b + 10);
+  }
+  return cand.filter((c) => !blocked.has(c));
+}
+
+function nextTarget(mine) {
+  const fired = new Set(mine.map((s) => s.index));
+  const hits = mine.filter((s) => s.result === "Hit").map((s) => s.index);
+  const blocked = new Set(fired);
+  const diag = (a, b) => Math.abs((a % 10) - (b % 10)) === 1 && Math.abs(Math.floor(a / 10) - Math.floor(b / 10)) === 1;
+  for (const h of hits) for (const n of neighbours8(h)) if (diag(h, n)) blocked.add(n);
+  const live = [];
+  const remaining = [...FLEET];
+  for (const g of groups(hits)) {
+    if (g.length > 1) {
+      const horizontal = g[1] - g[0] === 1;
+      for (const c of g) for (const n of neighbours8(c)) if (!diag(c, n) && !g.includes(n) && (horizontal ? Math.floor(n / 10) !== Math.floor(c / 10) : n % 10 !== c % 10)) blocked.add(n);
+    }
+    const open = ends(g, blocked);
+    if (open.length && g.length < 4) live.push({ g, open });
+    else {
+      for (const c of g) for (const n of neighbours8(c)) blocked.add(n);
+      const k = remaining.indexOf(g.length);
+      if (k >= 0) remaining.splice(k, 1);
+    }
+  }
+  const heat = new Array(100).fill(0);
+  for (const len of remaining)
+    for (let start = 0; start < 100; start++)
+      for (const horizontal of [true, false]) {
+        const x = start % 10;
+        const y = Math.floor(start / 10);
+        if (horizontal ? x + len > 10 : y + len > 10) continue;
+        const body = Array.from({ length: len }, (_, k) => (horizontal ? start + k : start + k * 10));
+        if (body.some((c) => blocked.has(c))) continue;
+        for (const c of body) heat[c] += 1;
+      }
+  const pick = (cells) => cells.reduce((best, c) => (heat[c] > heat[best] ? c : best), cells[0]);
+  if (live.length) return pick(live.flatMap((l) => l.open));
+  const free = Array.from({ length: 100 }, (_, c) => c).filter((c) => !blocked.has(c));
+  if (free.length) return pick(free);
+  return Array.from({ length: 100 }, (_, c) => c).find((c) => !fired.has(c));
+}
+
+const cellName = (i) => `${"ABCDEFGHIJ"[i % 10]}${Math.floor(i / 10) + 1}`;
+
+async function myShots(id) {
+  const res = await fetch(`${BASE}/api/game/${id}/proofs`);
+  if (!res.ok) throw new Error(`proofs ${res.status}`);
+  const p = await res.json();
+  return p.history.filter((s) => s.by === p.game.a);
+}
+
+async function fire(page, cell, typed) {
+  const input = page.getByLabel("Target");
+  if (typed) await input.pressSequentially(cell, { delay: 120 });
+  else await input.fill(cell);
+  await page.getByRole("button", { name: "Fire", exact: true }).click();
+  await page.waitForFunction(() => !(document.querySelector("[role=status]")?.textContent ?? "").includes("Your turn"), null, { timeout: 30_000 });
+  await page.waitForFunction(
+    (re) => (document.querySelector("[role=status]")?.textContent ?? "").includes("Your turn") || new RegExp(re).test(document.body.innerText),
+    ENDED.source,
+    { timeout: 300_000 },
+  );
+}
+
+const isOver = async (page) => ENDED.test(await page.locator("body").innerText());
 
 let gameId = null;
 const played = await scene("play", async (page, mark) => {
@@ -46,22 +158,29 @@ const played = await scene("play", async (page, mark) => {
   const start = mark();
   await sail.click();
   await page.getByText("Your turn").first().waitFor({ timeout: 120_000 });
+  const href = await page.getByRole("link", { name: "Verify" }).first().getAttribute("href");
+  gameId = href?.split("/").pop() ?? null;
+  if (!gameId) throw new Error("no game id on the page");
   for (const cell of ["E5", "F6"]) {
-    await page.getByLabel("Target").pressSequentially(cell, { delay: 120 });
-    await page.getByRole("button", { name: "Fire", exact: true }).click();
-    await page.getByText("is studying the sea").first().waitFor({ timeout: 120_000 });
-    await page.getByText("Your turn").first().waitFor({ timeout: 180_000 });
+    await fire(page, cell, true);
     await pause(page, 1500);
   }
   const end = mark();
-  const href = await page.getByRole("link", { name: "Verify" }).first().getAttribute("href");
-  gameId = href?.split("/").pop() ?? null;
-  await page.getByRole("button", { name: "Strike colours" }).click();
-  await page.getByText("The Nauarch prevails.").waitFor({ timeout: 120_000 });
+  if (FULL_GAME) {
+    let shots = 2;
+    while (!(await isOver(page)) && shots < 100) {
+      await fire(page, cellName(nextTarget(await myShots(gameId))), false);
+      shots += 1;
+    }
+  } else {
+    await page.getByRole("button", { name: "Strike colours" }).click();
+  }
+  await page.getByText(ENDED).first().waitFor({ timeout: 300_000 });
+  const outcome = (await page.getByText(ENDED).first().innerText()).trim();
   const revealStart = mark();
   await page.getByText("verified", { exact: false }).first().waitFor({ timeout: 120_000 });
   await pause(page, 6000);
-  return { start, end, revealStart, revealEnd: mark() };
+  return { start, end, revealStart, revealEnd: mark(), outcome };
 });
 const revealed = { name: "reveal", file: played.file, start: played.revealStart, end: played.revealEnd };
 
@@ -134,8 +253,8 @@ for (const p of PLAN) {
     "-an", "-c:v", "libx264", "-preset", "medium", "-crf", "22", "-pix_fmt", "yuv420p", part,
   ]);
   parts.push(part);
-  chapters.push({ at: Math.round(at), title: p.title, line: p.line });
-  at += p.seconds;
+  chapters.push({ at: Math.round(at * 10) / 10, title: p.title, line: p.line });
+  at += Number(execFileSync("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", part]).toString().trim());
 }
 const list = join(OUT, "parts.txt");
 writeFileSync(list, parts.map((p) => `file '${p}'`).join("\n"));
@@ -143,4 +262,4 @@ const final = join(OUT, "brinewar.mp4");
 execFileSync("ffmpeg", ["-y", "-loglevel", "error", "-f", "concat", "-safe", "0", "-i", list, "-c", "copy", "-movflags", "+faststart", final]);
 writeFileSync(join(OUT, "chapters.json"), `${JSON.stringify(chapters, null, 2)}\n`);
 const probe = execFileSync("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", final]).toString().trim();
-console.log(JSON.stringify({ video: final, seconds: Number(probe), chapters, gameId }, null, 2));
+console.log(JSON.stringify({ video: final, seconds: Number(probe), chapters, gameId, outcome: played.outcome }, null, 2));

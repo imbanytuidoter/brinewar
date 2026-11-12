@@ -19,7 +19,7 @@
 `/verify/:id` перераховує в браузері кожну відповідь Наварха (доказ проти `root_b` і узгодженість hit/miss), його розкриття і підписи моделі; відповіді гравця позначені «checked by contract» (сервер їх не зберігає). Посилання на explorer будуються лише з валідного base58-хешу і `VITE_EXPLORER_TX_URL`.
 
 ## Локальний стенд
-`server`: `npm run devstack` піднімає near-sandbox, деплоїть контракт, запускає Наварха з фейковою моделлю (справжні підписи ed25519) і API на `127.0.0.1:${DEV_API_PORT:-8787}`, пише rpc/контракт у `DEV_STACK_FILE`. `web`: `BRINEWAR_API_PROXY=http://127.0.0.1:<порт> VITE_NEAR_RPC_URL=<rpc> VITE_GAME_CONTRACT=brinewar.test.near npm run dev`.
+`server`: `npm run devstack` піднімає near-sandbox, деплоїть контракт, запускає Наварха з фейковою моделлю (справжні підписи ed25519) і API на `127.0.0.1:${DEV_API_PORT:-8787}`, пише rpc/контракт у `DEV_STACK_FILE`. `DEV_WEAK_NAUARCH=1` змушує фейкову модель стріляти випадково по ще не обстріляних клітинках: так локально перевіряється шлях перемоги (детермінований Наварх грає приблизно на рівні сильного бота). `web`: `BRINEWAR_API_PROXY=http://127.0.0.1:<порт> VITE_NEAR_RPC_URL=<rpc> VITE_GAME_CONTRACT=brinewar.test.near npm run dev`.
 
 ## Межі
 - Хто стер `localStorage` посеред гри, не може відповісти з доказом: UI пропонує здатися (`resign`) і почати знову.

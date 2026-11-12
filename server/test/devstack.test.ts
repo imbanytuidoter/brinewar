@@ -44,10 +44,16 @@ it("runs a local stack for the web app until killed", async () => {
   let n = 0;
   const model = new FakeModel({
     model: MODEL,
-    reply: () => {
+    reply: (request) => {
       n += 1;
+      const line = LINES[n % LINES.length];
+      if (process.env.DEV_WEAK_NAUARCH === "1") {
+        const fired = new Set(/Your shots so far: (.*?)\.(?:\\n|\n)/.exec(request)?.[1]?.match(/[A-J](?:10|[1-9])/g) ?? []);
+        const free = Array.from({ length: 100 }, (_, i) => `${"ABCDEFGHIJ"[i % 10]}${Math.floor(i / 10) + 1}`).filter((c) => !fired.has(c));
+        return JSON.stringify({ shot: free[Math.floor(Math.random() * free.length)] ?? "A1", line });
+      }
       const cell = `${"ABCDEFGHIJ"[(n * 7) % 10]}${((n * 3) % 10) + 1}`;
-      return JSON.stringify({ shot: cell, line: LINES[n % LINES.length] });
+      return JSON.stringify({ shot: cell, line });
     },
     delayMs: Number(process.env.DEV_MODEL_DELAY_MS ?? 1500),
   });
