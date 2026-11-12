@@ -45,11 +45,16 @@ interface SealedBoard {
   salts: string[];
 }
 
+function stateOf(g: GameView): string {
+  return `${g.status}:${g.shots}:${g.pending_index}:${g.turn}:${g.root_b !== null}:${g.revealed_b}:${g.farewell_said}`;
+}
+
 export class Admiral {
   readonly #o: AdmiralOptions;
   readonly #busy = new Set<number>();
   readonly #boards = new Map<number, Board>();
   readonly #failures = new Map<number, number>();
+  readonly #acted = new Map<number, string>();
   #cursor = 0;
 
   constructor(o: AdmiralOptions) {
@@ -70,9 +75,16 @@ export class Admiral {
         if (action.kind === "done") this.#forget(g);
         if (action.kind !== "done" && lowestOpen === null) lowestOpen = g.id;
         if (action.kind === "done" || action.kind === "wait" || this.#busy.has(g.id)) continue;
+        const state = stateOf(g);
+        if (this.#acted.get(g.id) === state) continue;
         this.#busy.add(g.id);
         void this.#run(g, action).finally(() => {
           const streak = this.#failures.get(g.id) ?? 0;
+          if (streak === 0) {
+            this.#acted.set(g.id, state);
+            this.#busy.delete(g.id);
+            return;
+          }
           const delay = Math.min(this.#o.cooldownMs * 2 ** streak, MAX_BACKOFF_MS);
           setTimeout(() => this.#busy.delete(g.id), delay);
         });
@@ -89,6 +101,7 @@ export class Admiral {
     }
     this.#boards.delete(g.id);
     this.#failures.delete(g.id);
+    this.#acted.delete(g.id);
   }
 
   #decide(g: GameView, height: number): Action {
@@ -107,7 +120,7 @@ export class Admiral {
         case "commit":
           return await this.#commit(g);
         case "answer":
-          if (await this.#answer(g, action.index)) await this.#followUp(g.id);
+          if (await this.#answer(g, action.index)) await this.#followUp(g, action.index);
           return;
         case "move":
           return await this.#move(g);
@@ -180,8 +193,10 @@ export class Admiral {
     if (ship.every((c) => hits.has(c))) this.#o.store.saveSunk(gameId, ship);
   }
 
-  async #followUp(gameId: number): Promise<void> {
-    const [next, height] = await Promise.all([this.#o.viewer.view<GameView | null>("get_game", { game_id: gameId }), this.#o.height()]);
+  async #followUp(g: GameView, index: number): Promise<void> {
+    const board = this.#board(g.id);
+    if (board && board.cells[index] === 0) return this.#move({ ...g, pending_index: null, turn: this.#o.caller.accountId });
+    const [next, height] = await Promise.all([this.#o.viewer.view<GameView | null>("get_game", { game_id: g.id }), this.#o.height()]);
     if (next && this.#decide(next, height).kind === "move") await this.#move(next);
   }
 

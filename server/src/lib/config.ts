@@ -76,7 +76,7 @@ export function admiralConfig(env: Env): AdmiralConfig {
     dbPath: required(env, "DB_PATH"),
     nearAiUrl: url(env, "NEAR_AI_URL", "https://cloud-api.near.ai"),
     nearAiKey: optional(env, "NEAR_AI_API_KEY"),
-    tickMs: int(env, "TICK_MS", 500, 200),
+    tickMs: int(env, "TICK_MS", 250, 100),
     modelTimeoutMs: int(env, "MODEL_TIMEOUT_MS", 20_000, 1000),
   };
 }

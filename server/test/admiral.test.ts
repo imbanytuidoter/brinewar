@@ -22,7 +22,7 @@ function game(over: Partial<GameView> = {}): GameView {
   };
 }
 
-function setup(opts: { model?: FakeModel | null; reject?: (m: string) => boolean; timeoutMs?: number; answerPassesTurn?: boolean } = {}) {
+function setup(opts: { model?: FakeModel | null; reject?: (m: string) => boolean; timeoutMs?: number; answerPassesTurn?: boolean; cooldownMs?: number } = {}) {
   const store = new Store(join(mkdtempSync(join(tmpdir(), "bw-")), "db.sqlite"));
   let current = game();
   const viewer = new FakeViewer((method) => {
@@ -39,7 +39,7 @@ function setup(opts: { model?: FakeModel | null; reject?: (m: string) => boolean
   });
   const admiral = new Admiral({
     viewer, caller, store, vault: new Vault(KEY), model: opts.model === undefined ? null : opts.model, log: silent,
-    height: async () => 10, modelTimeoutMs: opts.timeoutMs ?? 2000, maxFarewellTries: 2, cooldownMs: 0, rng: seededRng(3),
+    height: async () => 10, modelTimeoutMs: opts.timeoutMs ?? 2000, maxFarewellTries: 2, cooldownMs: opts.cooldownMs ?? 0, rng: seededRng(3),
   });
   const settle = async () => {
     await admiral.tick();
@@ -90,6 +90,19 @@ describe("admiral", () => {
     t.set({ pending_index: second, shots: 3 });
     await t.settle();
     expect(t.store.sunk(0)).toEqual([ship]);
+  });
+
+  it("answers the next shot at once after a success but never twice on the same stale state", async () => {
+    const t = setup({ cooldownMs: 60_000 });
+    await t.settle();
+    const root = t.store.board(0)?.root as string;
+    t.set({ status: "Playing", root_b: root, turn: ADM, pending_index: 0, shots: 1 });
+    await t.settle();
+    await t.settle();
+    expect(t.caller.calls.filter((c) => c.method === "answer")).toHaveLength(1);
+    t.set({ pending_index: 1, shots: 2 });
+    await t.settle();
+    expect(t.caller.calls.filter((c) => c.method === "answer")).toHaveLength(2);
   });
 
   it("fires right after answering, without waiting for the next tick", async () => {

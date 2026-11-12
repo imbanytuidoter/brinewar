@@ -7,6 +7,7 @@ import { browserStorage } from "@/lib/storage";
 import { GameSession, type Snapshot } from "./session";
 
 const BATTLE_POLL_MS = 1500;
+const WATCH_POLL_MS = 700;
 const HARBOUR_POLL_MS = 8000;
 const OFFLINE_POLL_MS = 5000;
 const HIDDEN_POLL_MS = 4000;
@@ -55,7 +56,8 @@ export function useSession(session: GameSession): Snapshot {
   const subscribe = useCallback((fn: () => void) => session.subscribe(fn), [session]);
   const snap = useSyncExternalStore(subscribe, () => session.snapshot);
   const inBattle = snap.gameId !== null && snap.step?.kind !== "done";
-  const delay = snap.offline ? OFFLINE_POLL_MS : inBattle ? BATTLE_POLL_MS : HARBOUR_POLL_MS;
+  const theirMove = snap.step?.kind === "thinking" || snap.step?.kind === "wait" || snap.step?.kind === "answer";
+  const delay = snap.offline ? OFFLINE_POLL_MS : inBattle ? (theirMove ? WATCH_POLL_MS : BATTLE_POLL_MS) : HARBOUR_POLL_MS;
   useEffect(() => {
     let alive = true;
     let timer: ReturnType<typeof setTimeout> | undefined;

@@ -17,8 +17,8 @@ const model = config.nearAiKey
       apiKey: config.nearAiKey,
       fetch,
       timeoutMs: config.modelTimeoutMs,
-      signatureRetries: 8,
-      signatureDelayMs: 1000,
+      signatureRetries: 30,
+      signatureDelayMs: 250,
       now: Date.now,
       sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
     })
