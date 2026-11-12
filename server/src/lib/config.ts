@@ -64,6 +64,7 @@ export interface AdmiralConfig {
   nearAiKey: string | undefined;
   tickMs: number;
   modelTimeoutMs: number;
+  shotBudgetMs: number;
 }
 
 export function admiralConfig(env: Env): AdmiralConfig {
@@ -78,6 +79,7 @@ export function admiralConfig(env: Env): AdmiralConfig {
     nearAiKey: optional(env, "NEAR_AI_API_KEY"),
     tickMs: int(env, "TICK_MS", 250, 100),
     modelTimeoutMs: int(env, "MODEL_TIMEOUT_MS", 20_000, 1000),
+    shotBudgetMs: int(env, "MODEL_SHOT_BUDGET_MS", 3_500, 500),
   };
 }
 

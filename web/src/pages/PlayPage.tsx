@@ -65,7 +65,7 @@ export function PlayPage({ cfg, session, stats, landing, onEnter }: PlayPageProp
   const joinId = joinRef?.gameId ?? null;
   const line = snap.lines.at(-1) ?? null;
   const lastHis = g && !duel ? snap.history.filter((s) => s.by === g.b).at(-1) : undefined;
-  const note = lastHis?.source === "Deterministic" ? "Last shot without the model: deterministic fallback by the contract." : lastHis?.source === "ModelFallback" ? "The model's cell was invalid, so the contract chose this shot." : null;
+  const note = lastHis?.source === "Deterministic" ? "Quick shot by the contract's own rule: the model took too long to answer." : lastHis?.source === "ModelFallback" ? "The model's cell was invalid, so the contract chose this shot." : null;
   const verifyHref = snap.gameId !== null ? `/verify/${snap.gameId}` : null;
   const txHref = useCallback((h: string | null) => txLink(cfg, h), [cfg]);
 

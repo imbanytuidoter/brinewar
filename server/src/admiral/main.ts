@@ -34,6 +34,7 @@ const admiral = new Admiral({
   log,
   height: () => blockHeight(reads, 15_000),
   modelTimeoutMs: config.modelTimeoutMs,
+  shotBudgetMs: config.shotBudgetMs,
   maxFarewellTries: 3,
   cooldownMs: 1500,
 });

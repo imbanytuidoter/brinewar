@@ -22,7 +22,7 @@ function game(over: Partial<GameView> = {}): GameView {
   };
 }
 
-function setup(opts: { model?: FakeModel | null; reject?: (m: string) => boolean; timeoutMs?: number; answerPassesTurn?: boolean; cooldownMs?: number } = {}) {
+function setup(opts: { model?: FakeModel | null; reject?: (m: string) => boolean; timeoutMs?: number; answerPassesTurn?: boolean; cooldownMs?: number; shotBudgetMs?: number } = {}) {
   const store = new Store(join(mkdtempSync(join(tmpdir(), "bw-")), "db.sqlite"));
   let current = game();
   const viewer = new FakeViewer((method) => {
@@ -39,7 +39,7 @@ function setup(opts: { model?: FakeModel | null; reject?: (m: string) => boolean
   });
   const admiral = new Admiral({
     viewer, caller, store, vault: new Vault(KEY), model: opts.model === undefined ? null : opts.model, log: silent,
-    height: async () => 10, modelTimeoutMs: opts.timeoutMs ?? 2000, maxFarewellTries: 2, cooldownMs: opts.cooldownMs ?? 0, rng: seededRng(3),
+    height: async () => 10, modelTimeoutMs: opts.timeoutMs ?? 2000, maxFarewellTries: 2, cooldownMs: opts.cooldownMs ?? 0, rng: seededRng(3), ...(opts.shotBudgetMs === undefined ? {} : { shotBudgetMs: opts.shotBudgetMs }),
   });
   const settle = async () => {
     await admiral.tick();
@@ -129,6 +129,15 @@ describe("admiral", () => {
     const moves = t.store.aiMoves(0);
     expect(moves[0]?.source).toBe("model");
     expect(moves[0]?.signed_text).toMatch(/^m:[0-9a-f]{64}:[0-9a-f]{64}$/);
+  });
+
+  it("fires the contract's fallback when the model is slower than the shot budget", async () => {
+    const t = setup({ model: new FakeModel({ model: "m", reply: () => "{}", delayMs: 300 }), timeoutMs: 5000, shotBudgetMs: 50 });
+    await t.settle();
+    t.set({ status: "Playing", root_b: t.store.board(0)?.root as string, turn: ADM, pending_index: null, shots: 2 });
+    await t.settle();
+    expect(t.caller.calls.some((c) => c.method === "nauarch_fallback")).toBe(true);
+    expect(t.caller.calls.some((c) => c.method === "submit_ai_move")).toBe(false);
   });
 
   it("falls back when the model fails, stalls or is rejected", async () => {

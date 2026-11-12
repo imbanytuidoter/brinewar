@@ -20,6 +20,7 @@ export interface AdmiralOptions {
   readonly log: Logger;
   readonly height: () => Promise<number>;
   readonly modelTimeoutMs: number;
+  readonly shotBudgetMs?: number;
   readonly maxFarewellTries: number;
   readonly cooldownMs: number;
   readonly rng?: Rng;
@@ -213,14 +214,18 @@ export class Admiral {
     if (!model) throw new Error("no model configured");
     const request = await this.#o.viewer.view<string>("nauarch_request", { game_id: g.id, kind });
     const work = (async () => {
+      const started = Date.now();
       const reply = await model.complete(request);
+      const completed = Date.now();
       const sig = await model.signature(reply.chatId);
+      this.#o.log.info({ game: g.id, kind, completeMs: completed - started, signatureMs: Date.now() - completed }, "model timing");
       const modelName = (JSON.parse(request) as { model?: unknown }).model;
       const expected = `${String(modelName)}:${hexSha(request)}:${hexSha(reply.responseBody)}`;
       if (sig.text !== expected) throw new Error("signed text does not cover this request and response");
       return { request, response: reply.responseBody, chatId: reply.chatId, signature: sig.signatureHex, text: sig.text };
     })();
-    return withTimeout(work, this.#o.modelTimeoutMs, "model reply");
+    const budget = kind === "Shot" ? Math.min(this.#o.shotBudgetMs ?? this.#o.modelTimeoutMs, this.#o.modelTimeoutMs) : this.#o.modelTimeoutMs;
+    return withTimeout(work, budget, "model reply");
   }
 
   async #move(g: GameView): Promise<void> {
