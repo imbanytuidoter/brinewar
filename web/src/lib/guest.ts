@@ -52,6 +52,20 @@ export class GuestError extends Error {
   }
 }
 
+const VIEW_TRIES = 4;
+const VIEW_BACKOFF_MS = 700;
+
+async function viewWithRetry<T>(read: () => Promise<T>, tries = VIEW_TRIES, wait = (ms: number) => new Promise((r) => setTimeout(r, ms))): Promise<T | null> {
+  for (let i = 0; i < tries; i++) {
+    try {
+      return await read();
+    } catch {
+      if (i < tries - 1) await wait(VIEW_BACKOFF_MS * (i + 1));
+    }
+  }
+  return null;
+}
+
 export async function ensureGuest(store: KeyValue, apiUrl: string, contractId: string, viewer: Viewer, fetchFn: Fetch = fetch): Promise<Guest> {
   const { secretKey, publicKey } = loadOrCreateKey(store);
   const cached = store.get(ACCOUNT);
@@ -79,7 +93,7 @@ export async function ensureGuest(store: KeyValue, apiUrl: string, contractId: s
     throw new GuestError(message, res.status >= 500 || res.status === 429);
   }
   if (!validGuestAccount(body.accountId, contractId)) throw new GuestError("The harbour answered with an unexpected account.", false);
-  const expected = await viewer.view<string>("guest_account_for", { public_key: publicKey }).catch(() => null);
+  const expected = await viewWithRetry(() => viewer.view<string>("guest_account_for", { public_key: publicKey }));
   if (expected === null) throw new GuestError("Could not reach the chain to check your account.", true);
   if (expected !== body.accountId) throw new GuestError("The harbour answered with an account that is not yours.", false);
   store.set(ACCOUNT, JSON.stringify({ publicKey, accountId: body.accountId }));

@@ -44,6 +44,18 @@ describe("guest", () => {
     await expect(ensureGuest(memoryStorage(), "", CONTRACT, chain("p-ffffffffffffffff.brinewar.testnet"), f)).rejects.toMatchObject({ retryable: false, message: /not yours/ });
   });
 
+  it("rides out a chain read that fails once before signing on", async () => {
+    vi.useFakeTimers();
+    let calls = 0;
+    const flaky = { view: async <T,>() => (++calls === 1 ? Promise.reject(new Error("rate limited")) : (ACC as T)) };
+    const f = vi.fn(async () => json(200, { accountId: ACC }));
+    const pending = ensureGuest(memoryStorage(), "", CONTRACT, flaky, f);
+    await vi.runAllTimersAsync();
+    await expect(pending).resolves.toMatchObject({ accountId: ACC });
+    expect(calls).toBe(2);
+    vi.useRealTimers();
+  });
+
   it("passes the server message on limits and marks it retryable", async () => {
     const f = vi.fn(async () => json(429, { error: "too many new captains from this address, try again later" }));
     await expect(ensureGuest(memoryStorage(), "", CONTRACT, chain(), f)).rejects.toMatchObject({ retryable: true, message: /too many new captains/ });
