@@ -36,8 +36,19 @@ function contentSecurityPolicy(mode: string): Plugin {
   };
 }
 
+function siteUrl(mode: string): Plugin {
+  const site = origin(loadEnv(mode, process.cwd(), "VITE_").VITE_SITE_URL);
+  return {
+    name: "brinewar-site-url",
+    apply: "build",
+    buildStart() {
+      if (!site) throw new Error("VITE_SITE_URL must be the public origin, e.g. https://example.org: link previews need absolute URLs");
+    },
+  };
+}
+
 export default defineConfig(({ mode }) => ({
-  plugins: [react(), tailwindcss(), contentSecurityPolicy(mode)],
+  plugins: [react(), tailwindcss(), contentSecurityPolicy(mode), siteUrl(mode)],
   resolve: { alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) } },
   server: {
     proxy: process.env.BRINEWAR_API_PROXY ? { "/api": { target: process.env.BRINEWAR_API_PROXY, changeOrigin: true } } : undefined,
