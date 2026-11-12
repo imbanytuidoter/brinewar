@@ -61,7 +61,7 @@ function markLanded(): void {
 function Play({ cfg }: { readonly cfg: AppConfig }) {
   const { boot, retry } = useBoot(cfg);
   const stats = useHarbourStats(cfg);
-  const [landing, setLanding] = useState(() => duelFromLocation(window.location.search, window.location.hash) === null && !landedBefore());
+  const [landing, setLanding] = useState(() => duelFromLocation(window.location.search, window.location.hash, window.location.pathname) === null && !landedBefore());
   const enter = useCallback(() => {
     markLanded();
     sound.unlock();

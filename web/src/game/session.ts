@@ -224,16 +224,16 @@ export class GameSession {
 
   async startDuel(cells: readonly number[]): Promise<boolean> {
     const secret = toHex(crypto.getRandomValues(new Uint8Array(32)));
-    const ok = await this.#open(cells, "Opening a duel", "new_game_vs_nauarch", () => ({ invite_hash: toHex(sha256(fromHex(secret))) }), null);
-    const id = this.#snap.gameId;
-    if (ok && id !== null) {
+    let kept = true;
+    const keep = (id: number): void => {
       try {
         this.#d.store.set(inviteKey(this.#d.accountId, id), secret);
       } catch {
-        this.#set({ error: "This browser could not keep the invite; copy the link now." });
+        kept = false;
       }
-      this.#set({ invite: secret });
-    }
+    };
+    const ok = await this.#open(cells, "Opening a duel", "new_game_vs_nauarch", () => ({ invite_hash: toHex(sha256(fromHex(secret))) }), null, keep);
+    if (ok) this.#set(kept ? { invite: secret } : { invite: secret, error: "This browser could not keep the invite; copy the link now." });
     return ok;
   }
 
@@ -245,7 +245,7 @@ export class GameSession {
     return this.#open(cells, "Joining the duel", "commit_board", (board) => ({ game_id: gameId, root: rootHex(board), invite_secret: secret }), gameId);
   }
 
-  async #open(cells: readonly number[], label: string, method: string, args: (board: Board) => object, known: number | null): Promise<boolean> {
+  async #open(cells: readonly number[], label: string, method: string, args: (board: Board) => object, known: number | null, opened?: (id: number) => void): Promise<boolean> {
     if (this.#snap.gameId !== null && this.#snap.step?.kind !== "done") return false;
     const board = newBoard(cells);
     try {
@@ -259,6 +259,7 @@ export class GameSession {
     const r = await this.#send(label, method, args(board));
     const id = known ?? (typeof r.value === "number" ? r.value : null);
     if (!r.ok || id === null) return false;
+    opened?.(id);
     this.#adoptPending(id);
     if (before) this.#saveBaseline(id, before);
     this.#resetGame(id, board);

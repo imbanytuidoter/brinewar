@@ -20,7 +20,7 @@ import { clearWater, confirmedSunk, mergeSunk } from "@/lib/sunk";
 import type { AppConfig } from "@/lib/config";
 import { txLink } from "@/lib/config";
 import { cryptoRng, placeFleet, ships } from "@/lib/fleet";
-import { cellName, cn } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import { EndCard } from "@/ui/EndCard";
 import { FireByName } from "@/ui/FireByName";
 import { Landing } from "@/ui/Landing";
@@ -28,7 +28,7 @@ import { Setup } from "@/ui/Setup";
 import { NauarchBubble } from "@/ui/NauarchBubble";
 import { RevealSeal } from "@/ui/RevealSeal";
 import { TopBar } from "@/ui/TopBar";
-import { TurnClock } from "@/ui/TurnClock";
+import { turnOf, TurnBanner } from "@/ui/TurnBanner";
 
 const SeaScene = lazy(() => import("@/scene/SeaScene").then((m) => ({ default: m.SeaScene })));
 
@@ -58,7 +58,7 @@ export function PlayPage({ cfg, session, stats, landing, onEnter }: PlayPageProp
   const rival = duel ? (snap.opponentName ?? (g && opponentOf(g, snap.accountId) !== snap.accountId ? "Your friend" : null)) : null;
   const enemyLabel = duel ? (rival ?? "Your friend") : "The Nauarch";
   const theyRevealed = g ? (sideOf(g, snap.accountId) === "a" ? g.revealed_b : g.revealed_a) : false;
-  const [joinRef, setJoinRef] = useState<DuelInviteRef | null>(() => duelFromLocation(window.location.search, window.location.hash));
+  const [joinRef, setJoinRef] = useState<DuelInviteRef | null>(() => duelFromLocation(window.location.search, window.location.hash, window.location.pathname));
   const joinId = joinRef?.gameId ?? null;
   const line = snap.lines.at(-1) ?? null;
   const lastHis = g && !duel ? snap.history.filter((s) => s.by === g.b).at(-1) : undefined;
@@ -115,7 +115,7 @@ export function PlayPage({ cfg, session, stats, landing, onEnter }: PlayPageProp
     setView("setup");
   }, []);
 
-  const status = statusText(step, snap.busy, snap.marks.aiming, rival, g?.status ?? null);
+  const turn = inBattle && !result ? turnOf({ step, busy: snap.busy, aiming: snap.marks.aiming, incoming: g?.pending_index ?? null, rival, phase: g?.status ?? null }) : null;
   const showLanding = landing && !inBattle && joinId === null;
   const onChart = !inBattle && joinId === null && !landing && view === "chart";
   useEffect(() => {
@@ -136,7 +136,7 @@ export function PlayPage({ cfg, session, stats, landing, onEnter }: PlayPageProp
   const shuffle = useCallback(() => setDraft(placeFleet(cryptoRng())), []);
   const player = snap.captain?.player ?? null;
   const gold = player && /^\d+$/.test(player.gold) ? BigInt(player.gold) : null;
-  const stakes = inBattle && g && !duel && !result && step !== "lost-board" ? `Sink all 10 ships: ${stats.treasury ? `+${stats.treasury.bounty} gold bounty` : "a bounty from his treasury"}. Lose: your ${g.stake} gold entry stays in his treasury.` : null;
+  const stakes = inBattle && g && !duel && !result && g.shots === 0 && step !== "lost-board" ? `${stats.treasury ? `Sink his fleet: +${stats.treasury.bounty} gold. ` : ""}Lose: your ${g.stake} gold entry goes to him.` : null;
 
   return (
     <main className="fixed inset-0">
@@ -176,15 +176,15 @@ export function PlayPage({ cfg, session, stats, landing, onEnter }: PlayPageProp
 
       <TopBar myHits={g ? hitsOnMe(g, snap.accountId) : 0} enemyHits={g ? hitsOnThem(g, snap.accountId) : 0} showScore={inBattle && step !== "invite"} verifyHref={step === "invite" ? null : verifyHref} enemyLabel={duel ? (rival ?? "Friend") : "Nauarch"} />
 
-      {status && (
-        <div role="status" className="pointer-events-none fixed top-[calc(68px+env(safe-area-inset-top))] max-sm:top-[calc(106px+env(safe-area-inset-top))] left-1/2 z-10 flex -translate-x-1/2 items-center gap-2 rounded-full border border-line bg-glass px-3.5 py-1.5 text-xs whitespace-nowrap text-muted backdrop-blur-md">
-          {snap.busy && <Loader2 className="size-3.5 animate-spin" aria-hidden />}
-          {status}
-          {snap.deadlineAt !== null && inBattle && !result && <TurnClock deadlineAt={snap.deadlineAt} />}
+      {turn && <TurnBanner turn={turn} busy={snap.busy !== null} deadlineAt={snap.deadlineAt} />}
+      {!turn && snap.busy && (
+        <div role="status" className="pointer-events-none fixed top-[calc(68px+env(safe-area-inset-top))] max-sm:top-[calc(106px+env(safe-area-inset-top))] left-1/2 z-10 flex -translate-x-1/2 items-center gap-2 rounded-full border border-line bg-glass px-3.5 py-1.5 text-xs whitespace-nowrap backdrop-blur-md">
+          <Loader2 className="size-3.5 animate-spin" aria-hidden />
+          {snap.busy}…
         </div>
       )}
 
-      <div className={cn("fixed bottom-[calc(16px+env(safe-area-inset-bottom))] left-[max(16px,env(safe-area-inset-left))] z-10 max-sm:bottom-[calc(140px+env(safe-area-inset-bottom))]", (showLanding || onChart) && "hidden")}>
+      <div className={cn("fixed bottom-[calc(16px+env(safe-area-inset-bottom))] left-[max(16px,env(safe-area-inset-left))] z-10 max-sm:bottom-[calc(140px+env(safe-area-inset-bottom))]", (showLanding || onChart || step === "invite") && "hidden")}>
         <NauarchBubble mood={moodOf(feed.last)} line={line} thinking={step === "thinking"} fallback={GREETING} txHref={txHref} note={note} opponent={duel ? (rival ?? "Your friend") : null} inviting={step === "invite"} />
       </div>
 
@@ -259,30 +259,6 @@ export function PlayPage({ cfg, session, stats, landing, onEnter }: PlayPageProp
   );
 }
 
-export function statusText(step: string | null, busy: string | null, aiming: number | null, rival: string | null, phase: string | null = null): string | null {
-  if (busy) return aiming !== null && busy === "Firing" ? `Firing at ${cellName(aiming)}…` : `${busy}…`;
-  switch (step) {
-    case "fire":
-      return "Your turn: tap a cell in the fog to fire. A hit fires again.";
-    case "thinking":
-      return rival ? `${rival} is choosing a cell…` : "The Nauarch is choosing his shot…";
-    case "invite":
-      return "Waiting for your friend to accept the duel…";
-    case "wait":
-      if (aiming !== null) return rival ? `Shot at ${cellName(aiming)} is flying. ${rival} answers with a proof…` : `Shot at ${cellName(aiming)} is flying. He answers with a proof…`;
-      if (phase === "Placing") return rival ? `${rival} is placing their fleet…` : "The Nauarch is sealing his fleet…";
-      if (phase === "Revealing" || phase === "Finished") return "The fleets are being revealed for the final check…";
-      return rival ? `${rival} is answering…` : "The Nauarch is answering…";
-    case "commit":
-      return "Sealing your board…";
-    case "answer":
-      return rival ? "Answering their shot with a proof…" : "Answering his shot with a proof…";
-    case "reveal":
-      return "Revealing your fleet for the final check…";
-    default:
-      return null;
-  }
-}
 
 function moodOf(tone: CalloutTone | null): Mood {
   if (tone === "taken" || tone === "lost") return "smug";

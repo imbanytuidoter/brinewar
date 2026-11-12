@@ -60,9 +60,10 @@ interface BoardProps {
   readonly marks: ReadonlyMap<number, Mark>;
   readonly look?: ShipLook | null;
   readonly hulls?: Hullset;
+  readonly wrecks?: readonly (readonly number[])[] | null;
 }
 
-function Board({ side, ships, marks, look = null, hulls = "brine" }: BoardProps) {
+function Board({ side, ships, marks, look = null, hulls = "brine", wrecks = null }: BoardProps) {
   const { effects } = useRuntime();
   const landed = useMarkFlights(side, marks);
   useEffect(() => {
@@ -73,7 +74,13 @@ function Board({ side, ships, marks, look = null, hulls = "brine" }: BoardProps)
     if (side === "mine") effects.setTrail(look?.trail ?? null);
   }, [effects, side, look]);
   const sunk = useMemo(() => sunkShips(ships, landed), [ships, landed]);
-  return <Fleet side={side} ships={ships} sunk={sunk} look={look} hulls={hulls} />;
+  const struck = useMemo(() => (wrecks ?? []).filter((w) => w.every((c) => landed.get(c) === "hit")), [wrecks, landed]);
+  return (
+    <>
+      <Fleet side={side} ships={ships} sunk={sunk} look={look} hulls={hulls} />
+      {struck.length > 0 && <Wrecks ships={struck} />}
+    </>
+  );
 }
 
 const SHAKE_DECAY = 5;
@@ -122,8 +129,7 @@ function World(props: SeaSceneProps) {
           <Effects />
           <Scenery layout={layoutFor(props.layout ?? null)} />
           <Board side="mine" ships={props.myShips} marks={props.myMarks} look={props.myLook ?? null} hulls={props.myLook?.hulls ?? "brine"} />
-          <Board side="enemy" ships={props.enemyShips ?? NO_SHIPS} marks={props.enemyMarks} hulls={props.enemyHulls ?? "pirate"} />
-          {props.enemyShips === null && props.enemyWrecks && props.enemyWrecks.length > 0 && <Wrecks ships={props.enemyWrecks} />}
+          <Board side="enemy" ships={props.enemyShips ?? NO_SHIPS} marks={props.enemyMarks} hulls={props.enemyHulls ?? "pirate"} wrecks={props.enemyShips === null ? props.enemyWrecks : null} />
         </Suspense>
       </Shaker>
     </>

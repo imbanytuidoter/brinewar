@@ -41,6 +41,10 @@ export function huntNote(heat: readonly number[] | null, boards: number, cell: n
   return rank < HUNT_RANK ? `Hunting from the Admiralty map · ${cellName(cell)} · ${pct}% of fleets sat here` : `${cellName(cell)} · ${pct}% of fleets sat here`;
 }
 
+function sankTitle(rival: string | null): string {
+  return rival ? "You sank a ship" : "You sank his ship";
+}
+
 export function useBattleFeed(ctx: FeedContext): {
   readonly callout: Callout | null;
   readonly last: CalloutTone | null;
@@ -81,7 +85,7 @@ export function useBattleFeed(ctx: FeedContext): {
       shownSunk.current.add(key);
       if (!ship.some((c) => landedHits.current.has(c))) return;
       sound.sunk();
-      show("Sunk!", `${shipName(ship.length)} down · ${cellName(ship[ship.length - 1] ?? 0)}`, "sunk");
+      show(sankTitle(ref.current.rival), `${shipName(ship.length)} · ${cellName(ship[ship.length - 1] ?? 0)}`, "sunk");
     },
     [show],
   );
@@ -101,7 +105,7 @@ export function useBattleFeed(ctx: FeedContext): {
         if (!hit) {
           streak.current = 0;
           sound.splash();
-          show("Miss", cellName(cell), "miss");
+          show("You missed", cellName(cell), "miss");
           return;
         }
         streak.current += 1;
@@ -110,28 +114,28 @@ export function useBattleFeed(ctx: FeedContext): {
         if (sunk) {
           shownSunk.current.add([...sunk].sort((a, b) => a - b).join());
           sound.sunk();
-          show("Sunk!", `${shipName(sunk.length)} down · ${cellName(cell)}`, "sunk");
+          show(sankTitle(c.rival), `${shipName(sunk.length)} · ${cellName(cell)}`, "sunk");
           return;
         }
         sound.hit();
-        show(streak.current > 1 ? `Hit ×${streak.current}` : "Hit", cellName(cell), "hit");
+        show(streak.current > 1 ? `You hit ×${streak.current}` : "You hit", `${cellName(cell)} · fire again`, "hit");
         return;
       }
       const note = c.rival ? cellName(cell) : (huntNote(c.heat, c.boards, cell) ?? cellName(cell));
-      const who = c.rival ?? "He";
+      const who = c.rival ?? "Nauarch";
       if (!hit) {
         sound.splash();
-        show(c.rival ? `${who} misses` : "He misses", note, "spared");
+        show(`${who} missed`, note, "spared");
         return;
       }
       const lost = sunkOwn(c.myShips, c.myMarks).some((s) => s.includes(cell));
       if (lost) {
         sound.sunk();
-        show("Ship lost", `${shipName(shipAt(c.myShips, cell)?.length ?? 0)} · ${note}`, "lost");
+        show("You lost a ship", `${shipName(shipAt(c.myShips, cell)?.length ?? 0)} · ${note}`, "lost");
         return;
       }
       sound.hit();
-      show(c.rival ? `${who} hits` : "He hits", note, "taken");
+      show(`${who} hits you`, note, "taken");
     },
     [show],
   );

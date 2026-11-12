@@ -5,8 +5,25 @@ import { makeViewer } from "@/lib/chain";
 import type { AppConfig } from "@/lib/config";
 import type { GameView, PlayerView } from "@/lib/contract";
 
+const HEX_KEY = /^[0-9a-f]{64}$/;
+const B64_KEY = /^[A-Za-z0-9_-]{43}$/;
+
+function hexToB64url(hex: string): string {
+  const bytes = hex.match(/../g)?.map((b) => parseInt(b, 16)) ?? [];
+  return btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+function b64urlToHex(key: string): string {
+  const bin = atob(key.replace(/-/g, "+").replace(/_/g, "/") + "=");
+  return Array.from(bin, (c) => c.charCodeAt(0).toString(16).padStart(2, "0")).join("");
+}
+
 export function duelLink(origin: string, gameId: number, secret: string): string {
-  return `${origin}/?duel=${gameId}#k=${secret}`;
+  return HEX_KEY.test(secret) ? `${origin}/duel/${gameId}#${hexToB64url(secret)}` : `${origin}/duel/${gameId}`;
+}
+
+export function duelLinkShown(origin: string, gameId: number): string {
+  return `${origin.replace(/^https?:\/\//, "")}/duel/${gameId}`;
 }
 
 export interface DuelInviteRef {
@@ -14,10 +31,17 @@ export interface DuelInviteRef {
   readonly secret: string;
 }
 
-export function duelFromLocation(search: string, hash: string): DuelInviteRef | null {
-  const raw = new URLSearchParams(search).get("duel");
-  const secret = new URLSearchParams(hash.replace(/^#/, "")).get("k") ?? "";
-  return raw && /^\d{1,15}$/.test(raw) ? { gameId: Number(raw), secret } : null;
+function secretFrom(hash: string): string {
+  const raw = hash.replace(/^#/, "");
+  const legacy = new URLSearchParams(raw).get("k");
+  if (legacy !== null) return legacy;
+  return B64_KEY.test(raw) ? b64urlToHex(raw) : raw;
+}
+
+export function duelFromLocation(search: string, hash: string, pathname = "/"): DuelInviteRef | null {
+  const path = /^\/duel\/(\d{1,15})\/?$/.exec(pathname)?.[1];
+  const raw = path ?? new URLSearchParams(search).get("duel");
+  return raw && /^\d{1,15}$/.test(raw) ? { gameId: Number(raw), secret: secretFrom(hash) } : null;
 }
 
 interface InviteProps {
@@ -44,10 +68,10 @@ export function DuelInvite({ gameId, secret, busy, onCancel }: InviteProps) {
   return (
     <div className="grid w-full animate-rise gap-2 rounded-2xl border border-line bg-glass p-3 backdrop-blur-md sm:w-[340px]">
       <p className="m-0 font-display text-xl leading-tight font-bold">Waiting for your friend</p>
-      <p className="m-0 text-xs text-muted">Send this link. They open it, place a fleet and the duel starts. No wallet for them either. The invite stays open for about an hour.</p>
-      <div className="flex items-center gap-2 rounded-lg border border-line bg-black/20 px-2 py-1.5">
-        <code className="min-w-0 flex-1 truncate font-mono text-xs">{link ?? "This browser lost the invite. Cancel and open a new duel."}</code>
-      </div>
+      <p className="m-0 text-[13px] text-muted">Send this link to a friend. It opens in any browser, no wallet needed, and stays valid for about an hour.</p>
+      <p data-invite={link ?? undefined} className="m-0 truncate rounded-lg border border-line bg-black/20 px-2.5 py-1.5 text-[13px] font-semibold">
+        {link ? duelLinkShown(window.location.origin, gameId) : "This browser lost the invite. Cancel and open a new duel."}
+      </p>
       <div className="grid grid-cols-[1fr_auto_auto] gap-2">
         <Button variant="brass" onClick={() => void copy()} disabled={!link} aria-label="Copy the invite link">
           {copied ? <Check aria-hidden /> : <Copy aria-hidden />}

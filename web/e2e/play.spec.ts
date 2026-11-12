@@ -19,12 +19,12 @@ test("a fresh browser plays the Nauarch with no wallet and verifies the battle",
   await expect(page.getByRole("button", { name: "Show where he hunts" })).toBeVisible();
   await page.getByRole("button", { name: "Set sail against the Nauarch" }).click({ timeout: 60_000 });
   await expect(page.getByText(/Sink all 10 ships/)).toBeVisible({ timeout: 90_000 });
-  await expect(page.getByText("Your turn")).toBeVisible({ timeout: 90_000 });
+  await expect(page.getByText("Your shot", { exact: true })).toBeVisible({ timeout: 90_000 });
 
   await fireUntilMiss(page);
   const nauarch = page.getByRole("region", { name: "The Nauarch" });
   await expect(nauarch.getByText("signed")).toBeVisible({ timeout: 120_000 });
-  await expect(page.getByText("Your turn")).toBeVisible({ timeout: 90_000 });
+  await expect(page.getByText("Your shot", { exact: true })).toBeVisible({ timeout: 90_000 });
 
   await page.getByRole("button", { name: "Strike colours" }).click();
   await expect(page.getByText("The Nauarch prevails.")).toBeVisible({ timeout: 90_000 });

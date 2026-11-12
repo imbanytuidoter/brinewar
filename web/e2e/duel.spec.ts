@@ -26,15 +26,15 @@ test("two captains duel through an invite link with no wallet", async ({ browser
   await host.getByRole("button", { name: "Invite a friend" }).click();
   await host.getByRole("button", { name: "Challenge a friend" }).click({ timeout: 90_000 });
   await expect(host.getByText("Waiting for your friend", { exact: true })).toBeVisible({ timeout: 90_000 });
-  const link = (await host.locator("code").first().innerText()).trim();
-  expect(link).toMatch(/\/\?duel=\d+#k=[0-9a-f]{64}$/);
+  const link = (await host.locator("[data-invite]").first().getAttribute("data-invite")) ?? "";
+  expect(link).toMatch(/\/duel\/\d+#[A-Za-z0-9_-]{43}$/);
 
   await guest.goto(link.replace(/#.*$/, "").replace(/^https?:\/\/[^/]+/, ""));
   await expect(guest.getByText(/challenges you/)).toBeVisible({ timeout: 90_000 });
   await guest.getByRole("button", { name: "Accept the duel" }).click();
   await expect(guest.getByText(/invite link is incomplete/)).toBeVisible({ timeout: 30_000 });
 
-  await guest.goto(link.replace(/#k=.*$/, `#k=${"0".repeat(64)}`).replace(/^https?:\/\/[^/]+/, ""));
+  await guest.goto(link.replace(/#.*$/, `#${"A".repeat(43)}`).replace(/^https?:\/\/[^/]+/, ""));
   await guest.reload();
   await expect(guest.getByText(/challenges you/)).toBeVisible({ timeout: 90_000 });
   await guest.getByRole("button", { name: "Accept the duel" }).click();
@@ -47,7 +47,7 @@ test("two captains duel through an invite link with no wallet", async ({ browser
 
   await fireUntilMiss(host);
   await fireUntilMiss(guest);
-  await expect(host.getByText("Your turn")).toBeVisible({ timeout: 180_000 });
+  await expect(host.getByText("Your shot", { exact: true })).toBeVisible({ timeout: 180_000 });
 
   await guest.getByRole("button", { name: "Strike colours" }).click();
   await expect(host.getByText("Victory, Captain.")).toBeVisible({ timeout: 180_000 });

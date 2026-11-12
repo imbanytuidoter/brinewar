@@ -8,7 +8,7 @@ export function clockText(ms: number): string {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 }
 
-export function TurnClock({ deadlineAt }: { readonly deadlineAt: number }) {
+export function TurnClock({ deadlineAt, className }: { readonly deadlineAt: number; readonly className?: string }) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000);
@@ -16,8 +16,8 @@ export function TurnClock({ deadlineAt }: { readonly deadlineAt: number }) {
   }, []);
   const left = deadlineAt - now;
   return (
-    <span className={cn("font-semibold tabular-nums", left < URGENT_MS ? "text-hit" : "text-brass")} aria-label={`${clockText(left)} left for your move`}>
-      {clockText(left)} left
+    <span className={cn("font-semibold tabular-nums", className ?? (left < URGENT_MS ? "text-hit" : "text-brass"))} aria-label={`${clockText(left)} left for your move`}>
+      {clockText(left)}
     </span>
   );
 }
