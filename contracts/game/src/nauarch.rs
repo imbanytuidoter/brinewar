@@ -295,8 +295,24 @@ pub fn signed_text(model: &str, request: &str, response: &str) -> String {
     format!("{model}:{req}:{resp}")
 }
 
+const MIN_MOVE_TIMEOUT: u64 = 20;
+const MAX_MOVE_TIMEOUT: u64 = 6000;
+
 #[near]
 impl Brinewar {
+    pub fn set_move_timeout(&mut self, blocks: u64) {
+        require!(
+            env::predecessor_account_id() == self.owner,
+            "only the owner sets the move timeout"
+        );
+        require!(
+            (MIN_MOVE_TIMEOUT..=MAX_MOVE_TIMEOUT).contains(&blocks),
+            "move timeout must be 20 to 6000 blocks"
+        );
+        self.settings.move_timeout_blocks = blocks;
+        emit("move_timeout_set", json!({ "blocks": blocks }));
+    }
+
     pub fn set_model(&mut self, model: String, public_key_hex: String) {
         require!(
             env::predecessor_account_id() == self.owner,

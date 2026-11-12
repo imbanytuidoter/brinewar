@@ -88,9 +88,12 @@ function endpoints(rpcUrl: string): JsonRpcProvider[] {
 }
 
 export function readRpc(rpcUrl: string): Provider {
-  const list = endpoints(rpcUrl);
-  if (list.length <= 1) return list[0] ?? new JsonRpcProvider({ url: rpcUrl });
-  return rotate(list.map((_, i) => new FailoverRpcProvider([...list.slice(i), ...list.slice(0, i)])));
+  return writeRpc(rpcUrl);
+}
+
+export function makeHeight(rpcUrl: string): () => Promise<number> {
+  const provider = readRpc(rpcUrl);
+  return async () => Number((await withTimeout(provider.viewBlock({ finality: "optimistic" }), VIEW_TIMEOUT_MS, "block")).header.height);
 }
 
 export function writeRpc(rpcUrl: string): Provider {

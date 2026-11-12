@@ -44,7 +44,7 @@ export function DuelInvite({ gameId, secret, busy, onCancel }: InviteProps) {
   return (
     <div className="grid w-full animate-rise gap-2 rounded-2xl border border-line bg-glass p-3 backdrop-blur-md sm:w-[340px]">
       <p className="m-0 font-display text-xl leading-tight font-bold">Waiting for your friend</p>
-      <p className="m-0 text-xs text-muted">Send this link. They open it, place a fleet and the duel starts. No wallet for them either. The invite stays open for about half an hour.</p>
+      <p className="m-0 text-xs text-muted">Send this link. They open it, place a fleet and the duel starts. No wallet for them either. The invite stays open for about an hour.</p>
       <div className="flex items-center gap-2 rounded-lg border border-line bg-black/20 px-2 py-1.5">
         <code className="min-w-0 flex-1 truncate font-mono text-xs">{link ?? "This browser lost the invite. Cancel and open a new duel."}</code>
       </div>

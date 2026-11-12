@@ -11,7 +11,8 @@ import { boardKey } from "@/lib/guest";
 import { fromHex, rootFromProof, sha256, toHex } from "@/lib/merkle";
 import { signedText } from "@/lib/nauarch";
 import { memoryStorage } from "@/lib/storage";
-import { GameSession, rewardsBetween, verifiedFleet } from "./session";
+import { GameSession, isStale, rewardsBetween, verifiedFleet } from "./session";
+import { clockText } from "@/ui/TurnClock";
 import { newBoard, revealArgs } from "@/lib/board";
 
 const ME = "p-0011223344556677.brinewar.testnet";
@@ -261,6 +262,28 @@ describe("GameSession", () => {
     expect(session.snapshot.step).toEqual({ kind: "done" });
     session.leave();
     expect(session.snapshot.gameId).toBeNull();
+  });
+
+  it("sends a reveal only once even when a lagging node still shows the fleet unrevealed", async () => {
+    const { chain, session } = setup();
+    await session.start(placeFleet(seededRng(7)));
+    await session.resign();
+    const game = chain.game as GameView;
+    chain.game = { ...game, revealed_a: false };
+    await session.tick();
+    await session.tick();
+    expect(chain.calls.filter((c) => c === "reveal")).toHaveLength(1);
+  });
+
+  it("ignores a game view older than the one it already showed", () => {
+    const base = { id: 4, status: "Playing", shots: 5, pending_index: null, revealed_a: false, revealed_b: false, root_a: "a", root_b: "b" } as GameView;
+    expect(isStale({ ...base, shots: 4 }, base)).toBe(true);
+    expect(isStale({ ...base, pending_index: 7 }, base)).toBe(true);
+    expect(isStale({ ...base, shots: 6, pending_index: 7 }, base)).toBe(false);
+    expect(isStale({ ...base, status: "Placing" }, base)).toBe(true);
+    expect(isStale({ ...base, id: 5, shots: 0 }, base)).toBe(false);
+    expect(clockText(65_400)).toBe("1:06");
+    expect(clockText(-5)).toBe("0:00");
   });
 
   it("resumes an open battle after a reload and adopts a board saved before the id came back", async () => {

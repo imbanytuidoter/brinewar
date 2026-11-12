@@ -36,6 +36,18 @@ export interface Snapshot {
   readonly rewards: Rewards | null;
   readonly opponentName: string | null;
   readonly invite: string | null;
+  readonly deadlineAt: number | null;
+}
+
+const STATUS_ORDER: Readonly<Record<string, number>> = { Waiting: 0, Placing: 1, Playing: 2, Revealing: 3, Finished: 4 };
+
+export function isStale(next: GameView, prev: GameView | null): boolean {
+  if (!prev || prev.id !== next.id) return false;
+  const rank = (g: GameView): number[] => [STATUS_ORDER[g.status] ?? 0, g.shots, g.pending_index === null ? 1 : 0, Number(g.revealed_a) + Number(g.revealed_b) + (g.root_a ? 1 : 0) + (g.root_b ? 1 : 0)];
+  const a = rank(next);
+  const b = rank(prev);
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return (a[i] as number) < (b[i] as number);
+  return false;
 }
 
 export interface Captain {
@@ -68,8 +80,11 @@ export interface SessionDeps {
   readonly store: KeyValue;
   readonly evidence: (gameId: number) => Promise<NauarchEvidence | null>;
   readonly refuel?: () => Promise<boolean>;
+  readonly height?: () => Promise<number>;
   readonly now?: () => number;
 }
+
+export const BLOCK_MS = 587;
 
 export function inviteKey(accountId: string, gameId: number): string {
   return `brinewar.invite.${accountId}.${gameId}`;
@@ -111,7 +126,7 @@ export class GameSession {
     this.#now = d.now ?? Date.now;
     this.#snap = {
       accountId: d.accountId, gameId: null, game: null, history: [], marks: EMPTY_MARKS, step: null,
-      board: null, lines: [], busy: null, error: null, lastTx: null, offline: false, enemyFleet: null, enemyRevealTx: null, captain: null, rewards: null, opponentName: null, invite: null,
+      board: null, lines: [], busy: null, error: null, lastTx: null, offline: false, enemyFleet: null, enemyRevealTx: null, captain: null, rewards: null, opponentName: null, invite: null, deadlineAt: null,
     };
   }
 
@@ -177,6 +192,7 @@ export class GameSession {
       const r = await this.#send(label, method, args());
       if (r.ok) {
         this.#attempts.delete(key);
+        this.#given.add(key);
         return true;
       }
       const n = (a?.n ?? 0) + 1;
@@ -240,7 +256,7 @@ export class GameSession {
     this.#nauarchShots = -1;
     this.#evidenceTries = 0;
     this.#settled = null;
-    this.#set({ gameId: id, game: null, history: [], marks: EMPTY_MARKS, step: null, board, lines: [], error: null, enemyFleet: null, enemyRevealTx: null, rewards: null, opponentName: null, invite: null });
+    this.#set({ gameId: id, game: null, history: [], marks: EMPTY_MARKS, step: null, board, lines: [], error: null, enemyFleet: null, enemyRevealTx: null, rewards: null, opponentName: null, invite: null, deadlineAt: null });
   }
 
   async #captain(): Promise<Captain | null> {
@@ -342,11 +358,12 @@ export class GameSession {
       this.#set({ gameId: null, game: null, step: null });
       return false;
     }
+    if (isStale(game, this.#snap.game) || (this.#snap.game?.id === game.id && history.length < this.#snap.history.length)) return false;
     const board = this.#boardFor(id) ?? (game.status === "Placing" ? this.#adoptPending(id) : null);
     const planned = nextStep(game, me, board !== null);
     const step: Step = planned.kind === "reveal" && this.#given.has(`reveal:${id}`) ? { kind: "done" } : planned;
     const invite = step.kind === "invite" ? (this.#snap.invite ?? this.#d.store.get(inviteKey(me, id))) : null;
-    this.#set({ game, history, marks: marksFrom(history, me), step, board, invite });
+    this.#set({ game, history, marks: marksFrom(history, me), step, board, invite, deadlineAt: await this.#deadline(game, step) });
     const acted = await this.#act(game, step, board);
     await this.#claimIfLate(game, step);
     if (game.mode === "VsNauarch") await this.#refreshEvidence(game, history).catch(() => undefined);
@@ -354,6 +371,15 @@ export class GameSession {
     const settled = game.mode === "VsNauarch" ? game.revealed_a && game.revealed_b : game.status === "Finished";
     if (step.kind === "done" && settled) await this.#settle(game.id);
     return acted;
+  }
+
+  async #deadline(g: GameView, step: Step): Promise<number | null> {
+    const mine = step.kind === "fire" || step.kind === "answer" || step.kind === "commit" || step.kind === "reveal";
+    if (!mine || !this.#d.height) return null;
+    const known = this.#snap.deadlineAt;
+    if (known !== null && this.#snap.game?.deadline_block === g.deadline_block) return known;
+    const h = await this.#d.height().catch(() => null);
+    return h === null ? null : this.#now() + Math.max(0, g.deadline_block - h) * BLOCK_MS;
   }
 
   async #opponent(g: GameView): Promise<void> {

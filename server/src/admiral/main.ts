@@ -1,7 +1,7 @@
 import pino from "pino";
 import { admiralConfig } from "../lib/config.js";
 import { Store } from "../lib/db.js";
-import { blockHeight, CallerPool, NearCaller, NearViewer, provider, readProvider } from "../lib/near.js";
+import { blockHeight, CallerPool, NearCaller, NearViewer, provider } from "../lib/near.js";
 import { NearAiClient } from "../lib/nearai.js";
 import { Vault } from "../lib/vault.js";
 import { Admiral } from "./admiral.js";
@@ -9,7 +9,7 @@ import { Admiral } from "./admiral.js";
 const log = pino({ name: "brinewar-admiral" });
 const config = admiralConfig(process.env);
 const rpc = provider(config.rpcUrl);
-const reads = readProvider(config.rpcUrl);
+const reads = rpc;
 const store = new Store(config.dbPath);
 const model = config.nearAiKey
   ? new NearAiClient({

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
-import { makeCaller, makeViewer } from "@/lib/chain";
+import { makeCaller, makeHeight, makeViewer } from "@/lib/chain";
 import type { AppConfig } from "@/lib/config";
 import { ensureGuest, GuestError, refuelGuest } from "@/lib/guest";
 import { fetchEvidence } from "@/lib/proofs";
@@ -33,6 +33,7 @@ export function useBoot(cfg: AppConfig): { boot: Boot; retry: () => void } {
           store,
           evidence: (id) => fetchEvidence(cfg.apiUrl, id),
           refuel: () => refuelGuest(cfg.apiUrl, g.publicKey),
+          height: makeHeight(cfg.rpcUrl),
         });
         setBoot({ kind: "ready", session });
       })

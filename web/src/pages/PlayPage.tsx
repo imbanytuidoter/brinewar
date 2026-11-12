@@ -26,6 +26,7 @@ import { Setup } from "@/ui/Setup";
 import { NauarchBubble } from "@/ui/NauarchBubble";
 import { RevealSeal } from "@/ui/RevealSeal";
 import { TopBar } from "@/ui/TopBar";
+import { TurnClock } from "@/ui/TurnClock";
 
 const SeaScene = lazy(() => import("@/scene/SeaScene").then((m) => ({ default: m.SeaScene })));
 
@@ -166,6 +167,7 @@ export function PlayPage({ cfg, session, stats, landing, onEnter }: PlayPageProp
         <div role="status" className="pointer-events-none fixed top-[calc(68px+env(safe-area-inset-top))] max-sm:top-[calc(106px+env(safe-area-inset-top))] left-1/2 z-10 flex -translate-x-1/2 items-center gap-2 rounded-full border border-line bg-glass px-3.5 py-1.5 text-xs whitespace-nowrap text-muted backdrop-blur-md">
           {snap.busy && <Loader2 className="size-3.5 animate-spin" aria-hidden />}
           {status}
+          {snap.deadlineAt !== null && inBattle && !result && <TurnClock deadlineAt={snap.deadlineAt} />}
         </div>
       )}
 

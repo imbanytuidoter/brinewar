@@ -397,3 +397,22 @@ fn each_new_rank_mints_its_skin_once() {
     assert_eq!(c.mt_balance_of(player(), "skin:admiral".into()).0, 1);
     assert!(c.skins().iter().any(|s| s == "admiral"));
 }
+
+#[test]
+fn owner_sets_the_move_timeout_within_bounds() {
+    let mut chain = Chain { height: 100 };
+    let mut c = contract(&mut chain);
+    chain.act(&acc("brinewar.testnet"));
+    c.set_move_timeout(600);
+    assert_eq!(c.config().settings.move_timeout_blocks, 600);
+    let low = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| c.set_move_timeout(5)));
+    assert!(low.is_err());
+    let high =
+        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| c.set_move_timeout(100_000)));
+    assert!(high.is_err());
+    chain.act(&player());
+    let stranger =
+        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| c.set_move_timeout(300)));
+    assert!(stranger.is_err());
+    assert_eq!(c.config().settings.move_timeout_blocks, 600);
+}
