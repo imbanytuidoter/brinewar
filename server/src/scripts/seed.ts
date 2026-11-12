@@ -4,6 +4,7 @@ import { playEnv, playOne, rngFor, type Style } from "./play.js";
 const env = playEnv(process.env);
 const count = int(process.env, "SEED_GAMES", 30, 1);
 const parallel = int(process.env, "SEED_PARALLEL", 3, 1);
+const first = int(process.env, "SEED_FIRST", 1, 1);
 const styles: Style[] = ["north-west", "north-west", "edges", "edges", "random", "centre"];
 
 let next = 0;
@@ -12,9 +13,10 @@ async function worker(): Promise<void> {
   while (next < count) {
     const k = next++;
     const style = styles[k % styles.length] as Style;
-    const nickname = `Seed_${String(k + 1).padStart(2, "0")}`;
+    const n = first + k;
+    const nickname = `Seed_${String(n).padStart(2, "0")}`;
     try {
-      const r = await playOne({ ...env, nickname, style, rng: rngFor(env.seed, k + 1), log: console.log });
+      const r = await playOne({ ...env, nickname, style, rng: rngFor(env.seed, n), log: console.log });
       results.push({ nickname, style, gameId: r.gameId });
     } catch (err) {
       results.push({ nickname, style, error: err instanceof Error ? err.message : String(err) });
