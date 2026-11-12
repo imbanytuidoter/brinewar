@@ -1,7 +1,7 @@
 import { ArrowLeft, BadgeCheck, CircleAlert, Link2, Loader2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { buildReport, type Check, type Report } from "@/game/verify";
-import { loadModelKeys } from "@/lib/nauarch";
+import { loadModelKeys, modelOfRequest } from "@/lib/nauarch";
 import { makeViewer } from "@/lib/chain";
 import { txLink, type AppConfig } from "@/lib/config";
 import type { GameView, ModelView, PlayerView, ShotView } from "@/lib/contract";
@@ -38,7 +38,11 @@ export function VerifyPage({ cfg, gameId }: VerifyPageProps) {
         const name = async (account: string, fallback: string): Promise<string> =>
           (await viewer.view<PlayerView | null>("get_player", { account_id: account }).catch(() => null))?.display_name ?? fallback;
         const names = game.mode === "PvP" ? { a: await name(game.a, "Captain A"), b: await name(game.b, "Captain B") } : { a: await name(game.a, "Captain"), b: "The Nauarch" };
-        if (alive) setLoad({ kind: "ok", game, model, names, evidenceTx: ev?.reveal?.tx ?? null, report: buildReport(game, history, ev, await loadModelKeys(viewer, ev?.moves ?? [])) });
+        const keys = await loadModelKeys(viewer, ev?.moves ?? []);
+        const usedName = (ev?.moves ?? []).map((m) => modelOfRequest(m.request)).find((n): n is string => n !== null);
+        const usedKey = usedName ? keys.get(usedName) : undefined;
+        const played = usedName && usedKey ? { model: usedName, public_key: usedKey } : model;
+        if (alive) setLoad({ kind: "ok", game, model: played, names, evidenceTx: ev?.reveal?.tx ?? null, report: buildReport(game, history, ev, keys) });
       })
       .catch(() => alive && setLoad({ kind: "error" }));
     return () => {
