@@ -10,7 +10,7 @@ import { FakeCaller, FakeViewer, silent } from "./fakes.js";
 
 const key = () => KeyPair.fromRandom("ed25519").getPublicKey().toString();
 
-async function setup(over: { players?: Set<string>; createOk?: boolean; perIp?: number; perDay?: number } = {}) {
+async function setup(over: { players?: Set<string>; createOk?: boolean; timeoutButCreated?: boolean; perIp?: number; perDay?: number } = {}) {
   const store = new Store(join(mkdtempSync(join(tmpdir(), "bw-")), "db.sqlite"));
   const players = over.players ?? new Set<string>();
   const viewer = new FakeViewer((method, args) => {
@@ -26,6 +26,10 @@ async function setup(over: { players?: Set<string>; createOk?: boolean; perIp?: 
     "sponsor.brinewar.testnet",
     (_m, args) => {
       if (over.createOk === false) return { txHash: "t", ok: false, error: "boom" };
+      if (over.timeoutButCreated) {
+        players.add(`p-${String(args.public_key).slice(8, 24).toLowerCase()}.brinewar.testnet`);
+        return { txHash: null, ok: false, error: "call create_guest timed out after 60000 ms" };
+      }
       players.add(`p-${String(args.public_key).slice(8, 24).toLowerCase()}.brinewar.testnet`);
       return { txHash: "t1", ok: true, value: true };
     },
@@ -79,6 +83,16 @@ describe("POST /api/guest", () => {
     const res = await t.app.inject({ method: "POST", url: "/api/guest", payload: { publicKey: key() } });
     expect(res.statusCode).toBe(502);
     expect(res.body).not.toContain("boom");
+    expect(t.store.guestsSince(0)).toBe(1);
+  });
+});
+
+describe("slow chain", () => {
+  it("answers with the account when the transaction landed but its outcome came too late", async () => {
+    const t = await setup({ timeoutButCreated: true });
+    const res = await t.app.inject({ method: "POST", url: "/api/guest", payload: { publicKey: key() } });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({ created: true });
     expect(t.store.guestsSince(0)).toBe(1);
   });
 });

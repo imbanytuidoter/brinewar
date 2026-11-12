@@ -91,7 +91,8 @@ export async function buildApp(o: AppOptions) {
         if (slot === "ip") return { status: 429, body: { error: "too many new captains from this address, try again later" } };
         if (slot === "day") return { status: 429, body: { error: "the harbour is full today, try again tomorrow" } };
         const r = await o.sponsor.call("create_guest", { public_key: publicKey, nickname }, GUEST_GAS_TGAS);
-        const ok = r.ok && r.value === true;
+        const ok = r.ok ? r.value === true : (await o.viewer.view<PlayerView | null>("get_player", { account_id: accountId }).catch(() => null)) !== null;
+        if (!r.ok && ok) req.log.warn({ accountId, error: r.error }, "create_guest outcome was late but the captain is registered");
         o.store.finishGuest(slot, r.txHash, ok);
         if (!ok) {
           req.log.error({ accountId, tx: r.txHash, error: r.error, value: r.value }, "create_guest failed");
