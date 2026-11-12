@@ -81,3 +81,19 @@ describe("NEAR amounts in config", () => {
     expect(() => nearAmount({ X: "-1" }, "X", "0")).toThrow(ConfigError);
   });
 });
+
+describe("caller pool", () => {
+  it("pins each game to one key and spreads games over the keys", async () => {
+    const { CallerPool } = await import("../src/lib/near.js");
+    const used: string[] = [];
+    const caller = (name: string) => ({ accountId: "admiral.brinewar.testnet", call: async () => (used.push(name), { txHash: name, ok: true }) });
+    const pool = new CallerPool([caller("k0"), caller("k1"), caller("k2")]);
+    await pool.call("answer", {}, 30, 7);
+    await pool.call("move", {}, 30, 7);
+    await pool.call("answer", {}, 30, 8);
+    await pool.call("answer", {}, 30, -1);
+    expect(used).toEqual(["k1", "k1", "k2", "k2"]);
+    expect(() => new CallerPool([])).toThrow();
+    expect(() => new CallerPool([caller("a"), { accountId: "other.testnet", call: caller("b").call }])).toThrow();
+  });
+});

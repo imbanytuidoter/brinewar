@@ -84,7 +84,7 @@ fn unregistered_account_cannot_open_a_game() {
     let mut c = contract(&mut chain);
     chain.act(&acc("stranger.testnet"));
     let msg = panics(|| {
-        c.new_game_vs_nauarch();
+        c.new_game_vs_nauarch(None);
     });
     assert!(msg.contains("not a registered player"), "{msg}");
 }
@@ -166,7 +166,7 @@ fn poor_treasury_raises_entry_and_shrinks_bounty() {
     chain.act(&registrar());
     c.register_player(player(), None);
     chain.act(&player());
-    c.new_game_vs_nauarch();
+    c.new_game_vs_nauarch(None);
     assert_eq!(gold(&c, &player()), 85);
 }
 
@@ -186,7 +186,7 @@ fn broke_player_still_plays_for_what_is_left() {
     chain.act(&registrar());
     c.register_player(player(), None);
     chain.act(&player());
-    let id = c.new_game_vs_nauarch();
+    let id = c.new_game_vs_nauarch(None);
     assert_eq!(c.get_game(id).unwrap().stake.0, 4);
     assert_eq!(gold(&c, &player()), 0);
 }
@@ -695,17 +695,17 @@ fn daily_game_limit_holds_until_tomorrow() {
     let mut c = contract(&mut chain);
     for _ in 0..3 {
         chain.act(&player());
-        let id = c.new_game_vs_nauarch();
+        let id = c.new_game_vs_nauarch(None);
         c.resign(id);
     }
     chain.act(&player());
     let msg = panics(|| {
-        c.new_game_vs_nauarch();
+        c.new_game_vs_nauarch(None);
     });
     assert!(msg.contains("daily game limit"), "{msg}");
     chain.skip(DAY);
     chain.act(&player());
-    c.new_game_vs_nauarch();
+    c.new_game_vs_nauarch(None);
 }
 
 #[test]
@@ -713,7 +713,7 @@ fn cancelled_games_leave_no_record() {
     let mut chain = Chain { height: 100 };
     let mut c = contract(&mut chain);
     chain.act(&player());
-    let id = c.new_game_vs_nauarch();
+    let id = c.new_game_vs_nauarch(None);
     c.resign(id);
     assert!(c.get_game(id).is_none());
     assert!(c.get_history(id).is_empty());
@@ -781,11 +781,11 @@ fn games_since_pages_and_skips_cancelled() {
     chain.act(&registrar());
     c.register_player(acc("p-2.brinewar.testnet"), None);
     chain.act(&player());
-    let first = c.new_game_vs_nauarch();
+    let first = c.new_game_vs_nauarch(None);
     c.resign(first);
-    let second = c.new_game_vs_nauarch();
+    let second = c.new_game_vs_nauarch(None);
     chain.act(&acc("p-2.brinewar.testnet"));
-    let third = c.new_game_vs_nauarch();
+    let third = c.new_game_vs_nauarch(None);
     let page = c.games_since(0, 10);
     assert_eq!(
         page.iter().map(|g| g.id).collect::<Vec<_>>(),

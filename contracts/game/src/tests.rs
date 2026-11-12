@@ -188,7 +188,7 @@ impl Match {
 
     pub fn open(mut chain: Chain, mut c: Brinewar, a: Board, b: Board) -> Self {
         chain.act(&player());
-        let id = c.new_game_vs_nauarch();
+        let id = c.new_game_vs_nauarch(None);
         Match { chain, c, id, a, b }
     }
 
@@ -209,9 +209,9 @@ impl Match {
 
     pub fn commit_both(&mut self) {
         self.chain.act(&player());
-        self.c.commit_board(self.id, self.a.root_hex());
+        self.c.commit_board(self.id, self.a.root_hex(), None);
         self.chain.act(&nauarch());
-        self.c.commit_board(self.id, self.b.root_hex());
+        self.c.commit_board(self.id, self.b.root_hex(), None);
     }
 
     pub fn fire(&mut self, who: &AccountId, index: u8) {
@@ -310,7 +310,7 @@ fn new_game_starts_in_placement_and_blocks_second_game() {
     assert_eq!(events("game_created").len(), 1);
     m.chain.act(&player());
     let msg = panics(|| {
-        m.c.new_game_vs_nauarch();
+        m.c.new_game_vs_nauarch(None);
     });
     assert!(msg.contains("finish your current game"), "{msg}");
 }
@@ -320,7 +320,7 @@ fn nauarch_cannot_open_a_game() {
     let mut m = Match::placing();
     m.chain.act(&nauarch());
     let msg = panics(|| {
-        m.c.new_game_vs_nauarch();
+        m.c.new_game_vs_nauarch(None);
     });
     assert!(msg.contains("cannot play itself"), "{msg}");
 }
@@ -329,10 +329,10 @@ fn nauarch_cannot_open_a_game() {
 fn both_commits_start_play_with_player_first() {
     let mut m = Match::placing();
     m.chain.act(&player());
-    m.c.commit_board(m.id, m.a.root_hex());
+    m.c.commit_board(m.id, m.a.root_hex(), None);
     assert_eq!(m.view().status, Status::Placing);
     m.chain.act(&nauarch());
-    m.c.commit_board(m.id, m.b.root_hex());
+    m.c.commit_board(m.id, m.b.root_hex(), None);
     let v = m.view();
     assert_eq!(v.status, Status::Playing);
     assert_eq!(v.turn, player());
@@ -343,12 +343,12 @@ fn both_commits_start_play_with_player_first() {
 fn commit_twice_or_by_stranger_fails() {
     let mut m = Match::placing();
     m.chain.act(&player());
-    m.c.commit_board(m.id, m.a.root_hex());
+    m.c.commit_board(m.id, m.a.root_hex(), None);
     let root = m.a.root_hex();
-    let msg = panics(|| m.c.commit_board(m.id, root.clone()));
+    let msg = panics(|| m.c.commit_board(m.id, root.clone(), None));
     assert!(msg.contains("already committed"), "{msg}");
     m.chain.act(&acc("stranger.testnet"));
-    let msg = panics(|| m.c.commit_board(m.id, root.clone()));
+    let msg = panics(|| m.c.commit_board(m.id, root.clone(), None));
     assert!(msg.contains("not a player"), "{msg}");
 }
 
@@ -356,7 +356,7 @@ fn commit_twice_or_by_stranger_fails() {
 fn commit_rejects_malformed_root() {
     let mut m = Match::placing();
     m.chain.act(&player());
-    let msg = panics(|| m.c.commit_board(m.id, "abcd".into()));
+    let msg = panics(|| m.c.commit_board(m.id, "abcd".into(), None));
     assert!(msg.contains("32 bytes"), "{msg}");
 }
 
@@ -579,7 +579,7 @@ fn early_timeout_claim_fails() {
 fn placement_timeout_cancels_without_winner() {
     let mut m = Match::placing();
     m.chain.act(&player());
-    m.c.commit_board(m.id, m.a.root_hex());
+    m.c.commit_board(m.id, m.a.root_hex(), None);
     m.chain.skip(TIMEOUT + 1);
     m.chain.act(&acc("anyone.testnet"));
     m.c.claim_timeout(m.id);
@@ -588,7 +588,7 @@ fn placement_timeout_cancels_without_winner() {
     assert_eq!(fin[0]["data"][0]["reason"], "Cancelled");
     assert_eq!(fin[0]["data"][0]["winner"], serde_json::Value::Null);
     m.chain.act(&player());
-    let id2 = m.c.new_game_vs_nauarch();
+    let id2 = m.c.new_game_vs_nauarch(None);
     assert_eq!(id2, m.id + 1);
 }
 
@@ -717,18 +717,18 @@ fn open_games_are_capped_and_freed_on_finish() {
     }
     for i in 2..=MAX_OPEN {
         m.chain.act(&acc(&format!("p-{i}.brinewar.testnet")));
-        m.c.new_game_vs_nauarch();
+        m.c.new_game_vs_nauarch(None);
     }
     m.chain.act(&acc("p-9.brinewar.testnet"));
     let msg = panics(|| {
-        m.c.new_game_vs_nauarch();
+        m.c.new_game_vs_nauarch(None);
     });
     assert!(msg.contains("busy"), "{msg}");
     m.chain.act(&player());
     m.c.resign(m.id);
     assert_eq!(m.c.config().open_games, MAX_OPEN - 1);
     m.chain.act(&acc("p-9.brinewar.testnet"));
-    m.c.new_game_vs_nauarch();
+    m.c.new_game_vs_nauarch(None);
 }
 
 #[path = "tests_stage3.rs"]

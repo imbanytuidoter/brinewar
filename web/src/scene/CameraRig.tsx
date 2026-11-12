@@ -24,6 +24,11 @@ export function homeFor(portrait: boolean): THREE.Vector3 {
 }
 
 export function CameraRig({ reduced }: CameraRigProps) {
+  const portrait = useThree((s) => s.size.height > 0 && s.size.width / s.size.height < PORTRAIT_RATIO);
+  return <FramedRig key={portrait ? "portrait" : "landscape"} reduced={reduced} />;
+}
+
+function FramedRig({ reduced }: CameraRigProps) {
   const camera = useThree((s) => s.camera);
   const width = useThree((s) => s.size.width);
   const height = useThree((s) => s.size.height);

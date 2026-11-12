@@ -57,7 +57,7 @@ export interface AdmiralConfig {
   rpcUrl: string;
   contract: string;
   admiral: string;
-  admiralKey: string;
+  admiralKeys: string[];
   encKey: string;
   dbPath: string;
   nearAiUrl: string;
@@ -71,7 +71,7 @@ export function admiralConfig(env: Env): AdmiralConfig {
     rpcUrl: urls(env, "NEAR_RPC_URL", "https://rpc.testnet.fastnear.com"),
     contract: accountId(env, "GAME_CONTRACT"),
     admiral: accountId(env, "ADMIRAL_ACCOUNT"),
-    admiralKey: secretKey(env, "ADMIRAL_KEY"),
+    admiralKeys: required(env, "ADMIRAL_KEY").split(",").map((k) => secretKey({ ADMIRAL_KEY: k.trim() }, "ADMIRAL_KEY")),
     encKey: required(env, "BOARD_ENC_KEY"),
     dbPath: required(env, "DB_PATH"),
     nearAiUrl: url(env, "NEAR_AI_URL", "https://cloud-api.near.ai"),

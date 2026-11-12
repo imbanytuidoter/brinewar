@@ -141,7 +141,7 @@ impl Duel {
         chain.act(&player());
         let id = c.new_game_pvp(invite_hash());
         chain.act(&friend());
-        c.join_game(id);
+        c.join_game(id, SECRET.into());
         Duel {
             chain,
             c,
@@ -153,9 +153,9 @@ impl Duel {
 
     fn commit(&mut self) {
         self.chain.act(&player());
-        self.c.commit_board(self.id, self.a.root_hex());
+        self.c.commit_board(self.id, self.a.root_hex(), None);
         self.chain.act(&friend());
-        self.c.commit_board(self.id, self.b.root_hex());
+        self.c.commit_board(self.id, self.b.root_hex(), None);
     }
 
     fn shot(&mut self, who: &AccountId, index: u8) {
@@ -209,21 +209,25 @@ fn only_a_free_registered_captain_can_join_a_waiting_duel() {
     chain.act(&player());
     let id = c.new_game_pvp(invite_hash());
     assert_eq!(c.get_game(id).unwrap().status, Status::Waiting);
-    let msg = panics(|| c.join_game(id));
+    let msg = panics(|| c.join_game(id, SECRET.into()));
     assert!(msg.contains("your own"), "{msg}");
     chain.act(&acc("stranger.testnet"));
-    let msg = panics(|| c.join_game(id));
+    let msg = panics(|| c.join_game(id, SECRET.into()));
     assert!(msg.contains("not a registered player"), "{msg}");
     chain.act(&nauarch());
-    let msg = panics(|| c.join_game(id));
+    let msg = panics(|| c.join_game(id, SECRET.into()));
     assert!(
         msg.contains("not a registered player") || msg.contains("Nauarch"),
         "{msg}"
     );
     chain.act(&friend());
-    c.join_game(id);
+    let msg = panics(|| c.join_game(id, "00".repeat(32)));
+    assert!(msg.contains("invite link is not valid"), "{msg}");
+    let msg = panics(|| c.join_game(id, "zz".into()));
+    assert!(msg.contains("invite secret"), "{msg}");
+    c.join_game(id, SECRET.into());
     chain.act(&acc("third.testnet"));
-    let msg = panics(|| c.join_game(id));
+    let msg = panics(|| c.join_game(id, SECRET.into()));
     assert!(msg.contains("not waiting"), "{msg}");
 }
 
@@ -329,4 +333,32 @@ fn the_nauarch_methods_refuse_a_duel() {
         msg.contains("not a player") || msg.contains("Nauarch battle"),
         "{msg}"
     );
+}
+
+#[test]
+fn old_guest_keys_open_and_join_duels_through_their_allowed_methods() {
+    let mut chain = Chain { height: 100 };
+    let mut c = contract(&mut chain);
+    chain.act(&registrar());
+    c.register_player(friend(), None);
+    chain.act(&player());
+    let id = c.new_game_vs_nauarch(Some(invite_hash()));
+    let g = c.get_game(id).unwrap();
+    assert_eq!(g.mode, Mode::PvP);
+    assert_eq!(g.status, Status::Waiting);
+    assert_eq!(g.stake.0, 0);
+    let b = Board::new(&LEGAL_B, 2);
+    chain.act(&friend());
+    let msg = panics(|| c.commit_board(id, b.root_hex(), Some("00".repeat(32))));
+    assert!(msg.contains("invite link is not valid"), "{msg}");
+    let msg = panics(|| c.commit_board(id, b.root_hex(), None));
+    assert!(msg.contains("not in placement"), "{msg}");
+    c.commit_board(id, b.root_hex(), Some(SECRET.into()));
+    let g = c.get_game(id).unwrap();
+    assert_eq!(g.b, friend());
+    assert_eq!(g.status, Status::Placing);
+    assert!(g.root_b.is_some());
+    chain.act(&player());
+    c.commit_board(id, Board::new(&LEGAL_A, 1).root_hex(), None);
+    assert_eq!(c.get_game(id).unwrap().status, Status::Playing);
 }

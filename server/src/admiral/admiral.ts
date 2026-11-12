@@ -128,7 +128,7 @@ export class Admiral {
   }
 
   async #send(gameId: number, method: string, args: object): Promise<{ ok: boolean; tx: string | null; error?: string }> {
-    const r = await this.#o.caller.call(method, args, GAME_GAS_TGAS);
+    const r = await this.#o.caller.call(method, args, GAME_GAS_TGAS, gameId);
     this.#o.store.logAction(gameId, method === "submit_ai_move" ? "ai_move" : method, r.ok, r.txHash, r.error ?? null);
     if (r.ok) this.#failures.delete(gameId);
     else this.#failures.set(gameId, (this.#failures.get(gameId) ?? 0) + 1);

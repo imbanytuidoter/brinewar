@@ -8,7 +8,7 @@ import type { NauarchEvidence } from "@/lib/proofs";
 import { cellName } from "@/lib/utils";
 import { placeFleet, seededRng } from "@/lib/fleet";
 import { boardKey } from "@/lib/guest";
-import { fromHex, rootFromProof, toHex } from "@/lib/merkle";
+import { fromHex, rootFromProof, sha256, toHex } from "@/lib/merkle";
 import { signedText } from "@/lib/nauarch";
 import { memoryStorage } from "@/lib/storage";
 import { GameSession, rewardsBetween, verifiedFleet } from "./session";
@@ -30,6 +30,7 @@ class FakeContract implements Viewer, Caller {
   gold = "100";
   xp = 0;
   claims = 0;
+  inviteHash: string | null = null;
 
   async view<T>(method: string, args: Record<string, unknown> = {}): Promise<T> {
     const out: Record<string, unknown> = {
@@ -54,6 +55,15 @@ class FakeContract implements Viewer, Caller {
     const g = this.game;
     switch (method) {
       case "new_game_vs_nauarch":
+        if (args.invite_hash) {
+          this.game = {
+            id: 4, mode: "PvP", a: ME, b: ME, root_a: null, root_b: null, status: "Waiting", turn: ME, deadline_block: 1,
+            winner: null, finish_reason: null, hits_on_a: 0, hits_on_b: 0, shots: 0, pending_index: null, revealed_a: false,
+            revealed_b: false, created_block: 1, stake: "0", farewell_said: false,
+          };
+          this.inviteHash = String(args.invite_hash);
+          return { txHash: tx, ok: true, value: 4 };
+        }
         this.game = {
           id: 4, mode: "VsNauarch", a: ME, b: NAU, root_a: null, root_b: "bb", status: "Placing", turn: ME, deadline_block: 1,
           winner: null, finish_reason: null, hits_on_a: 0, hits_on_b: 0, shots: 0, pending_index: null, revealed_a: false,
@@ -77,6 +87,11 @@ class FakeContract implements Viewer, Caller {
         return { txHash: tx, ok: false, error: "deadline has not passed" };
       case "commit_board": {
         if (!g) return { txHash: tx, ok: false, error: "unknown game" };
+        if (g.status === "Waiting" && args.invite_secret) {
+          if (g.a === ME) return { txHash: tx, ok: false, error: "you cannot join your own duel" };
+          g.b = ME;
+          g.status = "Placing";
+        }
         const mineA = g.a === ME;
         if (mineA ? g.root_a : g.root_b) return { txHash: tx, ok: false, error: "board already committed" };
         if (mineA) g.root_a = String(args.root);
@@ -315,8 +330,9 @@ describe("duels with a friend", () => {
     const { chain, session } = setup();
     expect(await session.startDuel(placeFleet(seededRng(7)))).toBe(true);
     expect(session.snapshot.step).toEqual({ kind: "invite" });
-    expect(chain.calls).toEqual(["new_game_pvp"]);
+    expect(chain.calls).toEqual(["new_game_vs_nauarch"]);
     expect(session.snapshot.invite).toMatch(/^[0-9a-f]{64}$/);
+    expect(chain.inviteHash).toBe(toHex(sha256(fromHex(session.snapshot.invite as string))));
     const g = chain.game as GameView;
     g.b = FRIEND;
     g.status = "Placing";
@@ -335,7 +351,7 @@ describe("duels with a friend", () => {
       revealed_b: false, created_block: 1, stake: "0", farewell_said: false,
     };
     expect(await session.join(9, "ab".repeat(32), placeFleet(seededRng(7)))).toBe(true);
-    expect(chain.calls).toEqual(["join_game", "commit_board"]);
+    expect(chain.calls).toEqual(["commit_board"]);
     expect(chain.game.root_b).not.toBeNull();
     expect(chain.game.status).toBe("Playing");
     expect(store.get(boardKey(ME, 9))).not.toBeNull();

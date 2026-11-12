@@ -189,12 +189,12 @@ export class GameSession {
   }
 
   async start(cells: readonly number[]): Promise<boolean> {
-    return this.#open(cells, "Opening a battle", "new_game_vs_nauarch", {}, null);
+    return this.#open(cells, "Opening a battle", "new_game_vs_nauarch", () => ({}), null);
   }
 
   async startDuel(cells: readonly number[]): Promise<boolean> {
     const secret = toHex(crypto.getRandomValues(new Uint8Array(32)));
-    const ok = await this.#open(cells, "Opening a duel", "new_game_pvp", { invite_hash: toHex(sha256(fromHex(secret))) }, null);
+    const ok = await this.#open(cells, "Opening a duel", "new_game_vs_nauarch", () => ({ invite_hash: toHex(sha256(fromHex(secret))) }), null);
     const id = this.#snap.gameId;
     if (ok && id !== null) {
       try {
@@ -212,10 +212,10 @@ export class GameSession {
       this.#set({ error: "This invite link is incomplete. Ask your friend to send it again." });
       return false;
     }
-    return this.#open(cells, "Joining the duel", "join_game", { game_id: gameId, secret }, gameId);
+    return this.#open(cells, "Joining the duel", "commit_board", (board) => ({ game_id: gameId, root: rootHex(board), invite_secret: secret }), gameId);
   }
 
-  async #open(cells: readonly number[], label: string, method: string, args: object, known: number | null): Promise<boolean> {
+  async #open(cells: readonly number[], label: string, method: string, args: (board: Board) => object, known: number | null): Promise<boolean> {
     if (this.#snap.gameId !== null && this.#snap.step?.kind !== "done") return false;
     const board = newBoard(cells);
     try {
@@ -226,7 +226,7 @@ export class GameSession {
     }
     const before = await this.#captain().catch(() => null);
     await this.#refuel();
-    const r = await this.#send(label, method, args);
+    const r = await this.#send(label, method, args(board));
     const id = known ?? (typeof r.value === "number" ? r.value : null);
     if (!r.ok || id === null) return false;
     this.#adoptPending(id);

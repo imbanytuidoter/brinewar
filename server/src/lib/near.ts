@@ -25,7 +25,26 @@ export interface Viewer {
 
 export interface Caller {
   readonly accountId: string;
-  call(method: string, args: object, gasTera?: number): Promise<CallResult>;
+  call(method: string, args: object, gasTera?: number, lane?: number): Promise<CallResult>;
+}
+
+export class CallerPool implements Caller {
+  readonly accountId: string;
+  constructor(private readonly callers: readonly Caller[]) {
+    const first = callers[0];
+    if (!first) throw new Error("a caller pool needs at least one key");
+    if (callers.some((c) => c.accountId !== first.accountId)) throw new Error("all keys in a pool must belong to one account");
+    this.accountId = first.accountId;
+  }
+
+  get size(): number {
+    return this.callers.length;
+  }
+
+  call(method: string, args: object, gasTera = 30, lane = 0): Promise<CallResult> {
+    const i = ((Math.trunc(lane) % this.callers.length) + this.callers.length) % this.callers.length;
+    return (this.callers[i] as Caller).call(method, args, gasTera);
+  }
 }
 
 export function failureText(failure: unknown): string {

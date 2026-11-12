@@ -120,7 +120,10 @@ impl Brinewar {
         c
     }
 
-    pub fn new_game_vs_nauarch(&mut self) -> u64 {
+    pub fn new_game_vs_nauarch(&mut self, invite_hash: Option<String>) -> u64 {
+        if let Some(hash) = invite_hash {
+            return self.open_duel(&hash);
+        }
         let player = env::predecessor_account_id();
         require!(player != self.nauarch, "the Nauarch cannot play itself");
         require!(
@@ -181,7 +184,17 @@ impl Brinewar {
     }
 
     pub fn new_game_pvp(&mut self, invite_hash: String) -> u64 {
-        let invite = ok_or_fail(parse_hash(&invite_hash, "invite"));
+        self.open_duel(&invite_hash)
+    }
+
+    pub fn join_game(&mut self, game_id: u64, secret: String) {
+        self.join_duel(game_id, &secret);
+    }
+}
+
+impl Brinewar {
+    fn open_duel(&mut self, invite_hash: &str) -> u64 {
+        let invite = ok_or_fail(parse_hash(invite_hash, "invite"));
         let player = env::predecessor_account_id();
         require!(player != self.nauarch, "the Nauarch cannot play itself");
         require!(
@@ -233,12 +246,18 @@ impl Brinewar {
         id
     }
 
-    pub fn join_game(&mut self, game_id: u64) {
+    fn join_duel(&mut self, game_id: u64, secret: &str) {
         let joiner = env::predecessor_account_id();
         let mut game = self.load(game_id);
         require!(
             game.status == Status::Waiting,
             "this duel is not waiting for a captain"
+        );
+        let secret = ok_or_fail(parse_hash(secret, "invite secret"));
+        let expected = env::storage_read(&invite_key(game_id)).unwrap_or_default();
+        require!(
+            env::sha256(secret) == expected,
+            "this invite link is not valid for the duel"
         );
         require!(joiner != game.a, "you cannot join your own duel");
         require!(
@@ -266,9 +285,17 @@ impl Brinewar {
         );
         self.store(game);
     }
+}
 
-    pub fn commit_board(&mut self, game_id: u64, root: String) {
+#[near]
+impl Brinewar {
+    pub fn commit_board(&mut self, game_id: u64, root: String, invite_secret: Option<String>) {
         let root = ok_or_fail(parse_hash(&root, "root"));
+        if let Some(secret) = invite_secret {
+            if self.load(game_id).status == Status::Waiting {
+                self.join_duel(game_id, &secret);
+            }
+        }
         let mut game = self.load(game_id);
         require!(game.status == Status::Placing, "game is not in placement");
         self.require_before_deadline(&game);

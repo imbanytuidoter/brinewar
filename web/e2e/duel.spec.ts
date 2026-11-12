@@ -36,6 +36,12 @@ test("two captains duel through an invite link with no wallet", async ({ browser
   await guest.getByRole("button", { name: "Accept the duel" }).click();
   await expect(guest.getByText(/invite link is incomplete/)).toBeVisible({ timeout: 30_000 });
 
+  await guest.goto(link.replace(/#k=.*$/, `#k=${"0".repeat(64)}`).replace(/^https?:\/\/[^/]+/, ""));
+  await guest.reload();
+  await expect(guest.getByText(/challenges you/)).toBeVisible({ timeout: 90_000 });
+  await guest.getByRole("button", { name: "Accept the duel" }).click();
+  await expect(guest.getByText(/invite link is not valid/)).toBeVisible({ timeout: 90_000 });
+
   await guest.goto(link.replace(/^https?:\/\/[^/]+/, ""));
   await guest.reload();
   await expect(guest.getByText(/challenges you/)).toBeVisible({ timeout: 90_000 });

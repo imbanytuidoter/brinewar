@@ -90,6 +90,10 @@ const FRIENDLY: ReadonlyArray<readonly [RegExp, string]> = [
   [/cell already fired at/, "You already fired at that cell."],
   [/not your turn|no shot to answer|index does not match/, "Hold fire, it is not your turn."],
   [/move deadline passed/, "The move deadline passed."],
+  [/invite link is not valid/, "This invite link is not valid. Ask your friend for a fresh one."],
+  [/not waiting for a captain/, "Someone has already taken this duel, or it was cancelled."],
+  [/cannot join your own duel/, "This is your own invite: send it to a friend."],
+  [/MethodNameMismatch|method name/i, "This browser's key cannot make that move. Reload the page."],
   [/NotEnoughBalance|LackBalanceForState|not enough balance|allowance/i, "Your ship is low on fuel. Taking on more, then the move is retried."],
   [/timed out|fetch|network/i, "The sea is rough: the network did not answer. Retrying."],
 ];

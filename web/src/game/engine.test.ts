@@ -101,6 +101,7 @@ describe("outcome and errors", () => {
     expect(friendlyError("Smart contract panicked: finish your current game first")).toMatch(/already have a battle/);
     expect(friendlyError("Smart contract panicked: daily game limit reached, come back tomorrow")).toMatch(/tomorrow/);
     expect(friendlyError("weird")).toBe("The contract refused that move.");
+    expect(friendlyError("Smart contract panicked: this invite link is not valid for the duel")).toMatch(/not valid/);
     expect(friendlyError(undefined)).toMatch(/wrong/);
   });
 });

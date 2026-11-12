@@ -1,7 +1,7 @@
 import pino from "pino";
 import { admiralConfig } from "../lib/config.js";
 import { Store } from "../lib/db.js";
-import { blockHeight, NearCaller, NearViewer, provider } from "../lib/near.js";
+import { blockHeight, CallerPool, NearCaller, NearViewer, provider } from "../lib/near.js";
 import { NearAiClient } from "../lib/nearai.js";
 import { Vault } from "../lib/vault.js";
 import { Admiral } from "./admiral.js";
@@ -26,7 +26,7 @@ if (!model) log.warn("NEAR_AI_API_KEY is empty: the Nauarch plays deterministic 
 
 const admiral = new Admiral({
   viewer: new NearViewer(rpc, config.contract, 15_000),
-  caller: new NearCaller(config.admiral, rpc, config.admiralKey, config.contract, 60_000),
+  caller: new CallerPool(config.admiralKeys.map((key) => new NearCaller(config.admiral, rpc, key, config.contract, 60_000))),
   store,
   vault: new Vault(config.encKey),
   model,
