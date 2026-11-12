@@ -5,6 +5,7 @@ import { useBoot } from "@/game/useGame";
 import { useHarbourStats } from "@/game/useHarbour";
 import { duelFromLocation } from "@/ui/DuelCards";
 import { Landing } from "@/ui/Landing";
+import { sound } from "@/lib/sound";
 import { readConfig, type AppConfig } from "@/lib/config";
 import { PlayPage } from "@/pages/PlayPage";
 import { AdmiraltyPage } from "@/pages/AdmiraltyPage";
@@ -56,6 +57,7 @@ function Play({ cfg }: { readonly cfg: AppConfig }) {
   const [landing, setLanding] = useState(() => duelFromLocation(window.location.search, window.location.hash) === null && !landedBefore());
   const enter = useCallback(() => {
     markLanded();
+    sound.unlock();
     setLanding(false);
   }, []);
   if (boot.kind === "ready") return <PlayPage cfg={cfg} session={boot.session} stats={stats} landing={landing} onEnter={enter} />;

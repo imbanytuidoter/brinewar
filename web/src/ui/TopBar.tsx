@@ -1,5 +1,6 @@
 import { ShieldCheck } from "lucide-react";
 import { SHIP_CELLS } from "@/lib/contract";
+import { MuteToggle } from "./MuteToggle";
 import { Nav } from "./Nav";
 
 interface TopBarProps {
@@ -19,6 +20,7 @@ export function TopBar({ myHits, enemyHits, showScore, verifyHref, enemyLabel = 
       </a>
       <Nav compact className="pointer-events-auto" />
       <div className="pointer-events-auto flex flex-wrap items-center justify-end gap-2 max-sm:w-full">
+        <MuteToggle />
         {showScore && (
           <>
             <Chip label="Your fleet" value={SHIP_CELLS - myHits} />

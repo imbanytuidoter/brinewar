@@ -2,6 +2,7 @@ import { BadgeCheck, CircleAlert } from "lucide-react";
 import type { NauarchLine } from "@/game/session";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn, short } from "@/lib/utils";
+import { NauarchPortrait, type Mood } from "./NauarchPortrait";
 
 interface NauarchBubbleProps {
   readonly line: NauarchLine | null;
@@ -11,21 +12,16 @@ interface NauarchBubbleProps {
   readonly note?: string | null;
   readonly opponent?: string | null;
   readonly inviting?: boolean;
+  readonly mood?: Mood;
 }
 
-export function NauarchBubble({ line, thinking, fallback, txHref, note = null, opponent = null, inviting = false }: NauarchBubbleProps) {
+export function NauarchBubble({ line, thinking, fallback, txHref, note = null, opponent = null, inviting = false, mood = "calm" }: NauarchBubbleProps) {
   const href = line ? txHref(line.tx) : null;
   if (opponent) return <RivalBubble name={opponent} thinking={thinking} inviting={inviting} />;
   return (
     <section aria-live="polite" aria-label="The Nauarch" className="grid max-w-[min(420px,calc(100vw-32px))] grid-cols-[52px_minmax(0,1fr)] items-end gap-2.5">
-      <div
-        aria-hidden
-        className={cn(
-          "grid size-[52px] place-items-center rounded-full border-2 border-brass bg-[radial-gradient(circle_at_40%_35%,#2b4a5c,#0b2230_75%)] font-display text-2xl font-bold",
-          thinking && "animate-think",
-        )}
-      >
-        N
+      <div aria-hidden className={cn("size-[52px] rounded-full", thinking && "animate-think")}>
+        <NauarchPortrait mood={thinking ? "thinking" : mood} className="size-[52px]" />
       </div>
       <div key={line?.at ?? "idle"} className="grid min-w-0 animate-rise gap-1 rounded-[14px_14px_14px_4px] border border-line bg-glass px-3 py-2.5 backdrop-blur-md">
         <p className="m-0 break-words">{thinking ? "The Nauarch is studying the sea…" : line ? line.text : fallback}</p>

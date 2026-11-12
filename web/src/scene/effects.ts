@@ -11,6 +11,7 @@ const BUOY_COLOR = "#f4fbff";
 const BALL_DIAMETER = 0.42;
 const SMOKE_CHANCE = 0.45;
 const SMOKE_BUDGET = 6;
+const MUZZLE_HEIGHT = 1.6;
 
 export interface Afloat {
   readonly y: number;
@@ -57,6 +58,7 @@ export class EffectsEngine {
   readonly group = new THREE.Group();
   readonly #pool = new ParticlePool(MAX_PARTICLES);
   readonly #waves: readonly Wave[];
+  readonly #origins: Record<Side, THREE.Vector3 | null> = { mine: null, enemy: null };
   readonly #reduced: boolean;
   readonly #rings: Ring[] = [];
   readonly #buoys = new Map<string, Buoy>();
@@ -144,6 +146,18 @@ export class EffectsEngine {
     this.#burns.set(key, { side, cell, x: c.x, z: c.z, acc: 0 });
   }
 
+  setOrigin(side: Side, cells: readonly number[] | null): void {
+    if (!cells || cells.length === 0) {
+      this.#origins[side] = null;
+      return;
+    }
+    const sum = cells.reduce((acc, cell) => {
+      const c = cellCenter(side, cell);
+      return { x: acc.x + c.x, z: acc.z + c.z };
+    }, { x: 0, z: 0 });
+    this.#origins[side] = new THREE.Vector3(sum.x / cells.length, MUZZLE_HEIGHT, sum.z / cells.length);
+  }
+
   place(side: Side, cell: number, hit: boolean): void {
     if (hit) this.#burn(side, cell);
     else this.#buoy(side, cell);
@@ -158,7 +172,8 @@ export class EffectsEngine {
 
   fly(side: Side, cell: number, done: () => void): void {
     const c = cellCenter(side, cell);
-    const from = new THREE.Vector3(side === "enemy" ? -6 : 6, 1.4, 0);
+    const origin = side === "enemy" ? this.#origins.mine : this.#origins.enemy;
+    const from = origin ? origin.clone() : new THREE.Vector3(side === "enemy" ? -6 : 6, 1.4, 0);
     const to = new THREE.Vector3(c.x, 0, c.z);
     if (this.#reduced || !this.#ball) {
       done();

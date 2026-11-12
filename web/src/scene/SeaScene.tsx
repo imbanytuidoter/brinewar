@@ -1,4 +1,4 @@
-import { Canvas, useThree } from "@react-three/fiber";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { CameraRig } from "./CameraRig";
@@ -59,28 +59,61 @@ interface BoardProps {
 }
 
 function Board({ side, ships, marks, look = null }: BoardProps) {
+  const { effects } = useRuntime();
   const landed = useMarkFlights(side, marks);
+  useEffect(() => {
+    const flagship = ships.reduce<readonly number[] | null>((best, s) => (!best || s.length > best.length ? s : best), null);
+    effects.setOrigin(side, flagship);
+  }, [effects, side, ships]);
   const sunk = useMemo(() => sunkShips(ships, landed), [ships, landed]);
   return <Fleet side={side} ships={ships} sunk={sunk} look={look} />;
+}
+
+const SHAKE_DECAY = 5;
+const SHAKE_AMPLITUDE = 0.28;
+
+function Shaker({ children }: { readonly children: React.ReactNode }) {
+  const { shake } = useRuntime();
+  const ref = useRef<THREE.Group>(null);
+  useFrame(({ clock }, delta) => {
+    const g = ref.current;
+    if (!g) return;
+    shake.energy = Math.max(0, shake.energy - delta * SHAKE_DECAY * Math.max(shake.energy, 0.2));
+    const e = shake.energy * shake.energy * SHAKE_AMPLITUDE;
+    const t = clock.elapsedTime * 60;
+    g.position.set(Math.sin(t * 1.3) * e, Math.sin(t * 1.9 + 1) * e * 0.6, Math.cos(t * 1.1) * e);
+  });
+  return <group ref={ref}>{children}</group>;
 }
 
 function World(props: SeaSceneProps) {
   const runtime = useRuntime();
   useReveal(props.enemyShips !== null);
+  const { onLaunch, onLand } = props;
+  useEffect(() => {
+    runtime.hooks.launch = onLaunch ?? null;
+    runtime.hooks.land = onLand ?? null;
+    return () => {
+      runtime.hooks.launch = null;
+      runtime.hooks.land = null;
+    };
+  }, [runtime, onLaunch, onLand]);
   return (
     <>
       <Sky />
       <hemisphereLight args={[0xdff4ff, 0x2b6b80, 1.35]} />
       <directionalLight color={0xfff1d6} intensity={2.4} position={[-14, 22, 12]} />
-      <Sea aiming={props.aiming} />
-      <Labels enemy={props.enemyLabel ?? "The Nauarch"} />
       <CameraRig reduced={runtime.reduced} />
-      <Picker marks={props.enemyMarks} aiming={props.aiming} canFire={props.canFire} onFire={props.onFire} />
-      <Suspense fallback={null}>
-        <Effects />
-        <Board side="mine" ships={props.myShips} marks={props.myMarks} look={props.myLook ?? null} />
-        <Board side="enemy" ships={props.enemyShips ?? NO_SHIPS} marks={props.enemyMarks} />
-      </Suspense>
+      <Shaker>
+        <Sea aiming={props.aiming} />
+        <Labels enemy={props.enemyLabel ?? "The Nauarch"} />
+        <Picker marks={props.enemyMarks} aiming={props.aiming} canFire={props.canFire} onFire={props.onFire} />
+        <Suspense fallback={null}>
+          <Effects />
+          <Board side="mine" ships={props.myShips} marks={props.myMarks} look={props.myLook ?? null} />
+          <Board side="enemy" ships={props.enemyShips ?? NO_SHIPS} marks={props.enemyMarks} />
+        </Suspense>
+      </Shaker>
     </>
   );
 }

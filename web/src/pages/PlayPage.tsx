@@ -1,11 +1,17 @@
 import { Flag, Loader2, WifiOff } from "lucide-react";
-import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DuelInvite, duelFromLocation, JoinDuel, type DuelInviteRef } from "@/ui/DuelCards";
 import { Button } from "@/components/ui/button";
 import { hitsOnMe, hitsOnThem, opponentOf, outcome, sideOf } from "@/game/engine";
 import type { GameSession } from "@/game/session";
 import { useReducedMotion, useSession } from "@/game/useGame";
+import { useBattleFeed, type CalloutTone } from "@/game/useBattleFeed";
+import type { Mood } from "@/ui/NauarchPortrait";
 import { useSkins, type HarbourStats } from "@/game/useHarbour";
+import { sound } from "@/lib/sound";
+import { CalloutBanner } from "@/ui/CalloutBanner";
+import { FleetTray } from "@/ui/FleetTray";
+import { confirmedSunk } from "@/lib/sunk";
 import type { AppConfig } from "@/lib/config";
 import { txLink } from "@/lib/config";
 import { cryptoRng, placeFleet, ships } from "@/lib/fleet";
@@ -54,9 +60,24 @@ export function PlayPage({ cfg, session, stats, landing, onEnter }: PlayPageProp
   const verifyHref = snap.gameId !== null ? `/verify/${snap.gameId}` : null;
   const txHref = useCallback((h: string | null) => txLink(cfg, h), [cfg]);
 
-  const onFire = useCallback((index: number) => void session.fire(index), [session]);
-  const sail = useCallback(() => void session.start(draft), [session, draft]);
-  const challenge = useCallback(() => void session.startDuel(draft), [session, draft]);
+  const sunkTheirs = useMemo(() => confirmedSunk(snap.marks.enemy), [snap.marks.enemy]);
+  const heat = stats.admiralty && stats.admiralty.boards_counted > 0 ? stats.admiralty.heat : null;
+  const feed = useBattleFeed({ myShips, myMarks: snap.marks.mine, enemyMarks: snap.marks.enemy, heat, boards: stats.admiralty?.boards_counted ?? 0, rival: duel ? (rival ?? "Your friend") : null });
+  const onFire = useCallback(
+    (index: number) => {
+      sound.unlock();
+      void session.fire(index);
+    },
+    [session],
+  );
+  const sail = useCallback(() => {
+    sound.unlock();
+    void session.start(draft);
+  }, [session, draft]);
+  const challenge = useCallback(() => {
+    sound.unlock();
+    void session.startDuel(draft);
+  }, [session, draft]);
   const forgetInvite = useCallback(() => {
     setJoinRef(null);
     window.history.replaceState(null, "", "/");
@@ -75,6 +96,13 @@ export function PlayPage({ cfg, session, stats, landing, onEnter }: PlayPageProp
   useEffect(() => {
     if (landing && snap.gameId !== null) onEnter();
   }, [landing, snap.gameId, onEnter]);
+  const heard = useRef(result);
+  useEffect(() => {
+    if (result === heard.current) return;
+    heard.current = result;
+    if (result === "won") sound.victory();
+    else if (result === "lost") sound.defeat();
+  }, [result]);
   const rename = useCallback((name: string) => session.rename(name), [session]);
   const shuffle = useCallback(() => setDraft(placeFleet(cryptoRng())), []);
   const player = snap.captain?.player ?? null;
@@ -95,8 +123,18 @@ export function PlayPage({ cfg, session, stats, landing, onEnter }: PlayPageProp
           onFire={onFire}
           myLook={myLook}
           enemyLabel={enemyLabel}
+          onLaunch={feed.onLaunch}
+          onLand={feed.onLand}
         />
       </Suspense>
+
+      <CalloutBanner callout={feed.callout} />
+
+      {inBattle && step !== "invite" && step !== "lost-board" && (
+        <div className="fixed top-[calc(76px+env(safe-area-inset-top))] left-[max(16px,env(safe-area-inset-left))] z-10 w-[210px] max-md:hidden">
+          <FleetTray myShips={myShips} myMarks={snap.marks.mine} sunkTheirs={sunkTheirs} enemyLabel={duel ? (rival ?? "Your friend") : "The Nauarch"} />
+        </div>
+      )}
 
       <RevealSeal show={inBattle && result !== null && (duel ? theyRevealed : snap.enemyFleet !== null)} tx={duel ? null : snap.enemyRevealTx} txHref={duel ? null : txLink(cfg, snap.enemyRevealTx)} reducedMotion={reducedMotion} />
 
@@ -110,7 +148,7 @@ export function PlayPage({ cfg, session, stats, landing, onEnter }: PlayPageProp
       )}
 
       <div className={cn("fixed bottom-[calc(16px+env(safe-area-inset-bottom))] left-[max(16px,env(safe-area-inset-left))] z-10 max-sm:bottom-[calc(140px+env(safe-area-inset-bottom))]", showLanding && "hidden")}>
-        <NauarchBubble line={line} thinking={step === "thinking"} fallback={GREETING} txHref={txHref} note={note} opponent={duel ? (rival ?? "Your friend") : null} inviting={step === "invite"} />
+        <NauarchBubble mood={moodOf(feed.last)} line={line} thinking={step === "thinking"} fallback={GREETING} txHref={txHref} note={note} opponent={duel ? (rival ?? "Your friend") : null} inviting={step === "invite"} />
       </div>
 
       <div className="fixed right-[max(16px,env(safe-area-inset-right))] bottom-[calc(16px+env(safe-area-inset-bottom))] z-10 grid justify-items-end gap-2 max-sm:left-[max(16px,env(safe-area-inset-left))]">
@@ -128,7 +166,7 @@ export function PlayPage({ cfg, session, stats, landing, onEnter }: PlayPageProp
             cells={draft}
             onCells={setDraft}
             onShuffle={shuffle}
-            heat={stats.admiralty && stats.admiralty.boards_counted > 0 ? stats.admiralty.heat : null}
+            heat={heat}
             treasury={stats.treasury}
             gold={gold}
             name={player?.display_name ?? null}
@@ -188,4 +226,10 @@ function statusText(step: string | null, busy: string | null, aiming: number | n
     default:
       return null;
   }
+}
+
+function moodOf(tone: CalloutTone | null): Mood {
+  if (tone === "taken" || tone === "lost") return "smug";
+  if (tone === "hit" || tone === "sunk") return "vexed";
+  return "calm";
 }

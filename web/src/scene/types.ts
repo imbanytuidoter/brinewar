@@ -18,4 +18,6 @@ export interface SeaSceneProps {
   readonly onFire: (index: number) => void;
   readonly myLook?: ShipLook | null;
   readonly enemyLabel?: string;
+  readonly onLaunch?: (side: Side, cell: number, hit: boolean) => void;
+  readonly onLand?: (side: Side, cell: number, hit: boolean) => void;
 }

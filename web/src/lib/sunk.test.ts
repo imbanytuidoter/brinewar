@@ -32,3 +32,12 @@ describe("sunk ships", () => {
     expect(shipAt(ships, 99)).toBeNull();
   });
 });
+
+describe("their tray", () => {
+  it("marks sunk ships by length, longest first", async () => {
+    const { theirTray } = await import("@/ui/FleetTray");
+    const tray = theirTray([[0, 1], [5], [7, 8]]);
+    expect(tray.filter((s) => s.sunk).map((s) => s.length)).toEqual([2, 2, 1]);
+    expect(tray).toHaveLength(10);
+  });
+});

@@ -9,6 +9,17 @@ export interface RevealState {
   progress: number;
 }
 
+export type ShotHook = (side: Side, cell: number, hit: boolean) => void;
+
+export interface ShotHooks {
+  launch: ShotHook | null;
+  land: ShotHook | null;
+}
+
+export interface Shake {
+  energy: number;
+}
+
 export interface SceneRuntime {
   readonly waves: readonly Wave[];
   readonly reduced: boolean;
@@ -16,6 +27,8 @@ export interface SceneRuntime {
   readonly effects: EffectsEngine;
   readonly reveal: RevealState;
   readonly ships: Map<string, ShipActor>;
+  readonly hooks: ShotHooks;
+  readonly shake: Shake;
 }
 
 export const shipKey = (side: Side, cell: number): string => `${side}:${cell}`;
@@ -29,7 +42,7 @@ export function createRuntime(reduced: boolean): SceneRuntime {
     if (!s) return null;
     return { y: s.root.position.y, visible: s.root.visible, gone: s.gone };
   });
-  return { waves, reduced, uniforms: createSeaUniforms(waves), effects, reveal: { progress: -1 }, ships };
+  return { waves, reduced, uniforms: createSeaUniforms(waves), effects, reveal: { progress: -1 }, ships, hooks: { launch: null, land: null }, shake: { energy: 0 } };
 }
 
 export const RuntimeContext = createContext<SceneRuntime | null>(null);
