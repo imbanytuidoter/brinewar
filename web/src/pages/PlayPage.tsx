@@ -189,7 +189,7 @@ export function PlayPage({ cfg, session, stats, landing, onEnter }: PlayPageProp
         </div>
       )}
 
-      <div className={cn("fixed bottom-[calc(16px+env(safe-area-inset-bottom))] left-[max(16px,env(safe-area-inset-left))] z-10 max-sm:bottom-[calc(140px+env(safe-area-inset-bottom))]", (showLanding || onChart || step === "invite") && "hidden")}>
+      <div className={cn("fixed bottom-[calc(16px+env(safe-area-inset-bottom))] left-[max(16px,env(safe-area-inset-left))] z-10 max-sm:bottom-[calc(140px+env(safe-area-inset-bottom))]", (showLanding || onChart || step === "invite") && "hidden", duel && result && "max-sm:hidden")}>
         {duel && snap.gameId !== null && step !== "lost-board" ? (
           <DuelChat apiUrl={cfg.apiUrl} gameId={snap.gameId} me={snap.accountId} secretKey={chatKey} rival={rival ?? "Your friend"} />
         ) : (
