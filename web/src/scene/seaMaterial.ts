@@ -1,3 +1,4 @@
+import { CALM, CALM_FADE, CALM_HALF_X, CALM_HALF_Z } from "./gerstner";
 import * as THREE from "three";
 import type { Wave } from "./gerstner";
 import { BOARD_ORIGIN } from "./grid";
@@ -44,16 +45,22 @@ export function createSeaUniforms(waves: readonly Wave[]): SeaUniforms {
 const VERTEX = `
 uniform float uTime; uniform vec4 uWaves[3]; uniform float uSpeeds[3];
 varying vec3 vPos; varying vec3 vNormal; varying float vCrest;
+float calm(vec2 q) {
+  vec2 d = max(abs(q) - vec2(${CALM_HALF_X.toFixed(2)}, ${CALM_HALF_Z.toFixed(2)}), 0.);
+  float s = clamp(length(d) / ${CALM_FADE.toFixed(2)}, 0., 1.);
+  return ${CALM.toFixed(2)} + ${(1 - CALM).toFixed(2)} * s * s * (3. - 2. * s);
+}
 void main() {
   vec3 p = position.xzy; p.z = -p.z;
   vec3 pos = p; vec3 tx = vec3(1.,0.,0.); vec3 tz = vec3(0.,0.,1.); float crest = 0.;
+  float amp = calm(p.xz);
   for (int i = 0; i < 3; i++) {
     vec4 w = uWaves[i]; float f = w.z * (dot(w.xy, p.xz) - uSpeeds[i] * uTime);
-    pos.y += w.w * sin(f);
-    pos.xz += w.xy * w.w * cos(f) * 0.6;
-    float d = w.w * w.z * cos(f);
+    pos.y += amp * w.w * sin(f);
+    pos.xz += w.xy * amp * w.w * cos(f) * 0.6;
+    float d = amp * w.w * w.z * cos(f);
     tx.y += w.x * d; tz.y += w.y * d;
-    crest += sin(f) * w.w;
+    crest += amp * sin(f) * w.w;
   }
   vNormal = normalize(cross(tz, tx));
   vPos = pos; vCrest = crest;

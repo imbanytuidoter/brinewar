@@ -9,7 +9,7 @@ const ENEMY_SAIL = "#7a1f3d";
 const ENEMY_FLAG = "#ffcf5a";
 const MY_FLAG = "#3fb6c9";
 const SINK_RATE = 0.35;
-const WRECK_DEPTH = 0.55;
+const WRECK_DEPTH = 0.3;
 
 interface Sail {
   readonly o: THREE.Object3D;
@@ -99,7 +99,7 @@ export class ShipActor {
   }
 
   get gone(): boolean {
-    return this.side === "mine" && this.sink >= 1;
+    return this.side === "mine" && this.sink >= WRECK_DEPTH;
   }
 
   update(f: ShipFrame): void {
@@ -107,9 +107,9 @@ export class ShipActor {
     const y = seaHeight(f.waves, x, z, f.t);
     const tilt = seaTilt(f.waves, x, z, f.t);
     if (this.side === "enemy") this.rise = Math.max(this.rise, revealRise(f.reveal, x - BOARD_ORIGIN.enemy.x));
-    const depth = this.side === "enemy" ? WRECK_DEPTH : 1;
+    const depth = WRECK_DEPTH;
     if (this.sunk && this.rise >= 1) this.sink = Math.min(depth, this.sink + f.dt * SINK_RATE);
-    this.root.visible = this.rise > 0 && !this.gone;
+    this.root.visible = this.rise > 0;
     this.root.position.set(x, y - this.sink * 1.4 + (1 - this.rise) * -1.6, z);
     const lean = this.side === "enemy" ? -1 : 1;
     this.pivot.rotation.x = -tilt.roll * 0.8 - this.sink * 0.5;

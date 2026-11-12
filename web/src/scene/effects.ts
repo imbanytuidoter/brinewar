@@ -69,7 +69,7 @@ export class EffectsEngine {
   readonly #flights: Flight[] = [];
   readonly #ringGeo = new THREE.RingGeometry(0.3, 0.42, 48);
   readonly #buoyGeo = new THREE.TorusGeometry(0.22, 0.05, 8, 24);
-  readonly #buoyMat = new THREE.MeshStandardMaterial({ color: BUOY_COLOR, roughness: 0.6 });
+  readonly #buoyMat = new THREE.MeshStandardMaterial({ color: BUOY_COLOR, roughness: 0.6, depthTest: false });
   readonly #tmp = new THREE.Vector3();
   #ball: THREE.Object3D | null = null;
   #ballScale = 1;
@@ -106,8 +106,9 @@ export class EffectsEngine {
   }
 
   #ring(x: number, z: number, color: string, scale: number): void {
-    const m = new THREE.Mesh(this.#ringGeo, new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.9, depthWrite: false, side: THREE.DoubleSide }));
+    const m = new THREE.Mesh(this.#ringGeo, new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.9, depthWrite: false, depthTest: false, side: THREE.DoubleSide }));
     m.rotation.x = -Math.PI / 2;
+    m.renderOrder = 3;
     m.position.set(x, 0.3, z);
     this.group.add(m);
     this.#rings.push({ m, t: 0, max: 1.4, scale });
@@ -136,6 +137,7 @@ export class EffectsEngine {
     if (this.#buoys.has(key)) return;
     const c = cellCenter(side, cell);
     const m = new THREE.Mesh(this.#buoyGeo, this.#buoyMat);
+    m.renderOrder = 2;
     m.rotation.x = -Math.PI / 2;
     m.position.set(c.x, 0.05, c.z);
     this.group.add(m);

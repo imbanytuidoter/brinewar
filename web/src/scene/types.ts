@@ -2,7 +2,7 @@ export type Mark = "hit" | "miss";
 
 export type Side = "mine" | "enemy";
 
-export type Hullset = "brine" | "pirate" | "ghost";
+export type Hullset = "brine" | "pirate";
 
 export interface ShipLook {
   readonly hulls?: Hullset;

@@ -98,3 +98,15 @@ describe("reveal wave", () => {
     expect(revealRise(REVEAL_END, 10)).toBe(1);
   });
 });
+
+describe("calm water over the boards", () => {
+  it("keeps waves low on both boards and full far away", async () => {
+    const { calm, CALM, makeWaves, seaHeight } = await import("./gerstner");
+    expect(calm(-6, 0)).toBeCloseTo(CALM);
+    expect(calm(6, 4)).toBeCloseTo(CALM);
+    expect(calm(40, 30)).toBe(1);
+    const waves = makeWaves(false);
+    const peak = Math.max(...Array.from({ length: 200 }, (_, i) => Math.abs(seaHeight(waves, -6, 0, i * 0.37))));
+    expect(peak).toBeLessThan(0.1);
+  });
+});

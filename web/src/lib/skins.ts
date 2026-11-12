@@ -11,7 +11,7 @@ export interface SkinLook extends ShipLook {
 const LOOKS: Readonly<Record<string, SkinLook>> = {
   brine: { title: "Brine", sail: "#e8f3f2", flag: "#3fb6c9", trail: "#cfe9ee", sprite: 1, pennant: 5 },
   coral: { title: "Coral", sail: "#f2a58e", flag: "#ff6a3d", hull: "#ffc2ae", trail: "#ff9a7a", sprite: 3, pennant: 3 },
-  ghost: { title: "Ghost", hulls: "ghost", sail: "#c9d6dc", flag: "#f4f7f8", hull: "#9fb0b8", trail: "#e6f2f7", sprite: 2, pennant: 2 },
+  ghost: { title: "Ghost", sail: "#c9d6dc", flag: "#f4f7f8", hull: "#9fb0b8", trail: "#e6f2f7", sprite: 2, pennant: 2 },
   gilded: { title: "Gilded", sail: "#f3d27a", flag: "#b02a6b", hull: "#ffd98a", trail: "#ffd36b", sprite: 6, pennant: 6 },
   "night-watch": { title: "Night watch", sail: "#2c3e57", flag: "#ffcf5a", hull: "#5b6f8f", trail: "#8fb6ff", sprite: 5, pennant: 6 },
   storm: { title: "Storm", sail: "#5d6f7d", flag: "#7fe0b5", hull: "#7d8f99", trail: "#9ff0d0", sprite: 4, pennant: 4 },

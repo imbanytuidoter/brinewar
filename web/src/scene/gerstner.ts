@@ -23,10 +23,22 @@ export function makeWaves(reduced: boolean): Wave[] {
   });
 }
 
+export const CALM = 0.3;
+export const CALM_HALF_X = 11.5;
+export const CALM_HALF_Z = 5.5;
+export const CALM_FADE = 6;
+
+export function calm(x: number, z: number): number {
+  const dx = Math.max(Math.abs(x) - CALM_HALF_X, 0);
+  const dz = Math.max(Math.abs(z) - CALM_HALF_Z, 0);
+  const s = Math.min(1, Math.hypot(dx, dz) / CALM_FADE);
+  return CALM + (1 - CALM) * s * s * (3 - 2 * s);
+}
+
 export function seaHeight(waves: readonly Wave[], x: number, z: number, t: number): number {
   let y = 0;
   for (const w of waves) y += w.a * Math.sin(w.k * (w.dx * x + w.dz * z - w.c * t));
-  return y;
+  return y * calm(x, z);
 }
 
 export interface Tilt {
