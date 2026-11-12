@@ -1,4 +1,4 @@
-import { Anchor, Coins, Gavel, Map as MapIcon, Ship, Swords, Trophy } from "lucide-react";
+import { Anchor, BookOpen, Coins, Gavel, Map as MapIcon, Ship, Swords, Trophy } from "lucide-react";
 import { useEffect, useState } from "react";
 import { openBattle } from "@/game/resume";
 import { browserStorage } from "@/lib/storage";
@@ -10,6 +10,7 @@ const LINKS = [
   { href: "/fleet", label: "Fleet", icon: Ship },
   { href: "/captains", label: "Captains", icon: Trophy },
   { href: "/treasury", label: "Treasury", icon: Coins },
+  { href: "/docs", label: "Docs", icon: BookOpen },
   { href: "/judges", label: "For judges", icon: Gavel },
 ] as const;
 

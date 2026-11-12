@@ -11,6 +11,7 @@ import { PlayPage } from "@/pages/PlayPage";
 import { AdmiraltyPage } from "@/pages/AdmiraltyPage";
 import { FleetPage } from "@/pages/FleetPage";
 import { CaptainsPage } from "@/pages/CaptainsPage";
+import { DocsPage } from "@/pages/docs/DocsPage";
 import { JudgesPage } from "@/pages/JudgesPage";
 import { ReplayPage } from "@/pages/ReplayPage";
 import { TreasuryPage } from "@/pages/TreasuryPage";
@@ -33,6 +34,7 @@ export function App() {
   if (path === "/fleet") return <FleetPage cfg={cfg} />;
   if (path === "/judges") return <JudgesPage cfg={cfg} />;
   if (path === "/captains") return <CaptainsPage cfg={cfg} />;
+  if (path === "/docs") return <DocsPage cfg={cfg} />;
   const replay = /^\/replay(?:\/(\d{1,15}))?$/.exec(path);
   if (replay) return <ReplayPage cfg={cfg} gameId={replay[1] ? Number(replay[1]) : null} />;
   return <Play cfg={cfg} />;
