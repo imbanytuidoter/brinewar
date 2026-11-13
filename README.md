@@ -62,6 +62,7 @@ Example transactions are linked from the Verify page of any battle. Deployment s
 - Our server keeps the Nauarch's board and salts. It cannot change them after the commit, but it can see them. Moving that into a TEE (OutLayer) is future work.
 - The admin pins the NEAR AI model key after checking its attestation; the contract does not verify a TDX quote itself.
 - The game contract funds guest accounts and their gas; a sponsor account signs the sign-ups.
+- To protect testnet funds the harbour signs on at most 6 new guests per network address per hour and 12 per day (300 in all per day); judges sharing one address may see "too many new captains from this address".
 - The admiralty map was seeded with scripted battles by test captains named `Seed_NN` so it was not empty on day one, and most of its boards so far come from them; the landing and the Admiralty page show the live count.
 - A shot's result takes a few seconds (about 3–6 s on testnet): your transaction lands in about 2 s and the Nauarch's proven answer reaches your browser right after. The cannonball flies on the click so the wait is not dead air, but a full battle still takes 10–15 minutes.
 - The replay rebuilds the captain's fleet from the Nauarch's hits, so it only shows battles he won by sinking the whole fleet. A captain's board is revealed in a transaction, not kept in contract state.
@@ -100,7 +101,7 @@ cd web && BRINEWAR_API_PROXY=http://127.0.0.1:8797 VITE_NEAR_RPC_URL=<rpcUrl fro
 
 Without `NEAR_AI_API_KEY` the Nauarch plays only deterministic moves, and the UI labels them. A full scripted battle on the sandbox: `cd server && npm run e2e` (about 10 minutes).
 
-Tests at the time of writing: 136 contract, 99 server, 181 web, plus 2 Playwright runs against the live testnet site (a battle with the Nauarch and a two-browser duel).
+Tests at the time of writing: 136 contract, 100 server, 181 web, plus 2 Playwright runs against the live testnet site (a battle with the Nauarch and a two-browser duel).
 
 ## Prior art
 

@@ -29,7 +29,7 @@ const DOORS = [
 const PROOFS = [
   ["Hidden boards", "Each board is a Merkle root of 100 salted cells, committed before the first shot. Every answer carries a proof that the contract checks; at the end both fleets are revealed and checked for shape."],
   ["The Nauarch's moves", "The contract builds the model request from public game state. NEAR AI Cloud answers inside a TEE and signs model:sha256(request):sha256(response); the contract verifies that ed25519 signature before it accepts the shot and the line. If the model is late or wrong, the contract plays a deterministic shot, labelled as such."],
-  ["Why a language model", "His aim comes from statistics: the contract lists the sensible cells (finish a wounded ship, then the hottest cells of the Admiralty map) and the model picks among them. The model adds what statistics cannot: a voice that reads your record and taunts you about it, and a choice among equally good cells that you cannot predict from the code. Because the request, the reply and the signature are all checked on chain, this is an AI opponent a skill-game operator could put in front of players who do not trust the house."],
+  ["Why a language model", "His aim comes from statistics: the contract lists the sensible cells (finish a wounded ship, then the hottest cells of the Admiralty map) and the model picks among them; in the open hunt he may also pick any other cell where a ship can still be. The model adds what statistics cannot: a voice that reads your record and taunts you about it, and a choice among equally good cells that you cannot predict from the code. Because the request, the reply and the signature are all checked on chain, this is an AI opponent a skill-game operator could put in front of players who do not trust the house."],
   ["The economy", "Entry fees and bounties come from a formula in the contract, driven only by the treasury balance. Nobody tunes it by hand."],
   ["The map", "Only boards that pass the final check count: one per captain per day, from battles against the Nauarch that end with a fleet sunk, where the captain answered at least ten shots."],
 ] as const;
@@ -39,6 +39,7 @@ const LIMITS = [
   "Our server keeps the Nauarch's board and salts. It cannot change them after the commit, but it can see them. Moving that into a TEE is future work.",
   "The admin pins the model key after checking its attestation; the contract does not verify a TDX quote itself.",
   "The game contract funds guest accounts and their gas; a sponsor account signs the sign-ups.",
+  "To protect testnet funds the harbour signs on at most 6 new guests per network address per hour and 12 per day (300 in all per day); judges sharing one address may see \"too many new captains from this address\".",
   "The Admiralty map was seeded with scripted battles by Seed_NN captains so it was not empty on day one, and most of its boards so far come from them; the live count is shown on the landing and the Admiralty page.",
   "The replay shows only battles the Nauarch won by sinking the whole fleet, because it rebuilds the captain's fleet from his hits.",
 ] as const;

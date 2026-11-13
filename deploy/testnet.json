@@ -6,7 +6,7 @@
     "registrar": "sponsor.brinewar.testnet",
     "initial_treasury": "1000",
     "settings": {
-      "move_timeout_blocks": 200,
+      "move_timeout_blocks": 600,
       "max_open_games": 50,
       "blocks_per_day": 147000,
       "min_heat_shots": 10,
