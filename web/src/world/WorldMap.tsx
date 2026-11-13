@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CaptainEntry } from "@/lib/api";
 import { sound } from "@/lib/sound";
 import type { RankedCaptain } from "./useMapCaptains";
+import { drawClouds, drawCrests, drawGulls, drawRipples, drawShallows, drawWakeV } from "./ambience";
 import { captainSlots, DECOR, ENCOUNTER, ISLANDS, nearest, PATROLS, PLACES, patrolAt, START, steer, WORLD_H, WORLD_W, type Helm, type Place, type Vec } from "./world";
 
 const SPRITES = ["hull", "hull-wreck", "flag-2", "sail-2", "sail-1", "sail-3", "sail-4", "sail-5", "sail-6", "sail-wreck", "flag-1", "flag-3", "flag-4", "flag-5", "flag-6"] as const;
@@ -82,10 +83,12 @@ function drawSprite(c: CanvasRenderingContext2D, im: HTMLImageElement | undefine
   c.drawImage(im, x - w / 2, y - h / 2, w, h);
 }
 
-function drawShip(c: CanvasRenderingContext2D, img: Images, at: Vec, heading: number, sail: number, flag: number, wreck = false): void {
+function drawShip(c: CanvasRenderingContext2D, img: Images, at: Vec, heading: number, sail: number, flag: number, wreck = false, t = 0, seed = 0): void {
   c.save();
   c.translate(at.x, at.y);
-  c.rotate(heading - Math.PI / 2);
+  c.rotate(heading - Math.PI / 2 + Math.sin(t * 1.4 + seed) * 0.045);
+  const swell = 1 + Math.sin(t * 1.1 + seed * 2) * 0.025;
+  c.scale(swell, swell);
   c.shadowColor = "rgba(10,40,60,0.35)";
   c.shadowBlur = 8;
   c.shadowOffsetY = 4;
@@ -246,7 +249,7 @@ export function WorldMap({ captains, mySail, myFlag, reducedMotion, paused, onEn
       view.current = { ...v, cx: halfW * 2 >= WORLD_W ? WORLD_W / 2 : cx, cy: halfH * 2 >= WORLD_H ? WORLD_H / 2 : cy };
 
       ctx.save();
-      ctx.fillStyle = "#5ec4ec";
+      ctx.fillStyle = "#3fb2dc";
       ctx.fillRect(0, 0, v.w, v.h);
       ctx.translate(v.w / 2, v.h / 2);
       ctx.scale(v.scale, v.scale);
@@ -264,6 +267,10 @@ export function WorldMap({ captains, mySail, myFlag, reducedMotion, paused, onEn
       ctx.strokeStyle = "rgba(255,255,255,0.22)";
       ctx.lineWidth = 3;
       ctx.strokeRect(0, 0, WORLD_W, WORLD_H);
+      const seen = (p: Vec): boolean => Math.abs(p.x - view.current.cx) < halfW + CULL * 3 && Math.abs(p.y - view.current.cy) < halfH + CULL * 3;
+      const live = reducedMotion ? 0 : t;
+      drawCrests(ctx, { x0: view.current.cx - halfW, y0: view.current.cy - halfH, x1: view.current.cx + halfW, y1: view.current.cy + halfH }, live);
+      drawShallows(ctx, ISLANDS, live, seen);
       for (const i of ISLANDS) drawSprite(ctx, img[i.sprite], i.x, i.y, i.size, i.size);
       for (const d of DECOR) drawSprite(ctx, img[d.sprite], d.x, d.y, d.size, d.size * ((img[d.sprite]?.naturalHeight || 1) / (img[d.sprite]?.naturalWidth || 1)));
       for (const wv of wake.current) {
@@ -274,12 +281,14 @@ export function WorldMap({ captains, mySail, myFlag, reducedMotion, paused, onEn
         ctx.fill();
       }
       const wreck = PLACES.find((p) => p.kind === "wreck");
-      if (wreck) drawShip(ctx, img, { x: wreck.x + 20, y: wreck.y + 30 }, 0.7, 2, 2, true);
-      const seen = (p: Vec): boolean => Math.abs(p.x - view.current.cx) < halfW + CULL && Math.abs(p.y - view.current.cy) < halfH + CULL;
-      const shown = fleetRef.current.filter(seen);
-      for (const f of shown) drawShip(ctx, img, f, -0.4 + f.slot * 0.9, sailOf(f.captain.name), 5);
+      if (wreck) drawShip(ctx, img, { x: wreck.x + 20, y: wreck.y + 30 }, 0.7, 2, 2, true, live, 3);
+      const near = (p: Vec): boolean => Math.abs(p.x - view.current.cx) < halfW + CULL && Math.abs(p.y - view.current.cy) < halfH + CULL;
+      const shown = fleetRef.current.filter(near);
+      for (const f of shown) drawRipples(ctx, f, live, f.slot);
+      for (const f of shown) drawShip(ctx, img, f, -0.4 + f.slot * 0.9, sailOf(f.captain.name), 5, false, live, f.slot);
       const patrols = PATROLS.map((p) => patrolAt(p, t));
-      for (const p of patrols) drawShip(ctx, img, p.pos, p.heading, 2, 2);
+      for (const p of patrols) if (near(p.pos) && !reducedMotion) drawWakeV(ctx, p.pos, p.heading, live);
+      for (const [k, p] of patrols.entries()) drawShip(ctx, img, p.pos, p.heading, 2, 2, false, live, 10 + k);
       if (helm.current.target) {
         ctx.strokeStyle = "rgba(255,207,90,0.9)";
         ctx.lineWidth = 2.5;
@@ -287,7 +296,12 @@ export function WorldMap({ captains, mySail, myFlag, reducedMotion, paused, onEn
         ctx.arc(helm.current.target.x, helm.current.target.y, 10 + Math.sin(t * 6) * 2, 0, Math.PI * 2);
         ctx.stroke();
       }
-      drawShip(ctx, img, helm.current.pos, helm.current.heading, mySail, myFlag);
+      if (helm.current.target && !reducedMotion) drawWakeV(ctx, helm.current.pos, helm.current.heading, live);
+      drawShip(ctx, img, helm.current.pos, helm.current.heading, mySail, myFlag, false, live, 0.5);
+      if (!reducedMotion) {
+        drawGulls(ctx, ISLANDS, live, seen);
+        drawClouds(ctx, WORLD_W, WORLD_H, live, seen);
+      }
       ctx.restore();
 
       const screen = (p: Vec): Vec => ({ x: (p.x - view.current.cx) * v.scale + v.w / 2, y: (p.y - view.current.cy) * v.scale + v.h / 2 });
