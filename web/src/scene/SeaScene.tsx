@@ -14,7 +14,9 @@ import { createRuntime, RuntimeContext, useRuntime, type SceneRuntime } from "./
 import { Sea } from "./Sea";
 import { layoutFor } from "./layouts";
 import { Scenery, Wrecks } from "./Scenery";
-import { FOG_FAR, FOG_NEAR, SEA_FOG } from "./seaMaterial";
+import { Gulls } from "./Gulls";
+import { MOODS, type Mood } from "./moods";
+import { FOG_FAR, FOG_NEAR } from "./seaMaterial";
 import type { Hullset, Mark, SeaSceneProps, ShipLook, Side } from "./types";
 import { useMarkFlights } from "./useMarkFlights";
 import { useReveal } from "./useReveal";
@@ -25,16 +27,16 @@ const EXPOSURE = 1.05;
 const NO_SHIPS: readonly (readonly number[])[] = [];
 const NO_CELLS: ReadonlySet<number> = new Set();
 
-function skyTexture(): THREE.Texture {
+function skyTexture(colors: readonly [string, string, string]): THREE.Texture {
   const c = document.createElement("canvas");
   c.width = 2;
   c.height = 256;
   const g = c.getContext("2d");
   if (g) {
     const grad = g.createLinearGradient(0, 0, 0, 256);
-    grad.addColorStop(0, "#3d8fd0");
-    grad.addColorStop(0.55, "#9ad6ff");
-    grad.addColorStop(1, "#e9f6ff");
+    grad.addColorStop(0, colors[0]);
+    grad.addColorStop(0.55, colors[1]);
+    grad.addColorStop(1, colors[2]);
     g.fillStyle = grad;
     g.fillRect(0, 0, 2, 256);
   }
@@ -43,17 +45,22 @@ function skyTexture(): THREE.Texture {
   return t;
 }
 
-function Sky() {
+function Sky({ mood }: { readonly mood: Mood }) {
   const scene = useThree((s) => s.scene);
+  const { uniforms } = useRuntime();
   useEffect(() => {
-    const tex = skyTexture();
+    const tex = skyTexture(mood.sky);
     scene.background = tex;
+    uniforms.uDeep.value.set(mood.deep);
+    uniforms.uShallow.value.set(mood.shallow);
+    uniforms.uFoam.value.set(mood.foam);
+    uniforms.uFogColor.value.set(mood.fog);
     return () => {
       scene.background = null;
       tex.dispose();
     };
-  }, [scene]);
-  return <fog attach="fog" args={[SEA_FOG, FOG_NEAR, FOG_FAR]} />;
+  }, [scene, mood, uniforms]);
+  return <fog attach="fog" args={[mood.fog, FOG_NEAR, FOG_FAR]} />;
 }
 
 interface BoardProps {
@@ -113,6 +120,8 @@ function World(props: SeaSceneProps) {
   const runtime = useRuntime();
   useReveal(props.enemyShips !== null);
   const { onLaunch, onLand, onQueued } = props;
+  const layout = layoutFor(props.layout ?? null);
+  const mood = MOODS[layout.mood ?? "day"];
   useEffect(() => {
     runtime.hooks.launch = onLaunch ?? null;
     runtime.hooks.land = onLand ?? null;
@@ -125,18 +134,19 @@ function World(props: SeaSceneProps) {
   }, [runtime, onLaunch, onLand, onQueued]);
   return (
     <>
-      <Sky />
-      <hemisphereLight args={[0xdff4ff, 0x2b6b80, 1.35]} />
-      <directionalLight color={0xfff1d6} intensity={2.4} position={[-14, 22, 12]} />
+      <Sky mood={mood} />
+      <hemisphereLight args={[mood.hemiSky, mood.hemiGround, mood.hemi]} />
+      <directionalLight color={mood.sun} intensity={mood.sunPower} position={[...mood.sunAt]} />
       <CameraRig reduced={runtime.reduced} />
       <Shaker>
         <Sea aiming={props.aiming} />
+        <Gulls isles={layout.isles} reduced={runtime.reduced} />
         <Labels enemy={props.enemyLabel ?? "The Nauarch"} />
         {props.spyglass && props.spyglass.length > 0 && <Spyglass cells={props.spyglass} locked={props.spyglassLocked ?? false} active={props.spyglassOn ?? true} reducedMotion={runtime.reduced} />}
         <Picker marks={props.enemyMarks} aiming={props.aiming} canFire={props.canFire} onFire={props.onFire} blocked={props.enemyClear ?? NO_CELLS} />
         <Suspense fallback={null}>
           <Effects />
-          <Scenery layout={layoutFor(props.layout ?? null)} />
+          <Scenery layout={layout} />
           <Board side="mine" ships={props.myShips} marks={props.myMarks} look={props.myLook ?? null} hulls={props.myLook?.hulls ?? "brine"} aimDelayMs={props.aimDelayMs ?? 0} />
           <Board side="enemy" ships={props.enemyShips ?? NO_SHIPS} marks={props.enemyMarks} hulls={props.enemyHulls ?? "pirate"} wrecks={props.enemyShips === null ? props.enemyWrecks : null} aiming={props.aiming ?? null} />
         </Suspense>

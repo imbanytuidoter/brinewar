@@ -85,6 +85,31 @@ export function rigUp(model: THREE.Object3D, box: THREE.Box3, size: THREE.Vector
   }
 }
 
+const FOAM_OPACITY = 0.42;
+const FOAM_PULSE = 0.12;
+const YAW_SWAY = 0.03;
+let foamTexture: THREE.Texture | null = null;
+
+function foamMap(): THREE.Texture {
+  if (foamTexture) return foamTexture;
+  const size = 128;
+  const c = document.createElement("canvas");
+  c.width = size;
+  c.height = size;
+  const g = c.getContext("2d");
+  if (g) {
+    const grad = g.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+    grad.addColorStop(0, "rgba(255,255,255,0.05)");
+    grad.addColorStop(0.55, "rgba(255,255,255,0.35)");
+    grad.addColorStop(0.78, "rgba(255,255,255,0.9)");
+    grad.addColorStop(1, "rgba(255,255,255,0)");
+    g.fillStyle = grad;
+    g.fillRect(0, 0, size, size);
+  }
+  foamTexture = new THREE.CanvasTexture(c);
+  return foamTexture;
+}
+
 export class ShipActor {
   readonly root = new THREE.Group();
   readonly pivot = new THREE.Group();
@@ -101,6 +126,9 @@ export class ShipActor {
   readonly #sailBase = new THREE.Color();
   readonly #hullMats: THREE.MeshStandardMaterial[] = [];
   readonly #hullBase = new THREE.Color();
+  readonly #foam: THREE.Mesh;
+  readonly #foamMat: THREE.MeshBasicMaterial;
+  readonly #phase = Math.random() * Math.PI * 2;
 
   constructor(proto: THREE.Object3D, cells: readonly number[], side: Side, risen: boolean, rig: Rig = "plain", parts: ShipParts | null = null) {
     this.cells = cells;
@@ -149,6 +177,14 @@ export class ShipActor {
     if (alongZ) inner.rotation.y = Math.PI / 2;
     this.pivot.add(inner);
     this.root.add(this.pivot);
+    this.#foamMat = new THREE.MeshBasicMaterial({ map: foamMap(), transparent: true, opacity: FOAM_OPACITY, depthWrite: false });
+    this.#materials.push(this.#foamMat);
+    this.#foam = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), this.#foamMat);
+    this.#foam.rotation.x = -Math.PI / 2;
+    this.#foam.scale.set(n * 1.08 + 0.35, 0.95, 1);
+    this.#foam.position.y = 0.04;
+    this.#foam.renderOrder = 1;
+    this.root.add(this.#foam);
     if (!isHorizontal(cells)) this.root.rotation.y = Math.PI / 2;
     if (enemy) this.root.rotation.y += Math.PI;
     this.base = shipCenter(side, cells);
@@ -180,6 +216,13 @@ export class ShipActor {
     const lean = this.side === "enemy" ? -1 : 1;
     this.pivot.rotation.x = -tilt.roll * 0.8 - this.sink * 0.5;
     this.pivot.rotation.z = tilt.pitch * 0.8 + this.sink * 0.35 * lean;
+    this.pivot.rotation.y = f.reduced ? 0 : Math.sin(f.t * 0.33 + this.#phase) * YAW_SWAY;
+    this.#foam.visible = this.sink < 0.25;
+    if (!f.reduced) {
+      const k = Math.sin(f.t * 1.6 + this.#phase);
+      this.#foamMat.opacity = FOAM_OPACITY + FOAM_PULSE * k;
+      this.#foam.scale.y = 0.95 + 0.06 * k;
+    }
     for (const s of this.#sails) {
       const k = f.reduced ? 0 : 0.06 * Math.sin(f.t * 2.4 + s.phase);
       s.o.scale.set(s.base.x * (1 + k), s.base.y, s.base.z * (1 + k * 0.6));
@@ -194,5 +237,6 @@ export class ShipActor {
   dispose(): void {
     for (const m of this.#materials) m.dispose();
     this.#materials.length = 0;
+    this.#foam.geometry.dispose();
   }
 }

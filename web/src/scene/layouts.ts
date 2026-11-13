@@ -1,4 +1,5 @@
 import type { CalmIsle } from "./gerstner";
+import type { MoodName } from "./moods";
 
 export type Motion =
   | { readonly kind: "bob" }
@@ -17,6 +18,7 @@ export interface Prop {
 
 export interface Layout {
   readonly name: string;
+  readonly mood?: MoodName;
   readonly props: readonly Prop[];
   readonly isles: readonly CalmIsle[];
 }
@@ -83,6 +85,7 @@ export const LAYOUTS: readonly Layout[] = [
   },
   {
     name: "Fortress strait",
+    mood: "golden",
     props: [
       ...walls(-9.6, 9.6, -12.6, 1.2),
       { model: "castle-gate", x: 0, z: -12.6, scale: 0.6 },
@@ -117,6 +120,7 @@ export const LAYOUTS: readonly Layout[] = [
   },
   {
     name: "Rocky reef",
+    mood: "dusk",
     props: [
       { model: "rocks-a", x: -15, z: -10.5, scale: 0.6, turn: 0.3 },
       { model: "rocks-sand-b", x: -18, z: -6, scale: 0.5, turn: 1.2 },
@@ -149,6 +153,7 @@ export const LAYOUTS: readonly Layout[] = [
   },
   {
     name: "Pirate haven",
+    mood: "dusk",
     props: [
       { model: "patch-sand-foliage", x: -15.5, z: -11.5, scale: 1 },
       { model: "structure", x: -14.6, z: -11.6, scale: 0.5, turn: 0.3, y: ON_SAND },
@@ -184,6 +189,7 @@ export const LAYOUTS: readonly Layout[] = [
   },
   {
     name: "Smugglers' dock",
+    mood: "dawn",
     props: [
       { model: "structure-platform-dock", x: -3, z: -11.6, scale: 0.7 },
       { model: "structure-platform-dock", x: 3, z: -11.6, scale: 0.7, turn: 3.14 },
@@ -222,6 +228,7 @@ export const LAYOUTS: readonly Layout[] = [
   },
   {
     name: "Watchtower shoals",
+    mood: "day",
     props: [
       { model: "rocks-a", x: 0, z: -11.4, scale: 0.62, turn: 0.4 },
       { model: "tower-complete-large", x: 0.1, z: -11.6, scale: 0.4, y: 1.1 },
@@ -254,6 +261,83 @@ export const LAYOUTS: readonly Layout[] = [
       { x: 19, z: -3.5, r: 1.7 },
       { x: -16.5, z: 9, r: 1.4 },
       { x: 16.4, z: 9.2, r: 1.8 },
+    ],
+  },
+  {
+    name: "Royal harbour",
+    mood: "golden",
+    props: [
+      ...walls(-12.6, -4.2, -12.8, 1.2),
+      ...walls(4.2, 12.6, -12.8, 1.2),
+      { model: "castle-gate", x: -3, z: -12.8, scale: 0.6 },
+      { model: "castle-gate", x: 3, z: -12.8, scale: 0.6 },
+      { model: "tower-complete-large", x: -14.4, z: -13, scale: 0.46, y: 0.15 },
+      { model: "tower-complete-large", x: 14.4, z: -13, scale: 0.46, y: 0.15 },
+      { model: "flag-high-pennant", x: -13.2, z: -11.6, scale: 0.55, y: 0.2 },
+      { model: "flag-high-pennant", x: 13.2, z: -11.6, scale: 0.55, y: 0.2 },
+      { model: "ship-large", x: -7.5, z: -10.6, scale: 0.36, turn: 1.57, y: -0.05, motion: BOB },
+      { model: "ship-large", x: 7.5, z: -10.6, scale: 0.36, turn: -1.57, y: -0.05, motion: BOB },
+      { model: "boat-row-large", x: 0, z: -10.2, scale: 0.34, turn: 0.2, motion: BOB },
+      { model: "rocks-sand-a", x: -19, z: -3, scale: 0.5, turn: 1.1 },
+      { model: "tower-watch", x: -19.1, z: -3.2, scale: 0.36, y: 0.6 },
+      { model: "rocks-sand-c", x: 19, z: -2.5, scale: 0.5, turn: 2.3 },
+      { model: "cannon", x: 18.6, z: -2.2, scale: 0.34, y: 0.55, turn: -1.2 },
+      { model: "patch-sand", x: -16.4, z: 9.2, scale: 0.55, turn: 0.4 },
+      { model: "crate", x: -16.6, z: 9, scale: 0.3, y: ON_SAND },
+      { model: "barrel", x: -16, z: 9.5, scale: 0.28, y: ON_SAND },
+      { model: "rocks-c", x: 16.6, z: 9, scale: 0.42, turn: 1.4 },
+      ...life("ship-medium", "ship-small"),
+    ],
+    isles: [
+      { x: -8.4, z: -12.8, r: 2.6 },
+      { x: 8.4, z: -12.8, r: 2.6 },
+      { x: -3, z: -12.8, r: 1.8 },
+      { x: 3, z: -12.8, r: 1.8 },
+      { x: -14.4, z: -13, r: 2 },
+      { x: 14.4, z: -13, r: 2 },
+      { x: -19, z: -3, r: 1.7 },
+      { x: 19, z: -2.5, r: 1.7 },
+      { x: -16.4, z: 9.2, r: 2 },
+      { x: 16.6, z: 9, r: 1.4 },
+    ],
+  },
+  {
+    name: "Palm atolls",
+    mood: "dawn",
+    props: [
+      { model: "patch-grass-foliage", x: -14, z: -12, scale: 0.85, turn: 0.4 },
+      { model: "palm-detailed-straight", x: -14.4, z: -12.4, scale: 0.55, y: ON_SAND },
+      { model: "palm-bend", x: -13.2, z: -11.6, scale: 0.5, y: ON_SAND, turn: 1.9 },
+      { model: "patch-sand-foliage", x: -6, z: -13, scale: 0.6, turn: 1.6 },
+      { model: "palm-straight", x: -6.2, z: -13.2, scale: 0.5, y: ON_SAND },
+      { model: "patch-grass-foliage", x: 0, z: -12.4, scale: 0.7, turn: 2.5 },
+      { model: "palm-detailed-bend", x: 0.4, z: -12.6, scale: 0.55, y: ON_SAND, turn: 0.6 },
+      { model: "chest", x: -0.5, z: -12, scale: 0.3, y: ON_SAND, turn: 0.9 },
+      { model: "patch-sand-foliage", x: 6.4, z: -13, scale: 0.6, turn: 0.2 },
+      { model: "palm-straight", x: 6.6, z: -13.3, scale: 0.5, y: ON_SAND },
+      { model: "patch-grass-foliage", x: 14, z: -12, scale: 0.85, turn: 3.6 },
+      { model: "palm-detailed-straight", x: 14.3, z: -12.5, scale: 0.55, y: ON_SAND },
+      { model: "structure-roof", x: 13.1, z: -11.6, scale: 0.4, y: ON_SAND, turn: -0.5 },
+      { model: "patch-sand-foliage", x: -19, z: -3, scale: 0.55, turn: 2.4 },
+      { model: "palm-bend", x: -19.1, z: -3.3, scale: 0.45, y: ON_SAND, turn: 4.2 },
+      { model: "patch-sand-foliage", x: 19, z: -2, scale: 0.55, turn: 0.8 },
+      { model: "palm-straight", x: 19.2, z: -2.2, scale: 0.45, y: ON_SAND },
+      { model: "patch-grass-foliage", x: -16.6, z: 9.2, scale: 0.6, turn: 1.2 },
+      { model: "palm-detailed-bend", x: -16.5, z: 9.3, scale: 0.45, y: ON_SAND, turn: 3 },
+      { model: "patch-sand", x: 16.6, z: 9.2, scale: 0.5, turn: 2.6 },
+      { model: "palm-straight", x: 16.8, z: 9.3, scale: 0.4, y: ON_SAND },
+      ...life("ship-pirate-small", "ship-pirate-medium"),
+    ],
+    isles: [
+      { x: -14, z: -12, r: 2.8 },
+      { x: -6, z: -13, r: 2 },
+      { x: 0, z: -12.4, r: 2.2 },
+      { x: 6.4, z: -13, r: 2 },
+      { x: 14, z: -12, r: 2.8 },
+      { x: -19, z: -3, r: 1.8 },
+      { x: 19, z: -2, r: 1.8 },
+      { x: -16.6, z: 9.2, r: 2 },
+      { x: 16.6, z: 9.2, r: 1.8 },
     ],
   },
 ];
