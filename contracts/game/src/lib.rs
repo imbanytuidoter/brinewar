@@ -23,7 +23,7 @@ use game::{
     FinishReason, Game, GameView, Mode, Shot, ShotResult, ShotSource, ShotView, Side, Status,
 };
 use merkle::{board_root, root_from_proof};
-use nauarch::ModelKey;
+use nauarch::{ModelKey, MoveKind};
 use players::{display_name, fav_zone, rank_of, Player, ShipStats, XP_HIT, XP_SUNK, XP_WIN, ZONES};
 use settings::Settings;
 use tokens::{GOLD, RANK_SKINS};
@@ -287,6 +287,26 @@ impl Brinewar {
     }
 }
 
+#[near(serializers = [json])]
+pub struct AiReply {
+    pub response_body: String,
+    pub signature_hex: String,
+}
+
+pub(crate) fn settle_answer(game: &mut Game, defender: Side, hit: bool) {
+    let n = game.shots.len() - 1;
+    let shooter = game.shots[n].by;
+    game.shots[n].result = if hit {
+        ShotResult::Hit
+    } else {
+        ShotResult::Miss
+    };
+    game.record_answer(defender, hit);
+    if hit {
+        game.turn = shooter;
+    }
+}
+
 #[near]
 impl Brinewar {
     pub fn commit_board(&mut self, game_id: u64, root: String, invite_secret: Option<String>) {
@@ -329,7 +349,18 @@ impl Brinewar {
         self.store(game);
     }
 
-    pub fn answer(&mut self, game_id: u64, index: u8, cell: u8, salt: String, proof: Vec<String>) {
+    #[allow(clippy::too_many_arguments)]
+    pub fn answer(
+        &mut self,
+        game_id: u64,
+        index: u8,
+        cell: u8,
+        salt: String,
+        proof: Vec<String>,
+        then_fire: Option<u8>,
+        then_ai: Option<AiReply>,
+        then_fallback: Option<bool>,
+    ) {
         let salt = ok_or_fail(parse_hash(&salt, "salt"));
         let proof = ok_or_fail(parse_proof(&proof));
         require!(cell <= 1, "cell must be 0 or 1");
@@ -353,12 +384,7 @@ impl Brinewar {
         );
         let hit = cell == 1;
         let n = game.shots.len() - 1;
-        game.shots[n].result = if hit {
-            ShotResult::Hit
-        } else {
-            ShotResult::Miss
-        };
-        game.record_answer(side, hit);
+        settle_answer(&mut game, side, hit);
         emit(
             "shot_answered",
             json!({
@@ -387,10 +413,34 @@ impl Brinewar {
                 json!({"game_id": game_id, "winner": game.account(shot.by), "deadline_block": game.deadline_block}),
             );
         } else {
-            if hit {
-                game.turn = shot.by;
-            }
             game.deadline_block = env::block_height() + self.timeout_for(&game);
+        }
+        let follow = then_fire.is_some() || then_ai.is_some() || then_fallback == Some(true);
+        if follow {
+            require!(
+                game.status == Status::Playing && game.turn == side,
+                "a hit keeps the turn with the shooter, so nothing can follow this answer"
+            );
+        }
+        if let Some(target) = then_fire {
+            require!(
+                !(game.mode == Mode::VsNauarch && side == Side::B),
+                "the Nauarch fires through submit_ai_move or nauarch_fallback"
+            );
+            self.record_shot(&mut game, side, target, ShotSource::Player);
+        } else if let Some(reply) = then_ai {
+            self.require_nauarch();
+            self.require_nauarch_can(&game, MoveKind::Shot);
+            self.ai_move_on(
+                &mut game,
+                MoveKind::Shot,
+                &reply.response_body,
+                &reply.signature_hex,
+            );
+        } else if then_fallback == Some(true) {
+            self.require_nauarch();
+            self.require_nauarch_can(&game, MoveKind::Shot);
+            self.fallback_on(&mut game);
         }
         self.store(game);
     }

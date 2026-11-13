@@ -244,7 +244,8 @@ impl Match {
         let pf = board.proof_hex(index);
         self.chain.skip(1);
         self.chain.act(who);
-        self.c.answer(self.id, index, cell, salt, pf);
+        self.c
+            .answer(self.id, index, cell, salt, pf, None, None, None);
     }
 
     pub fn exchange(&mut self, a_shot: u8, b_shot: u8) {
@@ -459,7 +460,9 @@ fn lying_miss_is_rejected() {
     m.fire(&player(), 0);
     let (salt, pf) = (m.b.salt_hex(0), m.b.proof_hex(0));
     m.chain.act(&nauarch());
-    let msg = panics(|| m.c.answer(m.id, 0, 0, salt.clone(), pf.clone()));
+    let msg = panics(|| {
+        m.c.answer(m.id, 0, 0, salt.clone(), pf.clone(), None, None, None)
+    });
     assert!(msg.contains("proof does not match"), "{msg}");
 }
 
@@ -469,7 +472,9 @@ fn swapped_salt_is_rejected() {
     m.fire(&player(), 0);
     let (salt, pf) = (m.b.salt_hex(1), m.b.proof_hex(0));
     m.chain.act(&nauarch());
-    let msg = panics(|| m.c.answer(m.id, 0, 1, salt.clone(), pf.clone()));
+    let msg = panics(|| {
+        m.c.answer(m.id, 0, 1, salt.clone(), pf.clone(), None, None, None)
+    });
     assert!(msg.contains("proof does not match"), "{msg}");
 }
 
@@ -479,7 +484,9 @@ fn answer_for_other_index_is_rejected() {
     m.fire(&player(), 0);
     let (salt, pf) = (m.b.salt_hex(1), m.b.proof_hex(1));
     m.chain.act(&nauarch());
-    let msg = panics(|| m.c.answer(m.id, 1, 0, salt.clone(), pf.clone()));
+    let msg = panics(|| {
+        m.c.answer(m.id, 1, 0, salt.clone(), pf.clone(), None, None, None)
+    });
     assert!(msg.contains("does not match the pending shot"), "{msg}");
 }
 
@@ -490,7 +497,9 @@ fn proof_from_other_board_is_rejected() {
     let other = Board::new(&LEGAL_B, 9);
     let (salt, pf) = (other.salt_hex(0), other.proof_hex(0));
     m.chain.act(&nauarch());
-    let msg = panics(|| m.c.answer(m.id, 0, 1, salt.clone(), pf.clone()));
+    let msg = panics(|| {
+        m.c.answer(m.id, 0, 1, salt.clone(), pf.clone(), None, None, None)
+    });
     assert!(msg.contains("proof does not match"), "{msg}");
 }
 
@@ -500,7 +509,9 @@ fn shooter_cannot_answer_own_shot() {
     m.fire(&player(), 0);
     let (salt, pf) = (m.a.salt_hex(0), m.a.proof_hex(0));
     m.chain.act(&player());
-    let msg = panics(|| m.c.answer(m.id, 0, 1, salt.clone(), pf.clone()));
+    let msg = panics(|| {
+        m.c.answer(m.id, 0, 1, salt.clone(), pf.clone(), None, None, None)
+    });
     assert!(msg.contains("not your turn"), "{msg}");
 }
 
@@ -511,7 +522,9 @@ fn short_proof_is_rejected() {
     let salt = m.b.salt_hex(0);
     let pf: Vec<String> = m.b.proof_hex(0).into_iter().take(DEPTH - 1).collect();
     m.chain.act(&nauarch());
-    let msg = panics(|| m.c.answer(m.id, 0, 1, salt.clone(), pf.clone()));
+    let msg = panics(|| {
+        m.c.answer(m.id, 0, 1, salt.clone(), pf.clone(), None, None, None)
+    });
     assert!(msg.contains("proof must have 7"), "{msg}");
 }
 
@@ -590,7 +603,9 @@ fn missed_move_deadline_gives_the_win_to_the_other_side() {
     m.chain.skip(TIMEOUT + 1);
     let (salt, pf) = (m.b.salt_hex(0), m.b.proof_hex(0));
     m.chain.act(&nauarch());
-    let msg = panics(|| m.c.answer(m.id, 0, 1, salt.clone(), pf.clone()));
+    let msg = panics(|| {
+        m.c.answer(m.id, 0, 1, salt.clone(), pf.clone(), None, None, None)
+    });
     assert!(msg.contains("deadline passed"), "{msg}");
     m.chain.act(&acc("anyone.testnet"));
     m.c.claim_timeout(m.id);

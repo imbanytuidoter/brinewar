@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import { Admiral } from "../src/admiral/admiral.js";
 import type { GameView } from "../src/lib/contract.js";
 import { Store } from "../src/lib/db.js";
-import { isLegalFleet, seededRng, ships } from "../src/lib/fleet.js";
+import { isLegalFleet, placeFleet, seededRng, ships } from "../src/lib/fleet.js";
 import { fromHex, rootFromProof, toHex } from "../src/lib/merkle.js";
 import { Vault } from "../src/lib/vault.js";
 import { FakeCaller, FakeModel, FakeViewer, silent } from "./fakes.js";
@@ -29,6 +29,7 @@ function setup(opts: { model?: FakeModel | null; reject?: (m: string) => boolean
     if (method === "config") return { games: 1 };
     if (method === "games_since") return [current];
     if (method === "nauarch_request") return `{"model":"m","req":${current.shots}}`;
+    if (method === "nauarch_request_after") return `{"model":"m","after":${current.shots}}`;
     if (method === "get_game") return current;
     throw new Error(method);
   });
@@ -112,7 +113,23 @@ describe("admiral", () => {
     await t.settle();
     await t.settle();
     await t.settle();
-    expect(t.caller.calls.filter((c) => c.method === "nauarch_fallback")).toHaveLength(1);
+    const shots = t.caller.calls.filter((c) => c.method === "nauarch_fallback" || (c.method === "answer" && c.args.then_fallback === true));
+    expect(shots).toHaveLength(1);
+  });
+
+  it("answers a miss and fires the signed model move in the same transaction", async () => {
+    const model = new FakeModel({ model: "m", reply: () => '{"shot":"J10","line":"Aye."}' });
+    const t = setup({ model });
+    await t.settle();
+    const water = placeFleet(seededRng(3)).findIndex((c) => c === 0);
+    t.set({ status: "Playing", root_b: t.store.board(0)?.root as string, turn: ADM, pending_index: water, shots: 1 });
+    await t.settle();
+    const answer = t.caller.calls.find((c) => c.method === "answer");
+    expect(answer?.args.cell).toBe(0);
+    expect(model.requests).toContain('{"model":"m","after":1}');
+    expect((answer?.args.then_ai as { signature_hex: string }).signature_hex).toMatch(/^[0-9a-f]{128}$/);
+    expect(t.caller.calls.some((c) => c.method === "submit_ai_move")).toBe(false);
+    expect(t.store.aiMoves(0)[0]?.tx).toBe("tx-answer");
   });
 
   it("fires right after answering, without waiting for the next tick", async () => {
@@ -121,8 +138,9 @@ describe("admiral", () => {
     t.set({ status: "Playing", root_b: t.store.board(0)?.root as string, turn: ADM, pending_index: 12, shots: 1 });
     await t.settle();
     const methods = t.caller.calls.map((c) => c.method);
-    expect(methods.indexOf("answer")).toBeGreaterThan(-1);
-    expect(methods.indexOf("nauarch_fallback")).toBeGreaterThan(methods.indexOf("answer"));
+    const answer = t.caller.calls.find((c) => c.method === "answer");
+    expect(answer).toBeDefined();
+    expect(answer?.args.then_fallback === true || methods.indexOf("nauarch_fallback") > methods.indexOf("answer")).toBe(true);
   });
 
   it("moves through the signed model reply", async () => {

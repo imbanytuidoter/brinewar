@@ -19,6 +19,8 @@ import { newBoard, revealArgs } from "@/lib/board";
 const ME = "p-0011223344556677.brinewar.testnet";
 const NAU = "admiral.brinewar.testnet";
 const MODEL = "Qwen/Qwen3.8-27B";
+const SHIP = placeFleet(seededRng(7)).findIndex((c) => c === 1);
+const WATER = placeFleet(seededRng(7)).findIndex((c, i) => c === 0 && i !== 0);
 
 class FakeContract implements Viewer, Caller {
   readonly accountId = ME;
@@ -114,9 +116,18 @@ class FakeContract implements Viewer, Caller {
         if (!g || g.pending_index !== Number(args.index)) return { txHash: tx, ok: false, error: "index does not match the pending shot" };
         const root = rootFromProof(Number(args.index), Number(args.cell), fromHex(String(args.salt)), (args.proof as string[]).map(fromHex));
         if (toHex(root) !== g.root_a) return { txHash: tx, ok: false, error: "proof does not match" };
+        if (args.then_fire !== undefined && Number(args.cell) === 1) return { txHash: tx, ok: false, error: "a hit keeps the turn with the shooter" };
         const last = this.history[this.history.length - 1] as ShotView;
         last.result = Number(args.cell) === 1 ? "Hit" : "Miss";
         g.pending_index = null;
+        g.turn = ME;
+        if (args.then_fire !== undefined) {
+          const index = Number(args.then_fire);
+          const hit = this.enemy[index] === 1;
+          this.history.push({ n: g.shots++, by: ME, index, result: hit ? "Hit" : "Miss", block: 2, source: "Player" });
+          if (hit) g.hits_on_b++;
+          g.turn = NAU;
+        }
         return { txHash: tx, ok: true };
       }
       case "reveal":
@@ -201,9 +212,42 @@ describe("GameSession", () => {
     await session.start(placeFleet(seededRng(7)));
     await session.fire(0);
     chain.hang = true;
-    chain.nauarchFires(55, "x");
+    chain.nauarchFires(SHIP, "x");
     await session.tick();
     expect(chain.calls.at(-1)).toBe("answer");
+  });
+
+  it("holds back the answer to his miss and sends it with the next shot", async () => {
+    let t = 0;
+    const chain = new FakeContract();
+    const session = new GameSession({ accountId: ME, viewer: chain, caller: chain, store: memoryStorage(), evidence: chain.evidence, now: () => t });
+    await session.start(placeFleet(seededRng(7)));
+    await session.fire(0);
+    chain.nauarchFires(WATER, "x");
+    await session.tick();
+    expect(session.snapshot.step).toEqual({ kind: "fire" });
+    expect(session.snapshot.marks.mine.get(WATER)).toBe("miss");
+    expect(chain.calls.filter((c) => c === "answer")).toHaveLength(0);
+    const before = chain.calls.length;
+    expect(await session.fire(3)).toBe(true);
+    expect(chain.calls.slice(before)).toEqual(["answer"]);
+    expect(chain.history.at(-1)).toMatchObject({ by: ME, index: 3 });
+    expect(chain.history.at(-2)).toMatchObject({ index: WATER, result: "Miss" });
+  });
+
+  it("answers on its own when the captain waits too long to fire", async () => {
+    let t = 0;
+    const chain = new FakeContract();
+    const session = new GameSession({ accountId: ME, viewer: chain, caller: chain, store: memoryStorage(), evidence: chain.evidence, now: () => t });
+    await session.start(placeFleet(seededRng(7)));
+    await session.fire(0);
+    chain.nauarchFires(WATER, "x");
+    await session.tick();
+    expect(chain.calls.filter((c) => c === "answer")).toHaveLength(0);
+    t += 21_000;
+    await session.tick();
+    expect(chain.calls.filter((c) => c === "answer")).toHaveLength(1);
+    expect(session.snapshot.step).toEqual({ kind: "fire" });
   });
 
   it("does not trust a signed line from another shot", async () => {
@@ -223,7 +267,7 @@ describe("GameSession", () => {
     const session = new GameSession({ accountId: ME, viewer: chain, caller: chain, store: memoryStorage(), evidence: chain.evidence, now: () => t });
     await session.start(placeFleet(seededRng(7)));
     await session.fire(0);
-    chain.nauarchFires(55, "x");
+    chain.nauarchFires(SHIP, "x");
     chain.failNext = "network glitch";
     await session.tick();
     await session.tick();

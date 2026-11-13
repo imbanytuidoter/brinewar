@@ -107,6 +107,7 @@ const OUT_OF_FUEL = /NotEnoughBalance|LackBalance|not enough balance/i;
 const REFUEL_GAP_MS = 60_000;
 const CLAIM_AFTER_MS = 150_000;
 const CLAIM_MARGIN_MS = 2_500;
+const DEFER_ANSWER_MS = 20_000;
 const TIMED_STEPS: ReadonlySet<string> = new Set(["fire", "answer", "commit", "reveal", "thinking", "wait"]);
 const FINAL = /invite link is not valid|board already committed|board already revealed|board not committed|index does not match|no shot to answer|game is not/;
 
@@ -136,6 +137,7 @@ export class GameSession {
   #hitRetries = 0;
   #chainHistory = 0;
   #firing = false;
+  #deferred: { key: string; gameId: number; index: number; since: number } | null = null;
 
   constructor(d: SessionDeps) {
     this.#d = d;
@@ -354,9 +356,19 @@ export class GameSession {
     const history = [...this.#snap.history, { n: g.shots, by: this.#d.accountId, index, result: "Pending" as const, block: 0, source: "Player" as const }];
     this.#set({ history, marks: marksFrom(history, this.#d.accountId), step: { kind: "wait" } });
     this.#firing = true;
-    const r = await this.#send("Firing", "fire", { game_id: g.id, index }).finally(() => {
+    const d = this.#deferred;
+    const board = this.#snap.board;
+    const together = d !== null && board !== null && d.gameId === g.id && g.pending_index === d.index;
+    const r = await (together
+      ? this.#send("Firing", "answer", { ...answerArgs(board, g.id, d.index), then_fire: index })
+      : this.#send("Firing", "fire", { game_id: g.id, index })
+    ).finally(() => {
       this.#firing = false;
     });
+    if (r.ok && together) {
+      this.#given.add(`answer:${g.id}:${d.index}`);
+      this.#deferred = null;
+    }
     if (!r.ok && this.#snap.history === history) this.#set(before);
     await this.tick();
     return r.ok;
@@ -418,11 +430,12 @@ export class GameSession {
     this.#chainHistory = history.length;
     const board = this.#boardFor(id) ?? (game.status === "Placing" ? this.#adoptPending(id) : null);
     const planned = nextStep(game, me, board !== null);
-    const step: Step = planned.kind === "reveal" && this.#given.has(`reveal:${id}`) ? { kind: "done" } : planned;
+    const settledStep: Step = planned.kind === "reveal" && this.#given.has(`reveal:${id}`) ? { kind: "done" } : planned;
+    const { step, shown } = this.#defer(game, settledStep, board, history);
     const invite = step.kind === "invite" ? (this.#snap.invite ?? this.#d.store.get(inviteKey(me, id))) : null;
     if (game.status === "Finished") clearBattle(this.#d.store, me);
     else saveBattle(this.#d.store, me, game, history);
-    this.#set({ game, history, marks: marksFrom(history, me), step, board, invite, deadlineAt: await this.#deadline(game, step) });
+    this.#set({ game, history: shown, marks: marksFrom(shown, me), step, board, invite, deadlineAt: await this.#deadline(game, step) });
     const acted = await this.#act(game, step, board);
     await this.#claimIfLate(game, step);
     if (game.mode === "VsNauarch") await this.#refreshEvidence(game, history).catch(() => undefined);
@@ -430,6 +443,19 @@ export class GameSession {
     const settled = game.mode === "VsNauarch" ? game.revealed_a && game.revealed_b : game.status === "Finished";
     if (step.kind === "done" && settled) await this.#settle(game.id);
     return acted;
+  }
+
+  #defer(game: GameView, step: Step, board: Board | null, history: ShotView[]): { step: Step; shown: ShotView[] } {
+    if (step.kind !== "answer" || !board || board.cells[step.index] !== 0 || game.status !== "Playing") {
+      this.#deferred = null;
+      return { step, shown: history };
+    }
+    const key = `${game.id}:${step.index}:${game.shots}`;
+    if (this.#deferred?.key !== key) this.#deferred = { key, gameId: game.id, index: step.index, since: this.#now() };
+    if (this.#now() - this.#deferred.since >= DEFER_ANSWER_MS) return { step, shown: history };
+    const last = history.length - 1;
+    const shown = history.map((s, i) => (i === last && s.result === "Pending" ? { ...s, result: "Miss" as const } : s));
+    return { step: { kind: "fire" }, shown };
   }
 
   async #deadline(g: GameView, step: Step): Promise<number | null> {

@@ -811,3 +811,133 @@ fn a_new_model_keeps_the_old_key_for_past_signatures() {
     );
     assert_eq!(m.c.model_key_of("never/seen".into()), None);
 }
+
+fn answer_args(b: &Board, i: u8) -> (u8, String, Vec<String>) {
+    (b.cells[i as usize], b.salt_hex(i), b.proof_hex(i))
+}
+
+#[test]
+fn an_answer_and_the_next_shot_travel_in_one_call() {
+    let mut m = Match::started();
+    m.fire(&player(), 1);
+    let request = m.c.nauarch_request_after(m.id, 1, 0);
+    let response = response_with(r#"{"shot":"J10","line":"Steady."}"#);
+    let sig = sign(&request, &response);
+    let (cell, salt, pf) = answer_args(&m.b, 1);
+    m.chain.skip(1);
+    m.chain.act(&nauarch());
+    m.c.answer(
+        m.id,
+        1,
+        cell,
+        salt,
+        pf,
+        None,
+        Some(AiReply {
+            response_body: response,
+            signature_hex: sig,
+        }),
+        None,
+    );
+    let h = m.c.get_history(m.id);
+    assert_eq!(h.len(), 2);
+    assert_eq!(h[0].result, ShotResult::Miss);
+    assert_eq!(
+        (h[1].index, h[1].source, h[1].result),
+        (99, ShotSource::Model, ShotResult::Pending)
+    );
+    let (cell, salt, pf) = answer_args(&m.a, 99);
+    m.chain.skip(1);
+    m.chain.act(&player());
+    m.c.answer(m.id, 99, cell, salt, pf, Some(3), None, None);
+    let h = m.c.get_history(m.id);
+    assert_eq!(h.len(), 3);
+    assert_eq!(h[1].result, ShotResult::Miss);
+    assert_eq!((h[2].index, h[2].result), (3, ShotResult::Pending));
+    assert_eq!(m.view().turn, nauarch());
+}
+
+#[test]
+fn the_nauarch_can_answer_and_fall_back_in_one_call() {
+    let mut m = Match::started();
+    m.fire(&player(), 1);
+    let (cell, salt, pf) = answer_args(&m.b, 1);
+    m.chain.skip(1);
+    m.chain.act(&nauarch());
+    m.c.answer(m.id, 1, cell, salt, pf, None, None, Some(true));
+    let h = m.c.get_history(m.id);
+    assert_eq!(h.len(), 2);
+    assert_eq!(h[1].source, ShotSource::Deterministic);
+    assert_eq!(m.view().pending_index, Some(h[1].index));
+}
+
+#[test]
+fn nothing_may_follow_a_hit_and_nobody_fires_for_the_other_side() {
+    let mut m = Match::started();
+    m.fire(&player(), 0);
+    let (cell, salt, pf) = answer_args(&m.b, 0);
+    m.chain.skip(1);
+    m.chain.act(&nauarch());
+    let msg = panics(|| {
+        m.c.answer(
+            m.id,
+            0,
+            cell,
+            salt.clone(),
+            pf.clone(),
+            None,
+            None,
+            Some(true),
+        )
+    });
+    assert!(msg.contains("a hit keeps the turn"), "{msg}");
+    assert_eq!(m.view().pending_index, Some(0));
+    m.answer_truthfully(&nauarch(), 0);
+    m.fire(&player(), 1);
+    let (cell, salt, pf) = answer_args(&m.b, 1);
+    m.chain.skip(1);
+    m.chain.act(&nauarch());
+    let msg = panics(|| {
+        m.c.answer(m.id, 1, cell, salt.clone(), pf.clone(), Some(5), None, None)
+    });
+    assert!(msg.contains("the Nauarch fires through"), "{msg}");
+    m.c.answer(m.id, 1, cell, salt, pf, None, None, Some(true));
+    let fired = m.view().pending_index.unwrap();
+    let (cell, salt, pf) = answer_args(&m.a, fired);
+    m.chain.skip(1);
+    m.chain.act(&player());
+    let fake = AiReply {
+        response_body: response_with(r#"{"shot":"A1","line":"x"}"#),
+        signature_hex: "00".repeat(64),
+    };
+    let msg = panics(|| {
+        m.c.answer(
+            m.id,
+            fired,
+            cell,
+            salt.clone(),
+            pf.clone(),
+            None,
+            Some(fake),
+            None,
+        )
+    });
+    assert!(
+        msg.contains("only the Nauarch") || msg.contains("a hit keeps the turn"),
+        "{msg}"
+    );
+}
+
+#[test]
+fn the_request_after_an_answer_matches_the_request_the_contract_checks() {
+    let mut m = Match::started();
+    m.fire(&player(), 1);
+    let after = m.c.nauarch_request_after(m.id, 1, 0);
+    m.answer_truthfully(&nauarch(), 1);
+    m.chain.act(&nauarch());
+    assert_eq!(after, m.c.nauarch_request(m.id, MoveKind::Shot));
+    let msg = panics(|| {
+        m.c.nauarch_request_after(m.id, 1, 0);
+    });
+    assert!(msg.contains("no shot to answer"), "{msg}");
+}

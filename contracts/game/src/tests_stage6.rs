@@ -174,7 +174,8 @@ impl Duel {
         self.c.fire(self.id, index);
         self.chain.skip(1);
         self.chain.act(&target);
-        self.c.answer(self.id, index, cell, salt, pf);
+        self.c
+            .answer(self.id, index, cell, salt, pf, None, None, None);
     }
 
     fn reveal(&mut self, who: &AccountId) {

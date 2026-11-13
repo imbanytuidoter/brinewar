@@ -47,6 +47,14 @@ interface SealedBoard {
   salts: string[];
 }
 
+interface SignedMove {
+  readonly request: string;
+  readonly response: string;
+  readonly chatId: string;
+  readonly signature: string;
+  readonly text: string;
+}
+
 function stateOf(g: GameView): string {
   return `${g.status}:${g.shots}:${g.pending_index}:${g.turn}:${g.root_b !== null}:${g.revealed_b}:${g.farewell_said}`;
 }
@@ -123,8 +131,7 @@ export class Admiral {
         case "commit":
           return await this.#commit(g);
         case "answer":
-          if (await this.#answer(g, action.index)) await this.#followUp(g, action.index);
-          return;
+          return await this.#answerAndMove(g, action.index);
         case "move":
           return await this.#move(g);
         case "reveal":
@@ -193,6 +200,35 @@ export class Admiral {
     return true;
   }
 
+  async #answerAndMove(g: GameView, index: number): Promise<void> {
+    const board = this.#board(g.id);
+    if (!board) throw new Error(`no board for game ${g.id}`);
+    if (board.cells[index] !== 0 || g.mode !== "VsNauarch") {
+      if (await this.#answer(g, index)) await this.#followUp(g, index);
+      return;
+    }
+    let signed: SignedMove | null = null;
+    if (this.#o.model) {
+      try {
+        signed = await this.#signed(g, "Shot", index);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        this.#o.store.saveAiMove({ gameId: g.id, kind: "Shot", source: "model", error: errorCode(message) });
+        this.#o.log.warn({ game: g.id, err: message }, "model move failed, answering with the contract's shot");
+      }
+    }
+    const args = answerArgs(board, g.id, index);
+    const follow = signed ? { then_ai: { response_body: signed.response, signature_hex: signed.signature } } : { then_fallback: true };
+    const r = await this.#send(g.id, "answer", { ...args, ...follow });
+    if (!r.ok) {
+      if (await this.#answer(g, index)) await this.#followUp(g, index);
+      return;
+    }
+    this.#o.store.saveAnswer(g.id, { idx: index, cell: args.cell, salt: args.salt, proof: args.proof, tx: r.tx });
+    if (signed) this.#o.store.saveAiMove({ gameId: g.id, kind: "Shot", source: "model", chatId: signed.chatId, request: signed.request, response: signed.response, signature: signed.signature, signedText: signed.text, error: null, tx: r.tx });
+    else this.#o.store.saveAiMove({ gameId: g.id, kind: "Shot", source: "deterministic", error: null, tx: r.tx });
+  }
+
   #announceSunk(gameId: number, board: Board, index: number): void {
     const ship = ships(board.cells).find((s) => s.includes(index));
     if (!ship) return;
@@ -219,10 +255,13 @@ export class Admiral {
     if (r.ok) this.#o.store.saveReveal(g.id, args.cells, args.salts, r.tx);
   }
 
-  async #signed(g: GameView, kind: MoveKind): Promise<{ request: string; response: string; chatId: string; signature: string; text: string }> {
+  async #signed(g: GameView, kind: MoveKind, afterMiss: number | null = null): Promise<SignedMove> {
     const model = this.#o.model;
     if (!model) throw new Error("no model configured");
-    const request = await this.#o.viewer.view<string>("nauarch_request", { game_id: g.id, kind });
+    const request =
+      afterMiss === null
+        ? await this.#o.viewer.view<string>("nauarch_request", { game_id: g.id, kind })
+        : await this.#o.viewer.view<string>("nauarch_request_after", { game_id: g.id, index: afterMiss, cell: 0 });
     const work = (async () => {
       const started = Date.now();
       const reply = await model.complete(request);

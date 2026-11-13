@@ -1,7 +1,7 @@
 use crate::events::emit;
 use crate::fleet::{BOARD_SIZE, CELLS, SHIP_CELLS};
 use crate::game::{Game, Mode, ShotResult, ShotSource, Side, Status};
-use crate::{Brinewar, BrinewarExt};
+use crate::{settle_answer, Brinewar, BrinewarExt};
 use near_sdk::serde_json::{json, Value};
 use near_sdk::{env, near, require};
 use serde::Serialize;
@@ -396,21 +396,62 @@ impl Brinewar {
         self.require_nauarch();
         let mut game = self.load(game_id);
         self.require_nauarch_can(&game, kind);
+        self.ai_move_on(&mut game, kind, &response_body, &signature_hex);
+        self.store(game);
+    }
+
+    pub fn nauarch_fallback(&mut self, game_id: u64) {
+        self.require_nauarch();
+        let mut game = self.load(game_id);
+        self.require_nauarch_can(&game, MoveKind::Shot);
+        self.fallback_on(&mut game);
+        self.store(game);
+    }
+
+    pub fn nauarch_request_after(&self, game_id: u64, index: u8, cell: u8) -> String {
+        let mut game = self.load(game_id);
+        require!(cell <= 1, "cell must be 0 or 1");
+        let pending = game
+            .pending_shot()
+            .cloned()
+            .unwrap_or_else(|| env::panic_str("no shot to answer"));
+        require!(
+            pending.by == Side::A && pending.index == index,
+            "index does not match the pending shot"
+        );
+        settle_answer(&mut game, Side::B, cell == 1);
+        let model = self
+            .model
+            .as_ref()
+            .unwrap_or_else(|| env::panic_str("model is not set"));
+        request_body(&model.model, &game, MoveKind::Shot)
+    }
+}
+
+impl Brinewar {
+    pub(crate) fn ai_move_on(
+        &mut self,
+        game: &mut Game,
+        kind: MoveKind,
+        response_body: &str,
+        signature_hex: &str,
+    ) {
+        let game_id = game.id;
         let model = self
             .model
             .clone()
             .unwrap_or_else(|| env::panic_str("model is not set"));
-        let request = request_body(&model.model, &game, kind);
+        let request = request_body(&model.model, game, kind);
         let signature: [u8; 64] = hex::decode(signature_hex.trim_start_matches("0x"))
             .ok()
             .and_then(|s| <[u8; 64]>::try_from(s).ok())
             .unwrap_or_else(|| env::panic_str("signature must be 64 bytes hex"));
-        let text = signed_text(&model.model, &request, &response_body);
+        let text = signed_text(&model.model, &request, response_body);
         require!(
             env::ed25519_verify(&signature, text.as_bytes(), &model.public_key),
             "model signature does not match this game's request"
         );
-        let (shot, line) = extract_content(&response_body)
+        let (shot, line) = extract_content(response_body)
             .map(|c| parse_reply(&c))
             .unwrap_or((None, None));
         let line = line.as_deref().and_then(sanitize_line);
@@ -422,9 +463,9 @@ impl Brinewar {
                     .filter(|&c| !game.has_fired(Side::B, c));
                 let (index, source) = match chosen {
                     Some(c) => (c, ShotSource::Model),
-                    None => (deterministic_shot(&game), ShotSource::ModelFallback),
+                    None => (deterministic_shot(game), ShotSource::ModelFallback),
                 };
-                self.record_shot(&mut game, Side::B, index, source);
+                self.record_shot(game, Side::B, index, source);
                 emit(
                     "nauarch_said",
                     json!({
@@ -445,35 +486,30 @@ impl Brinewar {
                 );
             }
         }
-        self.store(game);
     }
 
-    pub fn nauarch_fallback(&mut self, game_id: u64) {
-        self.require_nauarch();
-        let mut game = self.load(game_id);
-        self.require_nauarch_can(&game, MoveKind::Shot);
-        let index = deterministic_shot(&game);
-        self.record_shot(&mut game, Side::B, index, ShotSource::Deterministic);
+    pub(crate) fn fallback_on(&mut self, game: &mut Game) {
+        let index = deterministic_shot(game);
+        self.record_shot(game, Side::B, index, ShotSource::Deterministic);
         emit(
             "nauarch_said",
             json!({
-                "game_id": game_id, "kind": MoveKind::Shot, "n": game.shots.len() - 1,
+                "game_id": game.id, "kind": MoveKind::Shot, "n": game.shots.len() - 1,
                 "shot": cell_name(index), "source": ShotSource::Deterministic, "line": null,
             }),
         );
-        self.store(game);
     }
 }
 
 impl Brinewar {
-    fn require_nauarch(&self) {
+    pub(crate) fn require_nauarch(&self) {
         require!(
             env::predecessor_account_id() == self.nauarch,
             "only the Nauarch moves for the Nauarch"
         );
     }
 
-    fn require_nauarch_can(&self, game: &Game, kind: MoveKind) {
+    pub(crate) fn require_nauarch_can(&self, game: &Game, kind: MoveKind) {
         require!(game.mode == Mode::VsNauarch, "not a Nauarch battle");
         match kind {
             MoveKind::Shot => {
