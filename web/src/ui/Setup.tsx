@@ -124,7 +124,7 @@ export function Setup(p: SetupProps) {
         </div>
       )}
 
-      <div className="sticky bottom-0 -mx-3 -mb-3 grid gap-2 border-t border-line bg-[#0c2431]/95 p-3 backdrop-blur-md max-sm:-mx-2.5 max-sm:-mb-2.5 max-sm:gap-1.5 max-sm:p-2.5">
+      <div className="sticky bottom-0 -mx-3 -mb-3 grid gap-2 border-t border-line bg-[#0c2431]/95 p-3 backdrop-blur-md max-sm:-mx-2.5 max-sm:-mb-2.5 max-sm:gap-1 max-sm:p-2 max-sm:pb-1">
         <span className="text-xs font-semibold tracking-[0.12em] text-muted uppercase max-sm:hidden">{p.mode === "friend" ? "Duel a friend" : "Battle the Nauarch"}</span>
         {p.mode === "friend" ? (
           <Opponent title="A friend" text="You get a link to send. Your friend opens it in any browser, no wallet, places a fleet and the duel starts." stakes="Free · no stakes · XP for both flagships" foot={null} warn={false}>
@@ -144,11 +144,13 @@ export function Setup(p: SetupProps) {
             <Button variant="brass" size="sm" onClick={p.onSail} disabled={p.busy || short} aria-label="Set sail against the Nauarch" className="w-full max-sm:h-11 max-sm:text-sm">
               <Anchor aria-hidden />
               Set sail
+              {p.treasury && <span className="font-semibold opacity-75 sm:hidden">· win {p.treasury.bounty} gold</span>}
             </Button>
+            {short && <span className="text-[11px] text-hit sm:hidden">Not enough gold for the entry. Duels with friends are free.</span>}
           </Opponent>
         )}
         {p.onMode && (
-          <button type="button" onClick={() => p.onMode?.(p.mode === "friend" ? "nauarch" : "friend")} disabled={p.busy} className="inline-flex min-h-8 items-center justify-center gap-1.5 text-xs font-semibold text-muted hover:text-ink disabled:opacity-50">
+          <button type="button" onClick={() => p.onMode?.(p.mode === "friend" ? "nauarch" : "friend")} disabled={p.busy} className="inline-flex min-h-8 items-center justify-center gap-1.5 text-xs font-semibold text-muted hover:text-ink disabled:opacity-50 max-sm:min-h-7">
             {p.mode === "friend" ? <Anchor className="size-3.5" aria-hidden /> : <Swords className="size-3.5" aria-hidden />}
             {p.mode === "friend" ? "Fight the Nauarch instead" : "Duel a friend instead, free"}
           </button>
@@ -185,7 +187,7 @@ interface OpponentProps {
 function Opponent({ title, text, stakes, foot, warn, children }: OpponentProps) {
   return (
     <div className="grid content-between gap-2 rounded-xl border border-line bg-black/20 p-2.5 max-sm:gap-1.5 max-sm:border-0 max-sm:bg-transparent max-sm:p-0">
-      <div className="grid gap-1 max-sm:flex max-sm:items-baseline max-sm:justify-between">
+      <div className="grid gap-1 max-sm:hidden">
         <span className="font-display text-[17px] leading-tight font-bold max-sm:text-[15px]">{title}</span>
         <span className="text-[11px] leading-snug text-muted max-sm:hidden">{text}</span>
         <span className="text-[11px] font-semibold text-brass">{stakes}</span>
