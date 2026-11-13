@@ -65,6 +65,14 @@ Example transactions are linked from the Verify page of any battle. Deployment s
 - The replay rebuilds the captain's fleet from the Nauarch's hits, so it only shows battles he won by sinking the whole fleet. A captain's board is revealed in a transaction, not kept in contract state.
 - "Save progress with Google" (NEAR Auth) is not shipped: the shared testnet client only accepts `localhost:3000`. See [`docs/research/2026-11-11-near-auth.md`](docs/research/2026-11-11-near-auth.md).
 
+## What's next
+
+Not built yet; these build on what is already on chain.
+
+- **Skins as collectibles.** Every skin is already a NEP-245 token in the game contract, and `mt_transfer` moves it between registered captains today (it needs a full-access key, since a guest key cannot attach the 1 yoctoNEAR deposit). Next: limited and artist editions, plus NEP-245 approvals so skins can be listed on NEAR marketplaces; the contract refuses approvals for now.
+- **Money never buys an edge.** Skins change how a ship looks and nothing else. Rank is earned only in battle: a flagship that changes hands keeps its record, but its rank freezes. Selling skins can fund the game without selling advantage.
+- **The trusted house AI as a product.** The same pattern, sealed boards plus model moves signed in a TEE and checked by the contract, fits other games of skill where players need to trust the house bot.
+
 ## Run it locally
 
 Requirements: Rust with `wasm32-unknown-unknown` and `cargo-near`, Node 22.13+, Docker (only if your glibc is older than 2.38, for `near-sandbox`).
