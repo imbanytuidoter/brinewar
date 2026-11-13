@@ -83,15 +83,15 @@ export function PlayPage({ cfg, session, stats, landing, onEnter }: PlayPageProp
   const lastMine = useMemo(() => [...snap.history].reverse().find((s) => s.by === snap.accountId) ?? null, [snap.history, snap.accountId]);
   const watching = !duel && inBattle && result === null && (step === "thinking" || (step === "wait" && lastMine?.result === "Miss"));
   const theirLast = useMemo(() => [...snap.history].reverse().find((s) => s.by !== snap.accountId) ?? null, [snap.history, snap.accountId]);
-  const lock = useLockOn(snap.gameId, theirLast?.n ?? null, theirLast?.index ?? null, !duel);
   const reckoned = useMemo(() => lookout(snap.marks.mine, heat), [snap.marks.mine, heat]);
   const theirShots = useMemo(() => snap.history.filter((s) => s.by !== snap.accountId).length, [snap.history, snap.accountId]);
   const offered = useNauarchAim(session, duel ? null : snap.gameId, theirShots);
   const sweep = offered ?? reckoned;
-  const spyglass = !duel && inBattle && result === null ? (lock !== null ? [lock] : sweep) : null;
-  const spyglassOn = lock !== null || watching;
   const feed = useBattleFeed({ myShips, myMarks: snap.marks.mine, enemyMarks: snap.marks.enemy, sunkTheirs, heat, boards: stats.admiralty?.boards_counted ?? 0, rival: duel ? (rival ?? "Your friend") : null, gameId: snap.gameId });
   const shotsInAir = feed.flight !== null || feed.settling;
+  const lock = useLockOn(snap.gameId, theirLast?.n ?? null, theirLast?.index ?? null, !duel, feed.flight?.side === "mine");
+  const spyglass = !duel && inBattle && result === null ? (lock !== null ? [lock] : sweep) : null;
+  const spyglassOn = lock !== null || watching;
   const onFire = useCallback(
     (index: number) => {
       sound.unlock();

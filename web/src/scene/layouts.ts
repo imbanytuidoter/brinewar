@@ -25,12 +25,12 @@ export interface Layout {
 
 const ON_SAND = 0.2;
 const BOB: Motion = { kind: "bob" };
-const TOP_LANE = -7.3;
-const BOTTOM_LANE = 8.2;
+const PATROL_LANE = 12.4;
+const PASSER_LANE = 9.6;
 
 const life = (patrol: string, passer: string): Prop[] => [
-  { model: patrol, x: -8, z: TOP_LANE, scale: 0.26, motion: { kind: "patrol", from: -8, to: 8, speed: 0.9 } },
-  { model: passer, x: 13.8, z: BOTTOM_LANE, scale: 0.18, motion: { kind: "sail", from: 13.8, to: -13.8, speed: 0.75 } },
+  { model: patrol, x: -8, z: PATROL_LANE, scale: 0.26, motion: { kind: "patrol", from: -8, to: 8, speed: 0.9 } },
+  { model: passer, x: 13.8, z: PASSER_LANE, scale: 0.18, motion: { kind: "sail", from: 13.8, to: -13.8, speed: 0.75 } },
   { model: "barrel", x: -4.6, z: 6.4, scale: 0.26, y: -0.05, motion: BOB },
   { model: "barrel", x: -3.9, z: 6.7, scale: 0.22, y: -0.05, motion: BOB },
   { model: "boat-row-small", x: 0, z: 6.5, scale: 0.3, turn: 0.6, motion: BOB },

@@ -6,9 +6,10 @@ import type { Side } from "./types";
 
 const MAX_PARTICLES = 4000;
 const FLIGHT_SECONDS = 1.15;
-const HOLD_FROM = 0.5;
-const HOLD_UNTIL = 0.78;
-const HOLD_PACE = 0.12;
+const FUSE_COLOR = "#ffb347";
+const FUSE_RATE = 0.8;
+const REST_HEIGHT = 0.18;
+const REST_BOB = 0.05;
 const HOLD_MAX_SECONDS = 9;
 const BURN_STEP = 0.03;
 const BUOY_COLOR = "#f4fbff";
@@ -214,23 +215,29 @@ export class EffectsEngine {
       const f = this.#flights[i];
       if (!f) continue;
       const waiting = f.hold !== null && f.held < HOLD_MAX_SECONDS && f.hold();
-      const along = f.t / f.max;
-      if (waiting && along >= HOLD_FROM) {
+      if (f.t < f.max) {
+        f.t = Math.min(f.max, f.t + dt);
+        const k = f.t / f.max;
+        this.#tmp.lerpVectors(f.from, f.to, k);
+        this.#tmp.y = THREE.MathUtils.lerp(f.from.y, REST_HEIGHT, k) + Math.sin(k * Math.PI) * 4.2;
+        f.m.position.copy(this.#tmp);
+        if (Math.random() < 0.7) {
+          this.#pool.emit({ x: this.#tmp.x, y: this.#tmp.y, z: this.#tmp.z, vx: 0, vy: 0.3, vz: 0, color: f.trail, size: 0.22, grow: 0.6, life: 0.6, gravity: 0.4 });
+        }
+        continue;
+      }
+      if (waiting) {
         f.held += dt;
-        if (along < HOLD_UNTIL) f.t += dt * HOLD_PACE;
-      } else f.t += dt;
-      const k = Math.min(1, f.t / f.max);
-      this.#tmp.lerpVectors(f.from, f.to, k);
-      this.#tmp.y = THREE.MathUtils.lerp(f.from.y, 0.1, k) + Math.sin(k * Math.PI) * 4.2;
-      f.m.position.copy(this.#tmp);
-      if (Math.random() < 0.7) {
-        this.#pool.emit({ x: this.#tmp.x, y: this.#tmp.y, z: this.#tmp.z, vx: 0, vy: 0.3, vz: 0, color: f.trail, size: 0.22, grow: 0.6, life: 0.6, gravity: 0.4 });
+        const y = this.#water(f.to.x, f.to.z) + REST_HEIGHT + Math.sin(f.held * 6) * REST_BOB;
+        f.m.position.set(f.to.x, y, f.to.z);
+        if (Math.random() < FUSE_RATE) {
+          this.#pool.emit({ x: f.to.x, y: y + 0.22, z: f.to.z, vx: rnd(-0.5, 0.5), vy: rnd(0.8, 1.6), vz: rnd(-0.5, 0.5), color: FUSE_COLOR, size: 0.1, grow: 0.2, life: 0.35, gravity: 2 });
+        }
+        continue;
       }
-      if (k >= 1) {
-        this.group.remove(f.m);
-        this.#flights.splice(i, 1);
-        f.done();
-      }
+      this.group.remove(f.m);
+      this.#flights.splice(i, 1);
+      f.done();
     }
   }
 
