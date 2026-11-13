@@ -18,12 +18,14 @@ function useLive(cfg: AppConfig): Live {
   const [config, setConfig] = useState<ConfigView | null>(null);
   const [model, setModel] = useState<ModelView | null>(null);
   const [treasury, setTreasury] = useState<TreasuryNow | null>(null);
+  const [duelTimeout, setDuelTimeout] = useState<number | null>(null);
   useEffect(() => {
     let alive = true;
     const viewer = makeViewer(cfg.rpcUrl, cfg.contractId);
     viewer.view<ConfigView>("config").then((c) => alive && setConfig(c)).catch(() => undefined);
     viewer.view<ModelView | null>("model").then((m) => alive && setModel(m)).catch(() => undefined);
     viewer.view<TreasuryNow>("treasury").then((t) => alive && setTreasury(t)).catch(() => undefined);
+    viewer.view<number>("duel_timeout").then((d) => alive && setDuelTimeout(d)).catch(() => undefined);
     return () => {
       alive = false;
     };
@@ -46,12 +48,13 @@ function useLive(cfg: AppConfig): Live {
       bountiesPerDay: s?.bounties_per_day ?? null,
       gamesPerDay: num("games_per_day"),
       timeoutBlocks: num("move_timeout_blocks"),
+      duelTimeoutBlocks: duelTimeout,
       minHeatShots: num("min_heat_shots"),
       treasury: treasury?.balance ?? null,
       entryNow: treasury?.entry ?? null,
       bountyNow: treasury?.bounty ?? null,
     };
-  }, [cfg, config, model, treasury]);
+  }, [cfg, config, model, treasury, duelTimeout]);
 }
 
 function useActive(ids: readonly string[]): string | null {

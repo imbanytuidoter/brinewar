@@ -15,6 +15,7 @@ export interface Live {
   readonly bountiesPerDay: number | null;
   readonly gamesPerDay: number | null;
   readonly timeoutBlocks: number | null;
+  readonly duelTimeoutBlocks: number | null;
   readonly minHeatShots: number | null;
   readonly treasury: string | null;
   readonly entryNow: string | null;
@@ -72,8 +73,8 @@ export function sections(l: Live): Section[] {
       body: (
         <>
           <p>Brinewar is a naval battle on NEAR that you play straight from the browser. A guest account is made for you in the background, and the game pays the gas, so you never connect a wallet. Each shot is still a real transaction, and the contract rejects any answer that arrives without a proof.</p>
-          <p>Your opponent is <b>the Nauarch</b>, an AI admiral. He has studied every board the contract verified, fires first where captains like to hide, and speaks one line per shot. Each of his moves is produced by a model running in a trusted enclave on NEAR AI, signed there, and checked by the contract before it counts.</p>
-          <p>Live on NEAR testnet: <b>{v(l.players)}</b> captains, <b>{v(l.games)}</b> battles, contract <code>{l.contract}</code>.</p>
+          <p>Your opponent is <b>the Nauarch</b>, an AI admiral. He has studied every board the contract verified, fires first where captains like to hide, and speaks one line per shot. Each move the model makes runs in a trusted enclave on NEAR AI, is signed there, and is checked by the contract before it counts. If the model is late or wrong, the contract fires a deterministic shot instead, labelled as such.</p>
+          <p>Live on NEAR testnet: <b>{v(l.players)}</b> captains (including scripted <code>Seed_NN</code> captains that seeded the map), <b>{v(l.games)}</b> battles, contract <code>{l.contract}</code>.</p>
         </>
       ),
     },
@@ -102,7 +103,7 @@ export function sections(l: Live): Section[] {
             <li>Ships are straight lines and never touch, not even at the corners. The contract checks this when the boards are revealed.</li>
             <li>You fire one cell at a time. <b>A hit earns another shot</b>; a miss passes the turn. The rule is the same for the Nauarch and in duels.</li>
             <li>Sink all 20 cells of the enemy fleet to win. Cells around a sunk ship are marked as clear water so you do not waste shots.</li>
-            <li>Every move has a deadline of {v(l.timeoutBlocks)} blocks (about {l.timeoutBlocks === null ? "…" : Math.round((l.timeoutBlocks * 0.6) / 60)} minutes). Miss it and the other side can claim the win.</li>
+            <li>Against the Nauarch each move has {v(l.timeoutBlocks)} blocks (about {l.timeoutBlocks === null ? "…" : Math.round((l.timeoutBlocks * 0.6) / 60)} minutes); in duels, {v(l.duelTimeoutBlocks)} blocks (about {l.duelTimeoutBlocks === null ? "…" : Math.round(l.duelTimeoutBlocks * 0.6)} seconds). Miss it and the other side can claim the win.</li>
             <li><b>Strike colours</b> resigns the battle.</li>
           </ul>
         </>
@@ -119,7 +120,7 @@ export function sections(l: Live): Section[] {
             <li><b>Seal.</b> Before the first shot each side commits a Merkle root of its board. Every cell becomes a leaf <code>sha256(index ‖ cell ‖ salt)</code> with a fresh 32-byte salt; 100 leaves are padded to 128 and hashed into a tree of depth 7. Only the root goes on chain.</li>
             <li><b>Answer.</b> When a shot lands, the defender sends <i>hit</i> or <i>miss</i> together with the salt and the Merkle path for that cell. The contract recomputes the root and rejects the answer if it does not match.</li>
             <li><b>Reveal.</b> At the end both boards are opened in full. The contract checks them against the roots and checks the fleet is legal. An illegal fleet loses.</li>
-            <li><b>Verify.</b> The Verify page reads the battle from the chain and recomputes every proof, both reveals and every model signature in your browser.</li>
+            <li><b>Verify.</b> The Verify page reads the battle from the chain and, in your browser, recomputes the Merkle proof of every answer the Nauarch gave, his reveal against his sealed root, and every model signature. Your own answers are shown as checked by the contract.</li>
           </ol>
           <p>Your board and salts never leave your browser. The prompt for the AI is built by the contract from public data only, so the model never sees either board.</p>
         </>
@@ -135,7 +136,7 @@ export function sections(l: Live): Section[] {
             <li><b>Model:</b> <code>{v(l.model)}</code> on NEAR AI Cloud, inside a TEE. Its signing key is stored in the contract.</li>
             <li><b>Request:</b> the contract itself builds the request body with <code>nauarch_request</code>: the history of shots, the captain's record against him, the hottest cells of the Admiralty map. Temperature is 0 and the seed is fixed, so the same public state gives the same request byte for byte.</li>
             <li><b>Signature:</b> the enclave signs the request and the response. <code>submit_ai_move</code> checks the ed25519 signature against the stored key and that the request matches the current game. A stale or altered move is refused.</li>
-            <li><b>Fallback:</b> if the model names an invalid or repeated cell, the contract fires a deterministic shot instead: around known hits first, then the hottest open cell. The battle never stalls on the model.</li>
+            <li><b>Fallback:</b> if the model is late (over a few seconds) or names an invalid or repeated cell, the contract fires a deterministic shot instead: around known hits first, then the hottest open cell. The battle never stalls on the model.</li>
             <li><b>His voice:</b> one line of at most 140 characters, limited to game facts. Each line shows <i>signed ✓</i> once your browser has checked it.</li>
           </ul>
         </>
@@ -188,7 +189,7 @@ export function sections(l: Live): Section[] {
       short: "Ranks and skins",
       body: (
         <>
-          <p>Your flagship is a token too (<code>ship:N</code>). It earns XP in battle: 10 for each hit, 30 for each ship you sink and 100 for a win by sinking the fleet. A win on time or a short duel earns no win XP.</p>
+          <p>Your flagship is a token too (<code>ship:N</code>). It earns XP in battle: 10 for each hit, 30 for each ship you sink and 100 for a win by sinking the fleet. A win on time earns no win XP; a short duel earns no XP at all.</p>
           <Rows
             rows={[
               ["Rank", "XP", "Class", "Skin unlocked"],
@@ -210,7 +211,8 @@ export function sections(l: Live): Section[] {
       body: (
         <ul>
           <li>Press <b>Invite a friend</b> on the chart. You get a link with a secret in the part after <code>#</code>. Browsers never send that part to a web server; the contract stores only its hash until your friend presents the secret to join.</li>
-          <li>Your friend opens it in any browser, also without a wallet, places a fleet and accepts. Same proofs, same turn rule, same deadlines.</li>
+          <li>Your friend opens it in any browser, also without a wallet, places a fleet and accepts. Same proofs and turn rule, with a move deadline of about a minute.</li>
+          <li>During the duel you can chat. Each message is signed with your guest key, and only the two captains can read or write it.</li>
           <li>No gold changes hands. Both flagships earn XP when the duel is played out with at least {v(l.minHeatShots)} answered shots per side.</li>
         </ul>
       ),
@@ -221,9 +223,9 @@ export function sections(l: Live): Section[] {
       short: "Accounts and gas",
       body: (
         <ul>
-          <li>Your browser creates a key pair and asks the harbour for a guest account <code>p-…​.{l.contract}</code>. The sponsor account creates it on chain and adds your key.</li>
+          <li>Your browser creates a key pair and asks the harbour for a guest account <code>p-…​.{l.contract}</code>. The sponsor account asks the game contract, which creates the account, funds it and adds your key.</li>
           <li>The key is a function-call key: it can only call game methods on the game contract (new battle, commit, fire, answer, reveal, resign, claim a timeout, set a nickname). It cannot transfer NEAR or tokens.</li>
-          <li>Gas comes from the key's allowance, which the harbour refuels. You never see a gas prompt.</li>
+          <li>Gas is paid from your guest account's balance, which the harbour tops up; the key itself can spend at most 0.25 NEAR. You never see a gas prompt.</li>
           <li>Clearing your browser storage loses the key, and with it the guest account.</li>
         </ul>
       ),

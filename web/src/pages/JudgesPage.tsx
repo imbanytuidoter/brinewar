@@ -18,23 +18,25 @@ const STACK = ["near-sdk 5.30.1", "near-api-js 7.4.0", "NEP-245", "NEP-297", "NE
 const DOORS = [
   { href: "/replay", icon: Clapperboard, title: "Watch a finished battle", line: "A real battle the Nauarch won, replayed from the chain in about a minute, with his signed lines and his fleet rising at the end." },
   { href: "/", icon: Anchor, title: "Play the Nauarch", line: "Open it in a fresh browser. No wallet, no seed phrase, no popup: a guest account and 100 gold appear in a few seconds." },
-  { href: "/", icon: Swords, title: "Duel a friend", line: "Press Challenge a friend and send the link. They play from their own browser, no wallet either, with the same proofs on every answer." },
+  { href: "/", icon: Swords, title: "Duel a friend", line: "Press Invite a friend, then Create the duel link, and send it. They play from their own browser, no wallet either, with the same proofs on every answer." },
   { href: "/admiralty", icon: MapIcon, title: "Admiralty map", line: "Where captains hide ships, built only from boards the contract verified. The Nauarch hunts the hot cells first." },
   { href: "/treasury", icon: Coins, title: "Treasury", line: "Bounties shrink and entry fees rise as he grows poor. Fast-forward 50 battles with the contract's own formulas." },
 ] as const;
 
 const PROOFS = [
   ["Hidden boards", "Each board is a Merkle root of 100 salted cells, committed before the first shot. Every answer carries a proof that the contract checks; at the end both fleets are revealed and checked for shape."],
-  ["The Nauarch's moves", "The contract builds the model request from public game state. NEAR AI Cloud answers inside a TEE and signs model:sha256(request):sha256(response); the contract verifies that ed25519 signature before it accepts the shot and the line."],
+  ["The Nauarch's moves", "The contract builds the model request from public game state. NEAR AI Cloud answers inside a TEE and signs model:sha256(request):sha256(response); the contract verifies that ed25519 signature before it accepts the shot and the line. If the model is late or wrong, the contract plays a deterministic shot, labelled as such."],
   ["The economy", "Entry fees and bounties come from a formula in the contract, driven only by the treasury balance. Nobody tunes it by hand."],
-  ["The map", "Only boards that pass the final check count, one per captain per day, from battles of ten moves or more."],
+  ["The map", "Only boards that pass the final check count: one per captain per day, from battles against the Nauarch that end with a fleet sunk, where the captain answered at least ten shots."],
 ] as const;
 
 const LIMITS = [
   "An illegal fleet is caught only at the final reveal: the cheat loses the battle and the stake, but plays until then. ZK at commit time is future work.",
   "Our server keeps the Nauarch's board and salts. It cannot change them after the commit, but it can see them. Moving that into a TEE is future work.",
   "The admin pins the model key after checking its attestation; the contract does not verify a TDX quote itself.",
-  "A sponsor account pays for guest accounts and gas.",
+  "The game contract funds guest accounts and their gas; a sponsor account signs the sign-ups.",
+  "The Admiralty map was seeded with scripted battles by Seed_NN captains so it was not empty on day one; the live count of boards is shown on the landing and the Admiralty page.",
+  "The replay shows only battles the Nauarch won by sinking the whole fleet, because it rebuilds the captain's fleet from his hits.",
 ] as const;
 
 function fmt(t: number): string {
@@ -119,7 +121,7 @@ export function JudgesPage({ cfg }: { readonly cfg: AppConfig }) {
           </p>
           <p className="m-0">
             A naval battle you play from a fresh browser without a wallet. Each shot is a NEAR transaction and each answer carries a Merkle proof. Your opponent, the Nauarch,
-            is an AI admiral: his moves are signed inside a TEE on NEAR AI and checked by the contract before they count.
+            is an AI admiral: every move his model makes is signed inside a TEE on NEAR AI and checked by the contract before it counts.
           </p>
           <ul className="m-0 flex list-none flex-wrap gap-1.5 p-0">
             {STACK.map((s) => (
@@ -158,7 +160,7 @@ export function JudgesPage({ cfg }: { readonly cfg: AppConfig }) {
         </dl>
         <p className="m-0 inline-flex flex-wrap items-center gap-2 text-sm">
           <BadgeCheck className="size-4 text-ok" aria-hidden />
-          After any battle, press Verify: your browser re-checks every proof and signature against the contract, without trusting our server.
+          After any battle, press Verify: your browser re-checks every answer the Nauarch gave, his reveal and every model signature against the contract, without trusting our server.
         </p>
         <p className="m-0 text-sm">
           Contract{" "}

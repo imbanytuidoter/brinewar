@@ -48,7 +48,7 @@ export function AdmiraltyPage({ cfg }: { readonly cfg: AppConfig }) {
       title="Admiralty map"
       lede={
         <p className="m-0">
-          Each board that passes the final check on chain adds to this map, one per captain per day, and only from battles of ten moves or more. The Nauarch opens fire on the
+          Each board that passes the final check on chain adds to this map, one per captain per day, only from battles against the Nauarch that end with a fleet sunk and where the captain answered at least ten shots. The Nauarch opens fire on the
           hottest cells. If you hide where most captains hide, expect him there early. The counts are kept by the contract itself.
         </p>
       }
@@ -60,7 +60,7 @@ export function AdmiraltyPage({ cfg }: { readonly cfg: AppConfig }) {
         </p>
       )}
       {load.kind === "error" && <p className="text-hit">Could not reach the harbour. Try again in a moment.</p>}
-      {load.kind === "ok" && !frame && <p className="text-muted">No boards revealed yet. Play a battle of ten moves or more to put the first marks on the chart.</p>}
+      {load.kind === "ok" && !frame && <p className="text-muted">No boards revealed yet. Finish a battle against the Nauarch where you answered at least ten shots to put the first marks on the chart.</p>}
       {frame && (
         <>
           <section className="grid gap-3 sm:grid-cols-3">
