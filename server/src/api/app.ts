@@ -49,6 +49,8 @@ export interface AppOptions {
   readonly balanceOf?: (accountId: string) => Promise<bigint>;
   readonly refuelBelow?: bigint;
   readonly now?: () => number;
+  readonly sampledAt?: () => number | null;
+  readonly sampleMs?: number;
 }
 
 function isEd25519(key: unknown): key is string {
@@ -80,9 +82,11 @@ export async function buildApp(o: AppOptions) {
     return body;
   };
 
-  app.get("/health", async () => {
+  app.get("/health", async (_req, reply) => {
     const last = o.store.lastSample("treasury");
-    return { ok: true, lastSampleAgeMs: last ? now() - last.at : null };
+    const ran = o.sampledAt?.() ?? null;
+    const stale = o.sampledAt !== undefined && o.sampleMs !== undefined && (ran === null || now() - ran > 3 * o.sampleMs);
+    return reply.code(stale ? 503 : 200).send({ ok: !stale, lastSampleAgeMs: last ? now() - last.at : null, lastSampleRunAgeMs: ran === null ? null : now() - ran });
   });
 
   app.post("/api/guest", { config: { rateLimit: { max: 10, timeWindow: "1 minute" } } }, async (req, reply) => {
@@ -100,10 +104,19 @@ export async function buildApp(o: AppOptions) {
         const accountId = await o.viewer.view<string>("guest_account_for", { public_key: publicKey });
         const existing = await o.viewer.view<PlayerView | null>("get_player", { account_id: accountId });
         if (existing) {
-          const low = o.balanceOf && o.refuelBelow !== undefined ? (await o.balanceOf(accountId).catch(() => null)) : null;
+          const low =
+            o.balanceOf && o.refuelBelow !== undefined
+              ? await o.balanceOf(accountId).catch((err: unknown) => {
+                  req.log.warn({ accountId, err: err instanceof Error ? err.message : String(err) }, "could not read the guest balance, refuel skipped");
+                  return null;
+                })
+              : null;
           if (low === null || o.refuelBelow === undefined || low >= o.refuelBelow) return { status: 200, body: { accountId, created: false } };
           const slot = o.store.reserveGuest(limitKey(req.ip), accountId, o.guestsPerIpHour, o.guestsPerDay, now() - HOUR, now() - DAY);
-          if (typeof slot !== "number") return { status: 200, body: { accountId, created: false, refueled: false } };
+          if (typeof slot !== "number") {
+            req.log.warn({ accountId, limit: slot }, "refuel refused by the guest limit");
+            return { status: 200, body: { accountId, created: false, refueled: false } };
+          }
           const r = await o.sponsor.call("create_guest", { public_key: publicKey, nickname: null }, GUEST_GAS_TGAS);
           const refueled = r.ok && r.value === true;
           o.store.finishGuest(slot, r.txHash, refueled);
@@ -148,7 +161,7 @@ export async function buildApp(o: AppOptions) {
     };
   });
 
-  const leaderboard = new Snapshots(() => buildLeaderboard(o.viewer, LEADERBOARD_SEEDS, LEADERBOARD_BATCH), LEADERBOARD_MS, now);
+  const leaderboard = new Snapshots(() => buildLeaderboard(o.viewer, LEADERBOARD_SEEDS, LEADERBOARD_BATCH), LEADERBOARD_MS, now, (err) => o.log.warn({ err: err instanceof Error ? err.message : String(err) }, "leaderboard refresh failed, serving the last one"));
   app.get("/api/leaderboard", { config: { rateLimit: { max: 60, timeWindow: "1 minute" } } }, async () => leaderboard.get());
 
   app.get("/api/treasury", async () =>

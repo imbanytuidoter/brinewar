@@ -18,7 +18,7 @@ export function chatPayload(kind: "say" | "read", gameId: number, account: strin
 
 export interface ChatClient {
   send(gameId: number, text: string): Promise<boolean>;
-  read(gameId: number, after: number): Promise<ChatMessage[]>;
+  read(gameId: number, after: number): Promise<ChatMessage[] | null>;
 }
 
 function isMessage(v: unknown): v is ChatMessage {
@@ -47,9 +47,9 @@ export function chatClient(apiUrl: string, account: string, secretKey: string, f
       const signedAt = now();
       const q = new URLSearchParams({ account, publicKey, signedAt: String(signedAt), signature: sign(chatPayload("read", gameId, account, signedAt)), after: String(after) });
       const res = await fetchFn(`${apiUrl}/api/duel/${gameId}/chat?${q}`).catch(() => null);
-      if (!res?.ok) return [];
+      if (!res?.ok) return null;
       const body = (await res.json().catch(() => null)) as { messages?: unknown } | null;
-      return Array.isArray(body?.messages) ? body.messages.filter(isMessage) : [];
+      return Array.isArray(body?.messages) ? body.messages.filter(isMessage) : null;
     },
   };
 }

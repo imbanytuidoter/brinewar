@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { makeCaller, makeHeight, makeViewer } from "@/lib/chain";
 import type { AppConfig } from "@/lib/config";
 import { ensureGuest, GuestError, refuelGuest } from "@/lib/guest";
@@ -58,6 +58,10 @@ export function useSession(session: GameSession): Snapshot {
   const inBattle = snap.gameId !== null && snap.step?.kind !== "done";
   const theirMove = snap.step?.kind === "thinking" || snap.step?.kind === "wait" || snap.step?.kind === "answer";
   const delay = snap.offline ? OFFLINE_POLL_MS : inBattle ? (theirMove ? WATCH_POLL_MS : BATTLE_POLL_MS) : HARBOUR_POLL_MS;
+  const delayRef = useRef(delay);
+  useEffect(() => {
+    delayRef.current = delay;
+  }, [delay]);
   useEffect(() => {
     let alive = true;
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -67,7 +71,8 @@ export function useSession(session: GameSession): Snapshot {
       running = true;
       await session.poll();
       running = false;
-      if (alive) timer = setTimeout(() => void loop(), document.hidden ? Math.max(delay, HIDDEN_POLL_MS) : delay);
+      const wait = delayRef.current;
+      if (alive) timer = setTimeout(() => void loop(), document.hidden ? Math.max(wait, HIDDEN_POLL_MS) : wait);
     };
     const wake = (): void => {
       if (document.hidden || !alive || running) return;
@@ -81,7 +86,7 @@ export function useSession(session: GameSession): Snapshot {
       clearTimeout(timer);
       document.removeEventListener("visibilitychange", wake);
     };
-  }, [session, delay]);
+  }, [session]);
   return snap;
 }
 

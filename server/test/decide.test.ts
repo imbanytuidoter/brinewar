@@ -24,7 +24,7 @@ describe("decide", () => {
 
   it("cancels a placement the player abandoned", () => {
     expect(decide(game({ status: "Placing", root_b: "bb" }), ctx({ height: 101 })).kind).toBe("claim");
-    expect(decide(game({ status: "Placing", root_b: null }), ctx({ height: 101 })).kind).toBe("wait");
+    expect(decide(game({ status: "Placing", root_b: null }), ctx({ height: 101 })).kind).toBe("resign");
   });
 
   it("answers a pending shot and moves when the shot is answered", () => {
@@ -33,9 +33,10 @@ describe("decide", () => {
     expect(decide(game({ turn: P }), ctx()).kind).toBe("wait");
   });
 
-  it("claims a timeout only when the player is late", () => {
+  it("claims a timeout when the player is late and strikes colours when he missed his own deadline", () => {
     expect(decide(game({ turn: P }), ctx({ height: 101 })).kind).toBe("claim");
-    expect(decide(game({ turn: ADM }), ctx({ height: 101 })).kind).toBe("wait");
+    expect(decide(game({ turn: ADM }), ctx({ height: 101 })).kind).toBe("resign");
+    expect(decide(game({ turn: ADM, pending_index: 7 }), ctx({ height: 101 })).kind).toBe("resign");
   });
 
   it("reveals as winner and claims when the winning player never reveals", () => {

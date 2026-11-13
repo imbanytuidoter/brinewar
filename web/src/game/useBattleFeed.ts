@@ -24,6 +24,7 @@ export interface FeedContext {
   readonly heat: readonly number[] | null;
   readonly boards: number;
   readonly rival: string | null;
+  readonly gameId?: number | null;
 }
 
 const SHIP_NAMES: Readonly<Record<number, string>> = { 4: "Man-of-war", 3: "Frigate", 2: "Brig", 1: "Sloop" };
@@ -63,6 +64,12 @@ export function useBattleFeed(ctx: FeedContext): {
   });
 
   useEffect(() => {
+    streak.current = 0;
+    landedHits.current = new Set();
+    shownSunk.current = new Set();
+  }, [ctx.gameId]);
+
+  useEffect(() => {
     if (!callout) return;
     const t = setTimeout(() => setCallout((c) => (c?.id === callout.id ? null : c)), HOLD_MS);
     return () => clearTimeout(t);
@@ -79,9 +86,8 @@ export function useBattleFeed(ctx: FeedContext): {
   const announce = useCallback(
     (ship: readonly number[]) => {
       const key = [...ship].sort((a, b) => a - b).join();
-      if (shownSunk.current.has(key)) return;
+      if (shownSunk.current.has(key) || !ship.every((c) => landedHits.current.has(c))) return;
       shownSunk.current.add(key);
-      if (!ship.some((c) => landedHits.current.has(c))) return;
       sound.sunk();
       show(sankTitle(ref.current.rival), `${shipName(ship.length)} · ${cellName(ship[ship.length - 1] ?? 0)}`, "sunk");
     },
@@ -105,8 +111,9 @@ export function useBattleFeed(ctx: FeedContext): {
         streak.current += 1;
         landedHits.current.add(cell);
         const sunk = c.sunkTheirs.find((s) => s.includes(cell));
-        if (sunk) {
-          shownSunk.current.add([...sunk].sort((a, b) => a - b).join());
+        const sunkKey = sunk ? [...sunk].sort((a, b) => a - b).join() : null;
+        if (sunk && sunkKey && !shownSunk.current.has(sunkKey)) {
+          shownSunk.current.add(sunkKey);
           sound.sunk();
           show(sankTitle(c.rival), `${shipName(sunk.length)} · ${cellName(cell)}`, "sunk");
           return;

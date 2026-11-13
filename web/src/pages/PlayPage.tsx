@@ -73,7 +73,7 @@ export function PlayPage({ cfg, session, stats, landing, onEnter }: PlayPageProp
   const sunkTheirs = useMemo(() => mergeSunk(confirmedSunk(snap.marks.enemy), snap.announcedSunk), [snap.marks.enemy, snap.announcedSunk]);
   const clearCells = useMemo(() => clearWater(sunkTheirs, snap.marks.enemy), [sunkTheirs, snap.marks.enemy]);
   const heat = stats.admiralty && stats.admiralty.boards_counted > 0 ? stats.admiralty.heat : null;
-  const feed = useBattleFeed({ myShips, myMarks: snap.marks.mine, enemyMarks: snap.marks.enemy, sunkTheirs, heat, boards: stats.admiralty?.boards_counted ?? 0, rival: duel ? (rival ?? "Your friend") : null });
+  const feed = useBattleFeed({ myShips, myMarks: snap.marks.mine, enemyMarks: snap.marks.enemy, sunkTheirs, heat, boards: stats.admiralty?.boards_counted ?? 0, rival: duel ? (rival ?? "Your friend") : null, gameId: snap.gameId });
   const onFire = useCallback(
     (index: number) => {
       sound.unlock();

@@ -7,6 +7,7 @@ export type Action =
   | { kind: "reveal" }
   | { kind: "farewell" }
   | { kind: "claim" }
+  | { kind: "resign" }
   | { kind: "wait" }
   | { kind: "done" };
 
@@ -23,11 +24,11 @@ export function decide(g: GameView, ctx: DecideContext): Action {
   const late = ctx.height > g.deadline_block;
   switch (g.status) {
     case "Placing":
-      if (g.root_b === null) return late ? { kind: "wait" } : { kind: "commit" };
+      if (g.root_b === null) return late ? { kind: "resign" } : { kind: "commit" };
       return late ? { kind: "claim" } : { kind: "wait" };
     case "Playing": {
       const ours = g.turn === ctx.admiral;
-      if (late) return ours ? { kind: "wait" } : { kind: "claim" };
+      if (late) return ours ? { kind: "resign" } : { kind: "claim" };
       if (!ours) return { kind: "wait" };
       return g.pending_index !== null ? { kind: "answer", index: g.pending_index } : { kind: "move" };
     }

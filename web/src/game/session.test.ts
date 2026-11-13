@@ -11,7 +11,7 @@ import { boardKey } from "@/lib/guest";
 import { fromHex, rootFromProof, sha256, toHex } from "@/lib/merkle";
 import { signedText } from "@/lib/nauarch";
 import { memoryStorage } from "@/lib/storage";
-import { GameSession, isStale, rewardsBetween, verifiedFleet } from "./session";
+import { GameSession, isNetworkError, isStale, rewardsBetween, verifiedFleet } from "./session";
 import { battleKey, loadBattle, openBattle } from "./resume";
 import { clockText } from "@/ui/TurnClock";
 import { newBoard, revealArgs } from "@/lib/board";
@@ -313,6 +313,20 @@ describe("GameSession", () => {
     await other.session.tick();
     expect(other.chain.calls.at(-1)).toBe("commit_board");
     expect(other.store.get(boardKey(ME, 4))).not.toBeNull();
+  });
+
+  it("tells a broken browser state apart from a lost connection", async () => {
+    expect(isNetworkError(new TypeError("Failed to fetch"))).toBe(true);
+    expect(isNetworkError(new Error("view get_game timed out"))).toBe(true);
+    expect(isNetworkError(new Error("HTTP 503"))).toBe(true);
+    expect(isNetworkError(new Error("bad salt length"))).toBe(false);
+    const { session } = setup();
+    const broken = { view: async () => Promise.reject(new Error("bad salt length")) } as unknown as Viewer;
+    const s = new GameSession({ accountId: ME, viewer: broken, caller: broken as unknown as Caller, store: memoryStorage(), evidence: async () => null });
+    await s.poll();
+    expect(s.snapshot.offline).toBe(false);
+    expect(s.snapshot.error).toMatch(/Reload the page/);
+    expect(session.snapshot.offline).toBe(false);
   });
 
   it("drops a shot that never reached the chain instead of waiting on it forever", async () => {

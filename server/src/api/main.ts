@@ -13,13 +13,20 @@ const store = new Store(config.dbPath);
 const viewer = new NearViewer(reads, config.contract, 15_000);
 const sponsor = new NearCaller(config.sponsor, rpc, config.sponsorKey, config.contract, 60_000);
 const balanceOf = async (accountId: string): Promise<bigint> => BigInt((await reads.viewAccount({ accountId, blockQuery: { finality: "optimistic" } })).amount);
-const app = await buildApp({ viewer, sponsor, store, log, guestsPerIpHour: config.guestsPerIpHour, guestsPerDay: config.guestsPerDay, trustProxy: config.trustProxy, balanceOf, refuelBelow: config.refuelBelowYocto });
+const app = await buildApp({ viewer, sponsor, store, log, guestsPerIpHour: config.guestsPerIpHour, guestsPerDay: config.guestsPerDay, trustProxy: config.trustProxy, balanceOf, refuelBelow: config.refuelBelowYocto, sampledAt: () => sampledAt, sampleMs: config.sampleMs });
 
+let sampledAt: number | null = null;
+let sampleFailures = 0;
 const loop = async (): Promise<void> => {
   try {
     await sample(viewer, store, () => blockHeight(reads, 15_000));
+    sampledAt = Date.now();
+    sampleFailures = 0;
   } catch (err) {
-    log.warn({ err: err instanceof Error ? err.message : String(err) }, "sample failed");
+    sampleFailures += 1;
+    const entry = { err: err instanceof Error ? err.message : String(err), failures: sampleFailures };
+    if (sampleFailures >= 3) log.error(entry, "sampler keeps failing");
+    else log.warn(entry, "sample failed");
   }
 };
 await loop();

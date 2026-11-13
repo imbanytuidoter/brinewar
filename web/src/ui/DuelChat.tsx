@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 
 const POLL_MS = 2000;
 const SHOWN = 6;
+const DOWN_AFTER = 3;
 const QUICK = ["Good luck!", "Nice shot!", "Close one", "GG"] as const;
 
 interface DuelChatProps {
@@ -15,6 +16,11 @@ interface DuelChatProps {
   readonly rival: string;
 }
 
+function merge(have: readonly ChatMessage[], fresh: readonly ChatMessage[]): ChatMessage[] {
+  const seen = new Set(have.map((m) => m.n));
+  return [...have, ...fresh.filter((m) => !seen.has(m.n))];
+}
+
 export function DuelChat({ apiUrl, gameId, me, secretKey, rival }: DuelChatProps) {
   const client = useMemo(() => chatClient(apiUrl, me, secretKey), [apiUrl, me, secretKey]);
   const [messages, setMessages] = useState<readonly ChatMessage[]>([]);
@@ -22,6 +28,7 @@ export function DuelChat({ apiUrl, gameId, me, secretKey, rival }: DuelChatProps
   const [open, setOpen] = useState(() => typeof window === "undefined" || window.matchMedia("(min-width: 640px)").matches);
   const [seen, setSeen] = useState(0);
   const [failed, setFailed] = useState(false);
+  const [misses, setMisses] = useState(0);
   const last = useRef(0);
 
   useEffect(() => {
@@ -30,9 +37,10 @@ export function DuelChat({ apiUrl, gameId, me, secretKey, rival }: DuelChatProps
     const pull = async (): Promise<void> => {
       const fresh = await client.read(gameId, last.current);
       if (!alive) return;
-      if (fresh.length > 0) {
+      setMisses((n) => (fresh === null ? n + 1 : 0));
+      if (fresh && fresh.length > 0) {
         last.current = fresh[fresh.length - 1]?.n ?? last.current;
-        setMessages((m) => [...m, ...fresh]);
+        setMessages((m) => merge(m, fresh));
       }
       timer = setTimeout(() => void pull(), POLL_MS);
     };
@@ -53,7 +61,15 @@ export function DuelChat({ apiUrl, gameId, me, secretKey, rival }: DuelChatProps
     setDraft("");
     const ok = await client.send(gameId, t);
     setFailed(!ok);
-    if (!ok) setDraft(t);
+    if (!ok) {
+      setDraft(t);
+      return;
+    }
+    const fresh = await client.read(gameId, last.current);
+    if (fresh && fresh.length > 0) {
+      last.current = fresh[fresh.length - 1]?.n ?? last.current;
+      setMessages((m) => merge(m, fresh));
+    }
   };
 
   const unread = messages.slice(seen).filter((m) => m.account !== me).length;
@@ -118,6 +134,7 @@ export function DuelChat({ apiUrl, gameId, me, secretKey, rival }: DuelChatProps
         </button>
       </form>
       {failed && <p className="m-0 text-xs text-hit">The message did not go through. Try again.</p>}
+      {misses >= DOWN_AFTER && <p className="m-0 text-xs text-hit">The chat is not reachable right now. The battle itself is not affected.</p>}
     </section>
   );
 }

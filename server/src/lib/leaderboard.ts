@@ -76,11 +76,14 @@ export class Snapshots<T> {
   #value: T | undefined;
   #at = -Infinity;
   #running: Promise<T> | null = null;
+  #failedAt = -Infinity;
 
   constructor(
     private readonly load: () => Promise<T>,
     private readonly maxAgeMs: number,
     private readonly now: () => number = Date.now,
+    private readonly onError: (err: unknown) => void = () => undefined,
+    private readonly retryAfterMs = 60_000,
   ) {}
 
   #refresh(): Promise<T> {
@@ -100,7 +103,11 @@ export class Snapshots<T> {
 
   async get(): Promise<T> {
     if (this.#value === undefined) return this.#refresh();
-    if (this.now() - this.#at > this.maxAgeMs) this.#refresh().catch(() => undefined);
+    if (this.now() - this.#at > this.maxAgeMs && this.now() - this.#failedAt > this.retryAfterMs)
+      this.#refresh().catch((err: unknown) => {
+        this.#failedAt = this.now();
+        this.onError(err);
+      });
     return this.#value;
   }
 }

@@ -8,6 +8,7 @@ import { fromHex, sha256, toHex } from "../lib/merkle.js";
 import type { Caller, Viewer } from "../lib/near.js";
 import { withTimeout } from "../lib/near.js";
 import type { ModelProviderPort } from "../lib/nearai.js";
+import { ModelProviderError } from "../lib/nearai.js";
 import type { Vault } from "../lib/vault.js";
 import { decide, type Action } from "./decide.js";
 
@@ -133,6 +134,10 @@ export class Admiral {
         case "claim":
           await this.#send(g.id, "claim_timeout", { game_id: g.id });
           return;
+        case "resign":
+          this.#o.log.warn({ game: g.id, status: g.status, deadline: g.deadline_block }, "missed own deadline, striking colours");
+          await this.#send(g.id, "resign", { game_id: g.id });
+          return;
         case "wait":
         case "done":
           return;
@@ -204,7 +209,11 @@ export class Admiral {
 
   async #reveal(g: GameView): Promise<void> {
     const board = this.#board(g.id);
-    if (!board) return;
+    if (!board) {
+      this.#failures.set(g.id, (this.#failures.get(g.id) ?? 0) + 1);
+      this.#o.log.error({ game: g.id }, "cannot reveal: no stored board for this game");
+      return;
+    }
     const args = revealArgs(board, g.id);
     const r = await this.#send(g.id, "reveal", args);
     if (r.ok) this.#o.store.saveReveal(g.id, args.cells, args.salts, r.tx);
@@ -238,7 +247,9 @@ export class Admiral {
         if (r.ok) return;
       } catch (err) {
         this.#o.store.saveAiMove({ gameId: g.id, kind: "Shot", source: "model", error: errorCode(err instanceof Error ? err.message : String(err)) });
-        this.#o.log.warn({ game: g.id, err: err instanceof Error ? err.message : String(err) }, "model move failed, falling back");
+        const entry = { game: g.id, err: err instanceof Error ? err.message : String(err) };
+        if (err instanceof ModelProviderError && err.kind === "auth") this.#o.log.error(entry, "the NEAR AI key is refused, every move falls back");
+        else this.#o.log.warn(entry, "model move failed, falling back");
       }
     }
     const r = await this.#send(g.id, "nauarch_fallback", { game_id: g.id });
@@ -253,6 +264,8 @@ export class Admiral {
       if (!r.ok) this.#o.store.logAction(g.id, "farewell", false, r.tx, r.error ?? null);
     } catch (err) {
       const error = err instanceof Error ? err.message : String(err);
+      this.#failures.set(g.id, (this.#failures.get(g.id) ?? 0) + 1);
+      this.#o.log.warn({ game: g.id, err: error }, "farewell failed");
       this.#o.store.logAction(g.id, "farewell", false, null, error);
       this.#o.store.saveAiMove({ gameId: g.id, kind: "Farewell", source: "model", error: errorCode(error) });
     }

@@ -1,4 +1,4 @@
-import type { FastifyInstance } from "fastify";
+import type { FastifyBaseLogger, FastifyInstance } from "fastify";
 import { PublicKey } from "near-api-js";
 import type { GameView } from "../lib/contract.js";
 import type { Store } from "../lib/db.js";
@@ -41,10 +41,11 @@ function hexBytes(hex: string): Uint8Array {
 
 const UNAVAILABLE = "unavailable";
 
-async function guarded(run: () => Promise<string | null>): Promise<string | null> {
+async function guarded(run: () => Promise<string | null>, log: FastifyBaseLogger): Promise<string | null> {
   try {
     return await run();
-  } catch {
+  } catch (err) {
+    log.warn({ err: err instanceof Error ? err.message : String(err) }, "chat check failed");
     return UNAVAILABLE;
   }
 }
@@ -101,7 +102,7 @@ export function registerChat(app: FastifyInstance, viewer: Viewer, store: Store,
     const s = signedFrom((req.params as { id: string }).id, body);
     const text = cleanText(body.text);
     if (!s || text === null) return reply.code(400).send({ error: `message must be 1-${MAX_TEXT} characters` });
-    const problem = await guarded(() => check(s, chatPayload("say", s.gameId, s.account, s.signedAt, typeof body.text === "string" ? body.text : ""), CLOCK_SKEW_MS));
+    const problem = await guarded(() => check(s, chatPayload("say", s.gameId, s.account, s.signedAt, typeof body.text === "string" ? body.text : ""), CLOCK_SKEW_MS), req.log);
     if (problem === UNAVAILABLE) return reply.code(503).send({ error: "the chain is not answering, try again" });
     if (problem) return reply.code(403).send({ error: problem });
     if (store.chatCountSince(s.account, now() - 60_000) >= PER_MINUTE) return reply.code(429).send({ error: "slow down" });
@@ -115,7 +116,7 @@ export function registerChat(app: FastifyInstance, viewer: Viewer, store: Store,
     const q = (req.query ?? {}) as Record<string, unknown>;
     const s = signedFrom((req.params as { id: string }).id, q);
     if (!s) return reply.code(400).send({ error: "bad request" });
-    const problem = await guarded(() => check(s, chatPayload("read", s.gameId, s.account, s.signedAt), READ_SKEW_MS));
+    const problem = await guarded(() => check(s, chatPayload("read", s.gameId, s.account, s.signedAt), READ_SKEW_MS), req.log);
     if (problem === UNAVAILABLE) return reply.code(503).send({ error: "the chain is not answering, try again" });
     if (problem) return reply.code(403).send({ error: problem });
     const after = Math.max(0, Number(q.after) || 0);

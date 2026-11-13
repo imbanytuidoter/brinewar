@@ -43,6 +43,12 @@ export interface Snapshot {
 
 const STATUS_ORDER: Readonly<Record<string, number>> = { Waiting: 0, Placing: 1, Playing: 2, Revealing: 3, Finished: 4 };
 
+export function isNetworkError(err: unknown): boolean {
+  if (err instanceof TypeError) return true;
+  const text = err instanceof Error ? err.message : String(err);
+  return /timed out|fetch|network|rpc|http|econn|enotfound|socket|load failed|unavailable|429|50\d/i.test(text);
+}
+
 export function isStale(next: GameView, prev: GameView | null): boolean {
   if (!prev || prev.id !== next.id) return false;
   const rank = (g: GameView): number[] => [STATUS_ORDER[g.status] ?? 0, g.shots, g.pending_index === null ? 1 : 0, Number(g.revealed_a) + Number(g.revealed_b) + (g.root_a ? 1 : 0) + (g.root_b ? 1 : 0)];
@@ -96,7 +102,6 @@ export function inviteKey(accountId: string, gameId: number): string {
 const EMPTY_MARKS: Marks = { mine: new Map(), enemy: new Map(), aiming: null };
 const BACKOFF_BASE_MS = 1500;
 const BACKOFF_MAX_MS = 8_000;
-const REVEAL_TRIES = 6;
 const EVIDENCE_TRIES = 8;
 const OUT_OF_FUEL = /NotEnoughBalance|LackBalance|not enough balance/i;
 const REFUEL_GAP_MS = 60_000;
@@ -122,12 +127,15 @@ export class GameSession {
   #keys: Map<string, string> = new Map();
   #nauarchShots = -1;
   #evidenceTries = 0;
+  #evidenceFails = 0;
+  #evidenceNext = 0;
   #lastRefuel = -Infinity;
   #stall: { key: string; since: number } | null = null;
   #settled: number | null = null;
   #hitsSeen = 0;
   #hitRetries = 0;
   #chainHistory = 0;
+  #firing = false;
 
   constructor(d: SessionDeps) {
     this.#d = d;
@@ -207,7 +215,15 @@ export class GameSession {
     if (a && this.#now() < a.nextAt) return false;
     this.#inflight.add(key);
     try {
-      const r = await this.#send(label, method, args());
+      let payload: object;
+      try {
+        payload = args();
+      } catch (err) {
+        this.#attempts.set(key, { n: (a?.n ?? 0) + 1, nextAt: this.#now() + BACKOFF_MAX_MS });
+        this.#set({ error: `This browser could not build the ${method} move (${err instanceof Error ? err.message : String(err)}).` });
+        return false;
+      }
+      const r = await this.#send(label, method, payload);
       if (r.ok) {
         this.#attempts.delete(key);
         this.#given.add(key);
@@ -215,7 +231,7 @@ export class GameSession {
       }
       const n = (a?.n ?? 0) + 1;
       this.#attempts.set(key, { n, nextAt: this.#now() + Math.min(BACKOFF_MAX_MS, BACKOFF_BASE_MS * 2 ** n) });
-      if (FINAL.test(r.error ?? "") || (key.startsWith("reveal:") && n >= REVEAL_TRIES)) this.#given.add(key);
+      if (FINAL.test(r.error ?? "")) this.#given.add(key);
       return false;
     } finally {
       this.#inflight.delete(key);
@@ -322,7 +338,11 @@ export class GameSession {
     if (this.#settled === gameId) return;
     this.#settled = gameId;
     const after = await this.#captain().catch(() => null);
-    const before = after ? this.#loadBaseline(gameId, after) : null;
+    if (!after) {
+      this.#settled = null;
+      return;
+    }
+    const before = this.#loadBaseline(gameId, after);
     if (after && before) this.#set({ rewards: rewardsBetween(before, after) });
     this.#d.store.remove(this.#baselineKey(gameId));
   }
@@ -333,7 +353,10 @@ export class GameSession {
     const before = { history: this.#snap.history, marks: this.#snap.marks, step: this.#snap.step };
     const history = [...this.#snap.history, { n: g.shots, by: this.#d.accountId, index, result: "Pending" as const, block: 0, source: "Player" as const }];
     this.#set({ history, marks: marksFrom(history, this.#d.accountId), step: { kind: "wait" } });
-    const r = await this.#send("Firing", "fire", { game_id: g.id, index });
+    this.#firing = true;
+    const r = await this.#send("Firing", "fire", { game_id: g.id, index }).finally(() => {
+      this.#firing = false;
+    });
     if (!r.ok && this.#snap.history === history) this.#set(before);
     await this.tick();
     return r.ok;
@@ -355,8 +378,9 @@ export class GameSession {
     try {
       await this.tick();
       if (this.#snap.offline) this.#set({ offline: false });
-    } catch {
-      this.#set({ offline: true });
+    } catch (err) {
+      if (isNetworkError(err)) this.#set({ offline: true });
+      else this.#set({ offline: false, error: `Something went wrong in this browser (${err instanceof Error ? err.message : String(err)}). Reload the page; your battle is kept on chain.` });
     }
   }
 
@@ -380,7 +404,7 @@ export class GameSession {
 
   async #battle(me: string): Promise<boolean> {
     const id = this.#snap.gameId;
-    if (id === null) return false;
+    if (id === null || this.#firing) return false;
     const [game, history] = await Promise.all([
       this.#d.viewer.view<GameView | null>("get_game", { game_id: id }),
       this.#d.viewer.view<ShotView[]>("get_history", { game_id: id }),
@@ -456,13 +480,19 @@ export class GameSession {
     const myHits = history.filter((s) => s.by !== g.b && s.result === "Hit").length;
     const newHit = myHits !== this.#hitsSeen || this.#hitRetries > 0;
     if (!newShots && !newHit && !((wantFarewell || wantFleet) && this.#evidenceTries < EVIDENCE_TRIES)) return;
+    if (this.#now() < this.#evidenceNext) return;
     if (myHits !== this.#hitsSeen) {
       this.#hitsSeen = myHits;
       this.#hitRetries = SUNK_RETRIES;
     } else if (this.#hitRetries > 0) this.#hitRetries -= 1;
     if (!newShots) this.#evidenceTries += 1;
-    const ev = await this.#d.evidence(g.id);
-    if (!ev) return;
+    const ev = await this.#d.evidence(g.id).catch(() => null);
+    if (!ev) {
+      this.#evidenceFails += 1;
+      this.#evidenceNext = this.#now() + Math.min(BACKOFF_MAX_MS, BACKOFF_BASE_MS * 2 ** this.#evidenceFails);
+      return;
+    }
+    this.#evidenceFails = 0;
     this.#nauarchShots = nauarchShots.length;
     const hit = new Set(history.filter((s) => s.by !== g.b && s.result === "Hit").map((s) => s.index));
     const announced = ev.sunk.filter((ship) => ship.every((c) => hit.has(c)));

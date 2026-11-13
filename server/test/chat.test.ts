@@ -101,3 +101,21 @@ describe("duel chat", () => {
     expect(cleanText(5)).toBeNull();
   });
 });
+
+describe("health", () => {
+  it("reports 503 once the sampler has stopped running", async () => {
+    let ran: number | null = NOW - 10_000;
+    const store = new Store(join(mkdtempSync(join(tmpdir(), "bw-")), "db.sqlite"), () => NOW);
+    const app = await buildApp({
+      viewer: new FakeViewer(() => null), sponsor: new FakeCaller("s"), store, log: silent, guestsPerIpHour: 2, guestsPerDay: 10, trustProxy: 0,
+      now: () => NOW, sampledAt: () => ran, sampleMs: 15_000,
+    });
+    expect((await app.inject({ url: "/health" })).statusCode).toBe(200);
+    ran = NOW - 60_000;
+    const res = await app.inject({ url: "/health" });
+    expect(res.statusCode).toBe(503);
+    expect(res.json().ok).toBe(false);
+    ran = null;
+    expect((await app.inject({ url: "/health" })).statusCode).toBe(503);
+  });
+});

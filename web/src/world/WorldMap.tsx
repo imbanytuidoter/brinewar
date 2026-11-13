@@ -13,6 +13,7 @@ const WAKE_LIFE = 1.6;
 const MAX_WAKE = 90;
 const POS_KEY = "brinewar.chart.pos.v2";
 const MINI_W = 180;
+const SAVE_EVERY_MS = 500;
 const CULL = 120;
 
 export type Encounter =
@@ -187,6 +188,7 @@ export function WorldMap({ captains, mySail, myFlag, reducedMotion, paused, onEn
     if (!canvas || !ctx) return;
     let raf = 0;
     let last = performance.now();
+    let lastSave = 0;
     let t = 0;
     const resize = (): void => {
       const dpr = Math.min(2, window.devicePixelRatio || 1);
@@ -226,7 +228,10 @@ export function WorldMap({ captains, mySail, myFlag, reducedMotion, paused, onEn
           const back = { x: helm.current.pos.x - Math.cos(helm.current.heading) * 26, y: helm.current.pos.y - Math.sin(helm.current.heading) * 26 };
           wake.current.push({ ...back, age: 0 });
           if (wake.current.length > MAX_WAKE) wake.current.shift();
-          savePos(helm.current.pos);
+          if (now - lastSave > SAVE_EVERY_MS) {
+            lastSave = now;
+            savePos(helm.current.pos);
+          }
         }
         check(helm.current.pos);
       }
