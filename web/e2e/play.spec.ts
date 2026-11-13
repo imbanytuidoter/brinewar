@@ -15,7 +15,7 @@ test("a fresh browser plays the Nauarch with no wallet and verifies the battle",
   await expect(page.getByRole("heading", { name: /Hide yours/ })).toBeVisible();
   await page.getByRole("button", { name: "Take command" }).click({ timeout: 120_000 });
   await expect(page.getByRole("button", { name: "Show where he hunts" })).toBeVisible();
-  await expect(page.getByText(/searches the \d+ reddest cells first/)).toBeVisible();
+  await expect(page.getByText(/is where he searches first/)).toBeVisible();
   await page.getByRole("button", { name: "Set sail against the Nauarch" }).click({ timeout: 60_000 });
   await expect(page.getByText(/Sink his fleet: \+\d+ gold/)).toBeVisible({ timeout: 90_000 });
   await expect(page.getByText("Your shot", { exact: true })).toBeVisible({ timeout: 90_000 });

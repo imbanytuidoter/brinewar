@@ -63,6 +63,14 @@ export function Setup(p: SetupProps) {
 
       {tab === "fleet" ? (
         <div role="tabpanel" aria-label="Fleet" className="grid gap-2">
+          {seen && showHeat && (
+            <p className="m-0 text-[12px] leading-snug text-muted">
+              <span className="font-semibold text-hit">Red</span> is where he searches first, learned from every captain's board.{" "}
+              <span className={cn("font-semibold", seen.exposed === 0 ? "text-ok" : seen.exposed > seen.ships / 3 ? "text-hit" : "text-brass")}>
+                {seen.exposed === 0 ? "None of your ships are there." : `${seen.exposed} of your ${seen.ships} ship cells are there.`}
+              </span>
+            </p>
+          )}
           <PlacementGrid cells={p.cells} heat={showHeat ? p.heat : null} sprite={look.sprite} pennant={look.pennant} disabled={p.busy} onChange={p.onCells} />
           <div className="grid grid-cols-2 gap-2">
             <Button size="sm" onClick={p.onShuffle} disabled={p.busy} aria-label="Shuffle your fleet">
@@ -74,15 +82,6 @@ export function Setup(p: SetupProps) {
               Heat map
             </Button>
           </div>
-          {seen && (
-            <p className="m-0 text-[12px] text-muted">
-              He learned from every captain's board and searches the {seen.looked} reddest cells first.{" "}
-              <span className={cn("font-semibold", seen.exposed === 0 ? "text-ok" : seen.exposed > seen.ships / 3 ? "text-hit" : "text-brass")}>
-                {seen.exposed === 0 ? "None of your ships are there." : `${seen.exposed} of your ${seen.ships} ship cells are there.`}
-              </span>{" "}
-              Drag ships into cold water to outwit him.
-            </p>
-          )}
           {risk && (
             <p className="m-0 text-[12px]">
               <span className={cn("font-semibold", risk.risk === "high" ? "text-hit" : risk.risk === "low" ? "text-ok" : "text-brass")}>{risk.risk === "high" ? "High risk" : risk.risk === "low" ? "Low risk" : "Medium risk"}</span>
