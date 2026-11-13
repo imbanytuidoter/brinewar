@@ -3,6 +3,8 @@ import { useEffect, useLayoutEffect } from "react";
 import { useBallProto } from "./models";
 import { useRuntime } from "./runtime";
 
+const MAX_EFFECT_DT = 0.1;
+
 export function Effects() {
   const { effects } = useRuntime();
   const ball = useBallProto();
@@ -17,7 +19,7 @@ export function Effects() {
   }, [effects, height]);
 
   useFrame(({ clock }, delta) => {
-    effects.update(clock.elapsedTime, Math.min(delta, 0.05));
+    effects.update(clock.elapsedTime, Math.min(delta, MAX_EFFECT_DT));
   });
 
   return <primitive object={effects.group} />;
