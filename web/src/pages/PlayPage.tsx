@@ -271,7 +271,7 @@ export function PlayPage({ cfg, session, stats, landing, onEnter }: PlayPageProp
             onDuel={challenge}
           />
         )}
-        {stakes && <p className="m-0 max-w-[300px] rounded-xl border border-line bg-glass px-3 py-2 text-[11px] text-muted backdrop-blur-md">{stakes}</p>}
+        {stakes && <p className="m-0 max-w-[300px] rounded-xl border border-line bg-glass px-3 py-2 text-[11px] text-muted backdrop-blur-md max-sm:hidden">{stakes}</p>}
         {inBattle && step === "invite" && snap.gameId !== null && <DuelInvite gameId={snap.gameId} secret={snap.invite} busy={snap.busy !== null} onCancel={() => void session.resign()} />}
         {inBattle && joinId !== null && step !== "done" && <p className="m-0 max-w-[280px] rounded-xl border border-line bg-glass px-3 py-2 text-xs backdrop-blur-md">Finish this battle first, then open the duel link again.</p>}
         {inBattle && result && verifyHref && <EndCard outcome={result} reason={g?.finish_reason ?? null} verifyHref={verifyHref} done={step === "done"} onAgain={again} rewards={snap.rewards} opponent={duel ? rival : null} />}

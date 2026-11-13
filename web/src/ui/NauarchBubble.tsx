@@ -19,12 +19,12 @@ export function NauarchBubble({ line, thinking, fallback, txHref, note = null, o
   const href = line ? txHref(line.tx) : null;
   if (opponent) return <RivalBubble name={opponent} thinking={thinking} inviting={inviting} />;
   return (
-    <section aria-live="polite" aria-label="The Nauarch" className="grid max-w-[min(420px,calc(100vw-32px))] grid-cols-[52px_minmax(0,1fr)] items-end gap-2.5">
-      <div aria-hidden className={cn("size-[52px] rounded-full", thinking && "animate-think")}>
-        <NauarchPortrait mood={thinking ? "thinking" : mood} className="size-[52px]" />
+    <section aria-live="polite" aria-label="The Nauarch" className="grid max-w-[min(420px,calc(100vw-32px))] grid-cols-[52px_minmax(0,1fr)] items-end gap-2.5 max-sm:grid-cols-[40px_minmax(0,1fr)] max-sm:gap-2">
+      <div aria-hidden className={cn("size-[52px] rounded-full max-sm:size-10", thinking && "animate-think")}>
+        <NauarchPortrait mood={thinking ? "thinking" : mood} className="size-[52px] max-sm:size-10" />
       </div>
-      <div key={line?.at ?? "idle"} className="grid min-w-0 animate-rise gap-1 rounded-[14px_14px_14px_4px] border border-line bg-glass px-3 py-2.5 backdrop-blur-md">
-        <p className="m-0 break-words">{thinking ? "The Nauarch sweeps your waters with his spyglass…" : line ? line.text : fallback}</p>
+      <div key={line?.at ?? "idle"} className="grid min-w-0 animate-rise gap-1 rounded-[14px_14px_14px_4px] border border-line bg-glass px-3 py-2.5 backdrop-blur-md max-sm:px-2.5 max-sm:py-1.5">
+        <p className="m-0 break-words max-sm:line-clamp-2 max-sm:text-[13px] max-sm:leading-snug">{thinking ? "The Nauarch sweeps your waters with his spyglass…" : line ? line.text : fallback}</p>
         {note && !thinking && <p className="m-0 text-[11px] text-muted">{note}</p>}
         {line && !thinking && (
           <Popover>
