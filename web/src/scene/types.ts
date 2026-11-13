@@ -6,7 +6,7 @@ export type Side = "mine" | "enemy";
 
 export type Hullset = "brine" | "pirate";
 
-export type Rig = "plain" | "pennants" | "cannons" | "banners" | "warship" | "ghost";
+export type Rig = "plain" | "pennants" | "cannons" | "banners" | "broadside" | "warship" | "flagship" | "ghost";
 
 export interface ShipParts {
   readonly cannon: THREE.Object3D;

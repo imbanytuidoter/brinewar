@@ -67,15 +67,22 @@ export function rigUp(model: THREE.Object3D, box: THREE.Box3, size: THREE.Vector
   const at = (along: number, across: number, y: number): THREE.Vector3 =>
     alongZ ? new THREE.Vector3(c.x + across, y, c.z + along) : new THREE.Vector3(c.x + along, y, c.z + across);
   const turn = (side: number): number => (alongZ ? (side > 0 ? Math.PI / 2 : -Math.PI / 2) : side > 0 ? 0 : Math.PI);
-  const cannons = rig === "cannons" || rig === "warship";
-  const pennants = rig === "pennants" || rig === "warship";
-  const banners = rig === "banners" || rig === "warship";
+  const cannons = rig === "cannons" || rig === "warship" || rig === "broadside" || rig === "flagship";
+  const pennants = rig === "pennants" || rig === "warship" || rig === "flagship";
+  const banners = rig === "banners" || rig === "warship" || rig === "broadside" || rig === "flagship";
+  const decks = rig === "flagship" ? [deck, deck + size.y * 0.11] : [deck];
   if (cannons) {
-    const count = Math.max(1, n - 1);
-    for (let k = 0; k < count; k++) {
-      const along = (count === 1 ? 0 : -0.22 + (0.44 * k) / (count - 1)) * long;
-      for (const side of [-1, 1]) place(model, parts.cannon, at(along, side * wide * 0.4, deck), 1.05, turn(side), materials);
+    const count = rig === "flagship" ? Math.max(2, n) : Math.max(1, n - 1);
+    for (const [row, y] of decks.entries()) {
+      const spread = row === 0 ? 0.44 : 0.3;
+      for (let k = 0; k < count; k++) {
+        const along = (count === 1 ? 0 : -spread / 2 + (spread * k) / (count - 1)) * long;
+        for (const side of [-1, 1]) place(model, parts.cannon, at(along, side * wide * (row === 0 ? 0.4 : 0.36), y), row === 0 ? 1.05 : 0.9, turn(side), materials);
+      }
     }
+  }
+  if (rig === "flagship") {
+    for (const end of [-1, 1]) place(model, parts.banner, at(end * long * 0.42, 0, deck), 2.6, alongZ ? 0 : Math.PI / 2, materials, true);
   }
   if (pennants) {
     for (const end of [-1, 1]) place(model, parts.pennant, at(end * long * 0.4, 0, deck), 1.9, alongZ ? 0 : Math.PI / 2, materials, true);
