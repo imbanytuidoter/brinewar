@@ -14,6 +14,27 @@ export interface ShipParts {
   readonly banner: THREE.Object3D;
 }
 
+export interface ShipFinish {
+  readonly metal: number;
+  readonly rough: number;
+  readonly glow: string;
+  readonly glowPower: number;
+  readonly sailGlow?: number;
+}
+
+export type LightSpot = "lanterns" | "mastheads";
+
+export interface ShipLights {
+  readonly color: string;
+  readonly at: readonly LightSpot[];
+  readonly flicker?: boolean;
+}
+
+export interface ShipAura {
+  readonly color: string;
+  readonly rate: number;
+}
+
 export interface ShipLook {
   readonly hulls?: Hullset;
   readonly rig?: Rig;
@@ -21,6 +42,9 @@ export interface ShipLook {
   readonly flag: string;
   readonly hull?: string;
   readonly trail?: string;
+  readonly finish?: ShipFinish;
+  readonly lights?: ShipLights;
+  readonly aura?: ShipAura;
 }
 
 export interface SeaSceneProps {

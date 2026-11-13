@@ -107,6 +107,10 @@ export class EffectsEngine {
     this.#pool.setViewportHeight(h);
   }
 
+  emitGlint(x: number, y: number, z: number, color: string): void {
+    this.#pool.emit({ x, y, z, vx: rnd(-0.12, 0.12), vy: rnd(0.25, 0.6), vz: rnd(-0.12, 0.12), color, size: rnd(0.08, 0.16), life: rnd(0.9, 1.6), gravity: -0.15 });
+  }
+
   emitBubble(x: number, z: number): void {
     this.#pool.emit({ x, y: 0.05, z, vx: rnd(-0.3, 0.3), vy: rnd(0.6, 1.4), vz: rnd(-0.3, 0.3), color: "#e6fbff", size: rnd(0.1, 0.22), life: rnd(0.6, 1.2), gravity: 0.5 });
   }

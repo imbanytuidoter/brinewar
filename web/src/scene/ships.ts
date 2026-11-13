@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { seaHeight, seaTilt, type Wave } from "./gerstner";
 import { BOARD_ORIGIN, cellCenter, isHorizontal, revealRise, shipCenter, type Point2 } from "./grid";
-import type { Rig, ShipLook, ShipParts, Side } from "./types";
+import type { LightSpot, Rig, ShipLook, ShipParts, Side } from "./types";
 
 const SAIL = /sail|flag/;
 const FLAG = /flag/;
@@ -24,6 +24,7 @@ export interface ShipFrame {
   readonly reduced: boolean;
   readonly reveal: number;
   readonly bubble: (x: number, z: number) => void;
+  readonly glint?: (x: number, y: number, z: number, color: string) => void;
 }
 
 const GHOST_TINT = "#d7e8ee";
@@ -85,6 +86,42 @@ export function rigUp(model: THREE.Object3D, box: THREE.Box3, size: THREE.Vector
   }
 }
 
+const LIGHT_WORLD_SIZE = 0.6;
+let glowTexture: THREE.Texture | null = null;
+
+function glowMap(): THREE.Texture {
+  if (glowTexture) return glowTexture;
+  const size = 64;
+  const c = document.createElement("canvas");
+  c.width = size;
+  c.height = size;
+  const g = c.getContext("2d");
+  if (g) {
+    const grad = g.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+    grad.addColorStop(0, "rgba(255,255,255,1)");
+    grad.addColorStop(0.25, "rgba(255,255,255,0.65)");
+    grad.addColorStop(1, "rgba(255,255,255,0)");
+    g.fillStyle = grad;
+    g.fillRect(0, 0, size, size);
+  }
+  glowTexture = new THREE.CanvasTexture(c);
+  return glowTexture;
+}
+
+interface Lamp {
+  readonly sprite: THREE.Sprite;
+  readonly mat: THREE.SpriteMaterial;
+  readonly phase: number;
+}
+
+interface Hull3 {
+  readonly model: THREE.Object3D;
+  readonly box: THREE.Box3;
+  readonly size: THREE.Vector3;
+  readonly alongZ: boolean;
+  readonly scale: number;
+}
+
 const FOAM_OPACITY = 0.42;
 const FOAM_PULSE = 0.12;
 const YAW_SWAY = 0.03;
@@ -127,6 +164,11 @@ export class ShipActor {
   readonly #hullMats: THREE.MeshStandardMaterial[] = [];
   readonly #hullBase = new THREE.Color();
   readonly #foam: THREE.Mesh;
+  #hull3: Hull3 | null = null;
+  #lamps: Lamp[] = [];
+  #flicker = false;
+  #aura: { readonly color: string; readonly rate: number } | null = null;
+  readonly #finishBase = new Map<THREE.MeshStandardMaterial, { metal: number; rough: number }>();
   readonly #foamMat: THREE.MeshBasicMaterial;
   readonly #phase = Math.random() * Math.PI * 2;
 
@@ -177,6 +219,7 @@ export class ShipActor {
     if (alongZ) inner.rotation.y = Math.PI / 2;
     this.pivot.add(inner);
     this.root.add(this.pivot);
+    this.#hull3 = { model, box, size, alongZ, scale };
     this.#foamMat = new THREE.MeshBasicMaterial({ map: foamMap(), transparent: true, opacity: FOAM_OPACITY, depthWrite: false });
     this.#materials.push(this.#foamMat);
     this.#foam = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), this.#foamMat);
@@ -198,6 +241,58 @@ export class ShipActor {
     for (const m of this.#sailMats) m.color.copy(look ? new THREE.Color(look.sail) : this.#sailBase);
     for (const m of this.#flagMats) m.color.set(look ? look.flag : MY_FLAG);
     for (const m of this.#hullMats) m.color.copy(look?.hull ? new THREE.Color(look.hull) : this.#hullBase);
+    this.#applyFinish(look);
+    this.#placeLamps(look);
+    this.#aura = look?.aura ?? null;
+  }
+
+  #applyFinish(look: ShipLook | null): void {
+    const f = look?.finish ?? null;
+    for (const m of this.#hullMats) {
+      if (!this.#finishBase.has(m)) this.#finishBase.set(m, { metal: m.metalness, rough: m.roughness });
+      const base = this.#finishBase.get(m) as { metal: number; rough: number };
+      m.metalness = f ? f.metal : base.metal;
+      m.roughness = f ? f.rough : base.rough;
+      m.emissive.set(f ? f.glow : "#000000");
+      m.emissiveIntensity = f ? f.glowPower : 1;
+    }
+    for (const m of this.#sailMats) {
+      m.emissive.set(f?.sailGlow ? f.glow : "#000000");
+      m.emissiveIntensity = f?.sailGlow ?? 1;
+    }
+  }
+
+  #placeLamps(look: ShipLook | null): void {
+    for (const l of this.#lamps) {
+      l.sprite.removeFromParent();
+      l.mat.dispose();
+    }
+    this.#lamps = [];
+    const lights = look?.lights;
+    const h = this.#hull3;
+    if (!lights || !h) return;
+    this.#flicker = lights.flicker ?? false;
+    const c = h.box.getCenter(new THREE.Vector3());
+    const long = h.alongZ ? h.size.z : h.size.x;
+    const deck = h.box.min.y + h.size.y * 0.32;
+    const top = h.box.max.y * 0.94;
+    const at = (along: number, y: number): THREE.Vector3 => (h.alongZ ? new THREE.Vector3(c.x, y, c.z + along) : new THREE.Vector3(c.x + along, y, c.z));
+    const spots: THREE.Vector3[] = [];
+    const n = this.cells.length;
+    for (const spot of lights.at as readonly LightSpot[]) {
+      if (spot === "lanterns") spots.push(at(long * 0.46, deck), at(-long * 0.46, deck));
+      else if (n >= 3) spots.push(at(-long * 0.16, top), at(long * 0.14, top));
+      else spots.push(at(0, top));
+    }
+    for (const [i, p] of spots.entries()) {
+      const mat = new THREE.SpriteMaterial({ map: glowMap(), color: lights.color, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false });
+      const sprite = new THREE.Sprite(mat);
+      sprite.position.copy(p);
+      sprite.scale.setScalar(LIGHT_WORLD_SIZE / h.scale);
+      sprite.renderOrder = 4;
+      h.model.add(sprite);
+      this.#lamps.push({ sprite, mat, phase: i * 1.3 + Math.random() });
+    }
   }
 
   get gone(): boolean {
@@ -218,6 +313,17 @@ export class ShipActor {
     this.pivot.rotation.z = tilt.pitch * 0.8 + this.sink * 0.35 * lean;
     this.pivot.rotation.y = f.reduced ? 0 : Math.sin(f.t * 0.33 + this.#phase) * YAW_SWAY;
     this.#foam.visible = this.sink < 0.25;
+    for (const l of this.#lamps) {
+      l.sprite.visible = this.sink < 0.25;
+      const beat = this.#flicker ? 0.55 + 0.45 * Math.abs(Math.sin(f.t * 7.3 + l.phase) * Math.sin(f.t * 3.1 + l.phase * 2)) : 0.82 + 0.18 * Math.sin(f.t * 2.4 + l.phase);
+      l.mat.opacity = f.reduced ? 0.9 : beat;
+    }
+    const aura = this.#aura;
+    if (aura && f.glint && !f.reduced && this.root.visible && this.sink < 0.25 && Math.random() < aura.rate * f.dt * this.cells.length) {
+      const cell = this.cells[Math.floor(Math.random() * this.cells.length)] ?? 0;
+      const p = cellCenter(this.side, cell);
+      f.glint(p.x + (Math.random() - 0.5) * 0.7, y + 0.25 + Math.random() * 0.6, p.z + (Math.random() - 0.5) * 0.7, aura.color);
+    }
     if (!f.reduced) {
       const k = Math.sin(f.t * 1.6 + this.#phase);
       this.#foamMat.opacity = FOAM_OPACITY + FOAM_PULSE * k;
@@ -235,6 +341,7 @@ export class ShipActor {
   }
 
   dispose(): void {
+    for (const l of this.#lamps) l.mat.dispose();
     for (const m of this.#materials) m.dispose();
     this.#materials.length = 0;
     this.#foam.geometry.dispose();

@@ -58,6 +58,7 @@ export function Fleet({ side, ships, sunk, look = null, hulls = "brine" }: Fleet
       reduced: runtime.reduced,
       reveal: runtime.reveal.progress,
       bubble: (x: number, z: number) => runtime.effects.emitBubble(x, z),
+      glint: (x: number, y: number, z: number, color: string) => runtime.effects.emitGlint(x, y, z, color),
     };
     for (const a of actors) a.update(frame);
   });
