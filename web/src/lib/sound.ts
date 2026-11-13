@@ -207,19 +207,7 @@ class SoundBoard {
     this.#tone(t + 0.3, 1.4, 0.12, "sawtooth", 72, 38);
   }
 
-  #notes(notes: readonly number[], step: number, type: OscillatorType, gain: number): void {
-    const t = this.#now();
-    if (t === null) return;
-    notes.forEach((hz, i) => this.#tone(t + i * step, step * 2.2, gain, type, hz, hz * 0.995));
-  }
 
-  victory(): void {
-    this.#notes([523.25, 659.25, 783.99, 1046.5], 0.14, "triangle", 0.35);
-  }
-
-  defeat(): void {
-    this.#notes([392, 349.23, 311.13, 261.63], 0.22, "triangle", 0.28);
-  }
 }
 
 export const sound = new SoundBoard();

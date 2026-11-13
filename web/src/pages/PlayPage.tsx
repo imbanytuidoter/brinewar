@@ -8,6 +8,7 @@ import { useReducedMotion, useSession } from "@/game/useGame";
 import { useBattleFeed, type CalloutTone } from "@/game/useBattleFeed";
 import type { Mood } from "@/ui/NauarchPortrait";
 import { useSkins, type HarbourStats } from "@/game/useHarbour";
+import { music } from "@/lib/musicBox";
 import { sound } from "@/lib/sound";
 import { CalloutBanner } from "@/ui/CalloutBanner";
 import { EncounterCard, type BattleMode } from "@/world/EncounterCard";
@@ -141,12 +142,16 @@ export function PlayPage({ cfg, session, stats, landing, onEnter }: PlayPageProp
   useEffect(() => {
     for (const ship of snap.announcedSunk) announceSunk(ship);
   }, [snap.announcedSunk, announceSunk]);
+  useEffect(() => {
+    music.play(inBattle && result === null ? "battle" : "harbour");
+  }, [inBattle, result]);
+  useEffect(() => () => music.play(null), []);
   const heard = useRef(result);
   useEffect(() => {
     if (result === heard.current) return;
     heard.current = result;
-    if (result === "won") sound.victory();
-    else if (result === "lost") sound.defeat();
+    if (result === "won") music.sting("victory");
+    else if (result === "lost") music.sting("defeat");
   }, [result]);
   const rename = useCallback((name: string) => session.rename(name), [session]);
   const shuffle = useCallback(() => setDraft(placeFleet(cryptoRng())), []);

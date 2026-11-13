@@ -1,0 +1,6 @@
+Music by lavenderJunction, supplied by the Brinewar team for this game.
+
+harbour.mp3  - "Calm Nautical Adventure (Alt)", re-encoded at 96 kbps
+battle.mp3   - "Tactical Waters", re-encoded at 96 kbps
+victory.mp3  - "Victory Fanfare", first 9 seconds with a fade-out
+defeat.mp3   - "Naval Defeat Sting", first 9 seconds with a fade-out
