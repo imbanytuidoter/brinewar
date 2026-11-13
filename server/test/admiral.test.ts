@@ -133,6 +133,14 @@ describe("admiral", () => {
     expect(t.store.aiMoves(0)[0]?.tx).toBe("tx-answer");
   });
 
+  it("reports whether any battle against it is still open, so the loop can slow down when the sea is empty", async () => {
+    const t = setup();
+    expect(await t.admiral.tick()).toBe(true);
+    t.set({ status: "Finished", root_b: t.store.board(0)?.root as string, revealed_b: true, farewell_said: true });
+    await t.settle();
+    expect(await t.admiral.tick()).toBe(false);
+  });
+
   it("stores the proof of its answer before it asks the model, so the captain can see the result at once", async () => {
     let seenEarly = false;
     const model = new FakeModel({ model: "m", reply: () => '{"shot":"J10","line":"Aye."}' });

@@ -79,7 +79,7 @@ export class Admiral {
     return this.#busy.size;
   }
 
-  async tick(): Promise<void> {
+  async tick(): Promise<boolean> {
     const [config, height] = await Promise.all([this.#o.viewer.view<ConfigView>("config"), this.#o.height()]);
     let lowestOpen: number | null = null;
     for (let from = this.#cursor; from < config.games; from += PAGE) {
@@ -106,6 +106,7 @@ export class Admiral {
       }
     }
     this.#cursor = lowestOpen ?? config.games;
+    return lowestOpen !== null || this.#busy.size > 0;
   }
 
   #forget(g: GameView): void {
