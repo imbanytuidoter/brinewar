@@ -123,9 +123,9 @@ export function PlayPage({ cfg, session, stats, landing, onEnter }: PlayPageProp
     setView("setup");
   }, []);
 
-  const canFire = step === "fire" && snap.busy === null && !shotsInAir;
-  const planned = inBattle && !result ? turnOf({ step, busy: snap.busy, aiming: snap.marks.aiming, incoming: g?.pending_index ?? null, rival, phase: g?.status ?? null }) : null;
-  const turn = planned && step === "fire" && shotsInAir ? inFlightTurn(feed.flight, rival) : planned;
+  const canFire = (step === "fire" || snap.canQueue) && snap.busy === null && !shotsInAir;
+  const planned = inBattle && !result ? turnOf({ step: snap.canQueue ? "fire" : step, busy: snap.busy, aiming: snap.marks.aiming, incoming: g?.pending_index ?? null, rival, phase: g?.status ?? null }) : null;
+  const turn = planned && (step === "fire" || snap.canQueue) && shotsInAir ? inFlightTurn(feed.flight, rival) : planned;
   const showLanding = landing && !inBattle && joinId === null;
   const onChart = !inBattle && joinId === null && !landing && view === "chart";
   useEffect(() => {

@@ -28,7 +28,7 @@ export interface FeedContext {
 }
 
 const SETTLE_MARGIN_MS = 150;
-const FLIGHT_GUARD_MS = 4000;
+const FLIGHT_GUARD_MS = 11_000;
 
 const SHIP_NAMES: Readonly<Record<number, string>> = { 4: "Man-of-war", 3: "Frigate", 2: "Brig", 1: "Sloop" };
 

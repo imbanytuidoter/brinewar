@@ -6,6 +6,10 @@ import type { Side } from "./types";
 
 const MAX_PARTICLES = 4000;
 const FLIGHT_SECONDS = 1.15;
+const HOLD_FROM = 0.5;
+const HOLD_UNTIL = 0.78;
+const HOLD_PACE = 0.12;
+const HOLD_MAX_SECONDS = 9;
 const BURN_STEP = 0.03;
 const BUOY_COLOR = "#f4fbff";
 const BALL_DIAMETER = 0.42;
@@ -53,6 +57,8 @@ interface Flight {
   readonly max: number;
   readonly done: () => void;
   readonly trail: string;
+  readonly hold: (() => boolean) | null;
+  held: number;
 }
 
 const rnd = (a: number, b: number): number => a + Math.random() * (b - a);
@@ -183,7 +189,7 @@ export class EffectsEngine {
     this.place(side, cell, hit);
   }
 
-  fly(side: Side, cell: number, done: () => void): void {
+  fly(side: Side, cell: number, done: () => void, hold: (() => boolean) | null = null): void {
     const c = cellCenter(side, cell);
     const origin = side === "enemy" ? this.#origins.mine : this.#origins.enemy;
     const from = origin ? origin.clone() : new THREE.Vector3(side === "enemy" ? -6 : 6, 1.4, 0);
@@ -196,14 +202,19 @@ export class EffectsEngine {
     m.scale.setScalar(this.#ballScale);
     m.position.copy(from);
     this.group.add(m);
-    this.#flights.push({ side, m, from, to, t: 0, max: FLIGHT_SECONDS, done, trail: side === "enemy" ? this.#trail : TRAIL_COLOR });
+    this.#flights.push({ side, m, from, to, t: 0, max: FLIGHT_SECONDS, done, trail: side === "enemy" ? this.#trail : TRAIL_COLOR, hold, held: 0 });
   }
 
   #updateFlights(dt: number): void {
     for (let i = this.#flights.length - 1; i >= 0; i--) {
       const f = this.#flights[i];
       if (!f) continue;
-      f.t += dt;
+      const waiting = f.hold !== null && f.held < HOLD_MAX_SECONDS && f.hold();
+      const along = f.t / f.max;
+      if (waiting && along >= HOLD_FROM) {
+        f.held += dt;
+        if (along < HOLD_UNTIL) f.t += dt * HOLD_PACE;
+      } else f.t += dt;
       const k = Math.min(1, f.t / f.max);
       this.#tmp.lerpVectors(f.from, f.to, k);
       this.#tmp.y = THREE.MathUtils.lerp(f.from.y, 0.1, k) + Math.sin(k * Math.PI) * 4.2;

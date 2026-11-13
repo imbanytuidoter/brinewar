@@ -40,14 +40,19 @@ export function useMarkFlights(side: Side, marks: ReadonlyMap<number, Mark>, aim
     const now = performance.now();
     runtime.volley.busyUntil = Math.max(runtime.volley.busyUntil, now + (runtime.reduced ? 0 : SHOT_SLOT_MS));
     runtime.hooks.launch?.(side, cell, false);
-    effects.fly(side, cell, () => {
-      if (generation.current !== gen) return;
-      const mark = seen.current?.get(cell);
-      if (mark) {
-        early.current.delete(cell);
-        settle(cell, mark);
-      } else early.current.set(cell, "waiting");
-    });
+    effects.fly(
+      side,
+      cell,
+      () => {
+        if (generation.current !== gen) return;
+        const mark = seen.current?.get(cell);
+        if (mark) {
+          early.current.delete(cell);
+          settle(cell, mark);
+        } else early.current.set(cell, "waiting");
+      },
+      () => generation.current === gen && !seen.current?.has(cell),
+    );
   });
 
   useEffect(() => {

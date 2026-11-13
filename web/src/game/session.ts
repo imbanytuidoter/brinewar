@@ -39,6 +39,8 @@ export interface Snapshot {
   readonly invite: string | null;
   readonly deadlineAt: number | null;
   readonly announcedSunk: readonly (readonly number[])[];
+  readonly canQueue: boolean;
+  readonly queued: number | null;
 }
 
 const STATUS_ORDER: Readonly<Record<string, number>> = { Waiting: 0, Placing: 1, Playing: 2, Revealing: 3, Finished: 4 };
@@ -87,7 +89,8 @@ export interface SessionDeps {
   readonly caller: Caller;
   readonly store: KeyValue;
   readonly evidence: (gameId: number) => Promise<NauarchEvidence | null>;
-  readonly quickAnswer?: (gameId: number, index: number) => Promise<QuickAnswer | null>;
+  readonly quickAnswer?: (gameId: number, index: number, root: string | null) => Promise<QuickAnswer | null>;
+  readonly shareAnswer?: (gameId: number, answer: QuickAnswer) => Promise<boolean>;
   readonly refuel?: () => Promise<boolean>;
   readonly height?: () => Promise<number>;
   readonly now?: () => number;
@@ -158,6 +161,8 @@ export class GameSession {
   #hitRetries = 0;
   #chainHistory = 0;
   readonly #quick = new Map<string, "Hit" | "Miss">();
+  readonly #shared = new Set<string>();
+  #queued: { readonly gameId: number; readonly index: number } | null = null;
   #firing = false;
   #deferred: { key: string; gameId: number; index: number; since: number } | null = null;
 
@@ -166,7 +171,7 @@ export class GameSession {
     this.#now = d.now ?? Date.now;
     this.#snap = {
       accountId: d.accountId, gameId: null, game: null, history: [], marks: EMPTY_MARKS, step: null,
-      board: null, lines: [], busy: null, error: null, lastTx: null, offline: false, enemyFleet: null, enemyRevealTx: null, captain: null, rewards: null, opponentName: null, invite: null, deadlineAt: null, announcedSunk: [],
+      board: null, lines: [], busy: null, error: null, lastTx: null, offline: false, enemyFleet: null, enemyRevealTx: null, captain: null, rewards: null, opponentName: null, invite: null, deadlineAt: null, announcedSunk: [], canQueue: false, queued: null,
     };
     this.#resume();
   }
@@ -317,7 +322,7 @@ export class GameSession {
     this.#settled = null;
     this.#chainHistory = 0;
     clearBattle(this.#d.store, this.#d.accountId);
-    this.#set({ gameId: id, game: null, history: [], marks: EMPTY_MARKS, step: null, board, lines: [], error: null, enemyFleet: null, enemyRevealTx: null, rewards: null, opponentName: null, invite: null, deadlineAt: null, announcedSunk: [] });
+    this.#set({ gameId: id, game: null, history: [], marks: EMPTY_MARKS, step: null, board, lines: [], error: null, enemyFleet: null, enemyRevealTx: null, rewards: null, opponentName: null, invite: null, deadlineAt: null, announcedSunk: [], canQueue: false, queued: null });
   }
 
   async #captain(): Promise<Captain | null> {
@@ -371,8 +376,26 @@ export class GameSession {
     this.#d.store.remove(this.#baselineKey(gameId));
   }
 
+  #queueable(g: GameView | null, step: Step | null, history: readonly ShotView[]): boolean {
+    if (!g || g.status !== "Playing" || step?.kind !== "wait" || this.#queued !== null) return false;
+    const last = history[history.length - 1];
+    return last !== undefined && last.by === this.#d.accountId && this.#quick.get(`${g.id}:${last.index}`) === "Hit";
+  }
+
+  #withQueued(gameId: number, history: readonly ShotView[]): ShotView[] {
+    const q = this.#queued;
+    if (!q || q.gameId !== gameId || history.some((s) => s.by === this.#d.accountId && s.index === q.index)) return [...history];
+    return [...history, { n: history.length, by: this.#d.accountId, index: q.index, result: "Pending" as const, block: 0, source: "Player" as const }];
+  }
+
   async fire(index: number): Promise<boolean> {
     const g = this.#snap.game;
+    if (g && this.#snap.busy === null && canTarget(index, this.#snap.marks) && this.#queueable(g, this.#snap.step, this.#snap.history)) {
+      this.#queued = { gameId: g.id, index };
+      const history = this.#withQueued(g.id, this.#snap.history);
+      this.#set({ history, marks: marksFrom(history, this.#d.accountId), canQueue: false, queued: index });
+      return true;
+    }
     if (!g || this.#snap.step?.kind !== "fire" || this.#snap.busy !== null || !canTarget(index, this.#snap.marks)) return false;
     const before = { history: this.#snap.history, marks: this.#snap.marks, step: this.#snap.step };
     const history = [...this.#snap.history, { n: g.shots, by: this.#d.accountId, index, result: "Pending" as const, block: 0, source: "Player" as const }];
@@ -381,7 +404,7 @@ export class GameSession {
     const d = this.#deferred;
     const board = this.#snap.board;
     const together = d !== null && board !== null && d.gameId === g.id && g.pending_index === d.index;
-    if (g.mode === "VsNauarch") void this.#peek(g.id, index, g.root_b);
+    void this.#peek(g.id, index, g.a === this.#d.accountId ? g.root_b : g.root_a);
     const r = await (together
       ? this.#send("Firing", "answer", { ...answerArgs(board, g.id, d.index), then_fire: index })
       : this.#send("Firing", "fire", { game_id: g.id, index })
@@ -396,6 +419,15 @@ export class GameSession {
     if (!r.ok && this.#snap.history === history) this.#set(before);
     await this.tick();
     return r.ok;
+  }
+
+  #share(gameId: number, index: number, board: Board): void {
+    const send = this.#d.shareAnswer;
+    const key = `${gameId}:${index}`;
+    if (!send || this.#shared.has(key)) return;
+    this.#shared.add(key);
+    const a = answerArgs(board, gameId, index);
+    void send(gameId, { idx: index, cell: a.cell, salt: a.salt, proof: a.proof }).catch(() => this.#shared.delete(key));
   }
 
   #withQuick(gameId: number, history: readonly ShotView[]): ShotView[] {
@@ -413,13 +445,13 @@ export class GameSession {
       if (this.#snap.gameId !== gameId) return;
       const shot = this.#snap.history.find((s) => s.by === this.#d.accountId && s.index === index);
       if (shot && shot.result !== "Pending") return;
-      const answer = await ask(gameId, index).catch(() => null);
+      const answer = await ask(gameId, index, root).catch(() => null);
       const result = answer ? provenResult(answer, index, root) : null;
       if (result) {
         this.#quick.set(`${gameId}:${index}`, result);
         if (this.#snap.gameId !== gameId) return;
         const history = this.#withQuick(gameId, this.#snap.history);
-        this.#set({ history, marks: marksFrom(history, this.#d.accountId) });
+        this.#set({ history, marks: marksFrom(history, this.#d.accountId), canQueue: this.#queueable(this.#snap.game, this.#snap.step, history) });
         return;
       }
       await new Promise((r) => setTimeout(r, QUICK_POLL_MS));
@@ -483,12 +515,23 @@ export class GameSession {
     const board = this.#boardFor(id) ?? (game.status === "Placing" ? this.#adoptPending(id) : null);
     const planned = nextStep(game, me, board !== null);
     const settledStep: Step = planned.kind === "reveal" && this.#given.has(`reveal:${id}`) ? { kind: "done" } : planned;
+    if (game.mode === "PvP" && settledStep.kind === "answer" && board) this.#share(game.id, settledStep.index, board);
     const { step, shown } = this.#defer(game, settledStep, board, history);
     const invite = step.kind === "invite" ? (this.#snap.invite ?? this.#d.store.get(inviteKey(me, id))) : null;
     if (game.status === "Finished") clearBattle(this.#d.store, me);
     else saveBattle(this.#d.store, me, game, history);
-    const seen = this.#withQuick(id, shown);
-    this.#set({ game, history: seen, marks: marksFrom(seen, me), step, board, invite, deadlineAt: await this.#deadline(game, step) });
+    const q = this.#queued;
+    if (q && (q.gameId !== id || game.status !== "Playing")) this.#queued = null;
+    if (this.#queued && step.kind === "fire") {
+      const index = this.#queued.index;
+      this.#queued = null;
+      const ready = this.#withQuick(id, shown);
+      this.#set({ game, history: ready, marks: marksFrom(ready, me), step, board, invite, canQueue: false, queued: null });
+      await this.fire(index);
+      return true;
+    }
+    const seen = this.#withQueued(id, this.#withQuick(id, shown));
+    this.#set({ game, history: seen, marks: marksFrom(seen, me), step, board, invite, canQueue: this.#queueable(game, step, seen), queued: this.#queued?.index ?? null, deadlineAt: await this.#deadline(game, step) });
     const acted = await this.#act(game, step, board);
     await this.#claimIfLate(game, step);
     if (game.mode === "VsNauarch") await this.#refreshEvidence(game, history).catch(() => undefined);

@@ -59,10 +59,21 @@ export async function fetchEvidence(apiUrl: string, gameId: number, fetchFn: typ
 
 const QUICK_TIMEOUT_MS = 2500;
 
-export async function fetchQuickAnswer(apiUrl: string, gameId: number, index: number, fetchFn: typeof fetch = fetch): Promise<QuickAnswer | null> {
-  const res = await fetchFn(`${apiUrl}/api/game/${gameId}/answer/${index}`, { signal: AbortSignal.timeout(QUICK_TIMEOUT_MS) });
+export async function fetchQuickAnswer(apiUrl: string, gameId: number, index: number, root: string | null = null, fetchFn: typeof fetch = fetch): Promise<QuickAnswer | null> {
+  const query = root ? `?root=${encodeURIComponent(root.replace(/^0x/, ""))}` : "";
+  const res = await fetchFn(`${apiUrl}/api/game/${gameId}/answer/${index}${query}`, { signal: AbortSignal.timeout(QUICK_TIMEOUT_MS) });
   if (!res.ok) return null;
   const raw = (await res.json()) as unknown;
   if (!isObj(raw) || typeof raw.idx !== "number" || typeof raw.cell !== "number" || typeof raw.salt !== "string" || !Array.isArray(raw.proof) || !raw.proof.every((p) => typeof p === "string")) return null;
   return { idx: raw.idx, cell: raw.cell, salt: raw.salt, proof: raw.proof as string[] };
+}
+
+export async function shareAnswer(apiUrl: string, gameId: number, answer: QuickAnswer, fetchFn: typeof fetch = fetch): Promise<boolean> {
+  const res = await fetchFn(`${apiUrl}/api/game/${gameId}/answer`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(answer),
+    signal: AbortSignal.timeout(QUICK_TIMEOUT_MS),
+  });
+  return res.ok;
 }

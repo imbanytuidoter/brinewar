@@ -3,8 +3,8 @@ import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { cellCenter } from "./grid";
 
-const STEP_S = 0.55;
-const GLIDE = 9;
+const CELLS_PER_SECOND = 2.6;
+const DWELL_S = 0.45;
 const HEIGHT = 0.16;
 const COLOR = 0xff6a3d;
 
@@ -13,13 +13,40 @@ interface SpyglassProps {
   readonly reducedMotion: boolean;
 }
 
+const dist = (a: number, b: number): number => Math.hypot((a % 10) - (b % 10), Math.floor(a / 10) - Math.floor(b / 10));
+
+export function sweepRoute(cells: readonly number[], from: number | null): number[] {
+  const left = [...new Set(cells)];
+  const route: number[] = [];
+  let at = from ?? left[0] ?? null;
+  while (left.length > 0 && at !== null) {
+    let best = 0;
+    for (let i = 1; i < left.length; i++) if (dist(at, left[i] as number) < dist(at, left[best] as number)) best = i;
+    at = left.splice(best, 1)[0] as number;
+    route.push(at);
+  }
+  return route;
+}
+
+const ease = (t: number): number => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2);
+
+interface Leg {
+  from: THREE.Vector2;
+  to: THREE.Vector2;
+  start: number;
+  travel: number;
+  index: number;
+}
+
 export function Spyglass({ cells, reducedMotion }: SpyglassProps) {
   const group = useRef<THREE.Group>(null);
-  const started = useRef<number | null>(null);
+  const leg = useRef<Leg | null>(null);
+  const key = cells.join(",");
+  const route = useMemo(() => sweepRoute(key ? key.split(",").map(Number) : [], null), [key]);
   const ring = useMemo(() => new THREE.RingGeometry(0.3, 0.5, 48), []);
   const lens = useMemo(() => new THREE.CircleGeometry(0.3, 48), []);
-  const ringMat = useMemo(() => new THREE.MeshBasicMaterial({ color: COLOR, transparent: true, opacity: 0.9, depthTest: false }), []);
   const hair = useMemo(() => new THREE.PlaneGeometry(0.9, 0.05), []);
+  const ringMat = useMemo(() => new THREE.MeshBasicMaterial({ color: COLOR, transparent: true, opacity: 0.9, depthTest: false }), []);
   const lensMat = useMemo(() => new THREE.MeshBasicMaterial({ color: COLOR, transparent: true, opacity: 0.3, depthTest: false }), []);
 
   useEffect(
@@ -34,29 +61,35 @@ export function Spyglass({ cells, reducedMotion }: SpyglassProps) {
   );
 
   useEffect(() => {
-    started.current = null;
-    const first = cells[0];
-    if (first === undefined || !group.current) return;
-    const c = cellCenter("mine", first);
-    group.current.position.set(c.x, HEIGHT, c.z);
-  }, [cells]);
+    leg.current = null;
+  }, [route]);
 
-  useFrame(({ clock }, delta) => {
+  useFrame(({ clock }) => {
     const g = group.current;
-    if (!g || cells.length === 0) return;
-    if (started.current === null) started.current = clock.elapsedTime;
-    const step = reducedMotion ? 0 : Math.floor((clock.elapsedTime - started.current) / STEP_S) % cells.length;
-    const c = cellCenter("mine", cells[step] as number);
-    const k = reducedMotion ? 1 : 1 - Math.exp(-GLIDE * delta);
-    g.position.x += (c.x - g.position.x) * k;
-    g.position.z += (c.z - g.position.z) * k;
-    const pulse = reducedMotion ? 1 : 1 + Math.sin(clock.elapsedTime * 6) * 0.06;
-    g.scale.setScalar(pulse);
+    const first = route[0];
+    if (!g || first === undefined) return;
+    const now = clock.elapsedTime;
+    if (leg.current === null) {
+      const c = cellCenter("mine", first);
+      const here = g.visible && g.position.lengthSq() > 0 ? new THREE.Vector2(g.position.x, g.position.z) : new THREE.Vector2(c.x, c.z);
+      leg.current = { from: here, to: new THREE.Vector2(c.x, c.z), start: now, travel: reducedMotion ? 0 : here.distanceTo(new THREE.Vector2(c.x, c.z)) / CELLS_PER_SECOND, index: 0 };
+    }
+    const l = leg.current;
+    const p = l.travel <= 0 ? 1 : Math.min(1, (now - l.start) / l.travel);
+    const e = ease(p);
+    g.position.set(THREE.MathUtils.lerp(l.from.x, l.to.x, e), HEIGHT, THREE.MathUtils.lerp(l.from.y, l.to.y, e));
+    g.visible = true;
+    g.scale.setScalar(reducedMotion ? 1 : 1 + Math.sin(now * 5) * 0.05);
+    if (reducedMotion || now - l.start < l.travel + DWELL_S) return;
+    const index = (l.index + 1) % route.length;
+    const c = cellCenter("mine", route[index] as number);
+    const to = new THREE.Vector2(c.x, c.z);
+    leg.current = { from: l.to.clone(), to, start: now, travel: l.to.distanceTo(to) / CELLS_PER_SECOND, index };
   });
 
-  if (cells.length === 0) return null;
+  if (route.length === 0) return null;
   return (
-    <group ref={group} renderOrder={3}>
+    <group ref={group} visible={false}>
       <mesh geometry={ring} material={ringMat} rotation-x={-Math.PI / 2} renderOrder={3} />
       <mesh geometry={lens} material={lensMat} rotation-x={-Math.PI / 2} renderOrder={3} />
       <mesh geometry={hair} material={ringMat} rotation-x={-Math.PI / 2} renderOrder={3} />

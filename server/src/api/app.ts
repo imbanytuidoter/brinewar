@@ -6,6 +6,7 @@ import type { AdmiraltyView, GameView, PlayerView, ShotView, TreasuryView } from
 import { GUEST_GAS_TGAS } from "../lib/contract.js";
 import type { Store } from "../lib/db.js";
 import { freshCaptain, LiveLeaderboard, type Leaderboard } from "../lib/leaderboard.js";
+import { fromHex, rootFromProof, toHex } from "../lib/merkle.js";
 import { registerChat } from "./chat.js";
 import type { Caller, Viewer } from "../lib/near.js";
 
@@ -16,6 +17,7 @@ const CACHE_MS = 5000;
 const LEADERBOARD_MS = 600_000;
 const ACCOUNT_RE = /^[a-z0-9][a-z0-9._-]{1,63}$/;
 const CACHE_CAP = 5000;
+const HEX64 = /^[0-9a-f]{64}$/i;
 const LEADERBOARD_SEEDS = 50;
 const LEADERBOARD_BATCH = 3;
 
@@ -145,13 +147,33 @@ export async function buildApp(o: AppOptions) {
     return reply.code(out.status).send(out.body);
   });
 
-  app.get("/api/game/:id/answer/:index", { config: { rateLimit: { max: 400, timeWindow: "1 minute" } } }, async (req, reply) => {
+  const duelAnswers = new Map<string, { idx: number; cell: number; salt: string; proof: string[] }>();
+  app.get<{ Querystring: { root?: string } }>("/api/game/:id/answer/:index", { config: { rateLimit: { max: 400, timeWindow: "1 minute" } } }, async (req, reply) => {
     const { id, index } = req.params as { id: string; index: string };
     if (!/^\d{1,15}$/.test(id) || !/^\d{1,2}$/.test(index)) return reply.code(400).send({ error: "bad game or cell" });
     const idx = Number(index);
     const row = o.store.answers(Number(id)).find((a) => a.idx === idx);
-    if (!row) return reply.code(404).send({ error: "not answered yet" });
-    return { idx: row.idx, cell: row.cell, salt: row.salt, proof: row.proof };
+    if (row) return { idx: row.idx, cell: row.cell, salt: row.salt, proof: row.proof };
+    const root = typeof req.query.root === "string" ? req.query.root.toLowerCase() : "";
+    const shared = HEX64.test(root) ? duelAnswers.get(`${id}:${root}:${idx}`) : undefined;
+    if (!shared) return reply.code(404).send({ error: "not answered yet" });
+    return shared;
+  });
+
+  app.post("/api/game/:id/answer", { config: { rateLimit: { max: 120, timeWindow: "1 minute" } } }, async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const b = req.body as { idx?: unknown; cell?: unknown; salt?: unknown; proof?: unknown } | null;
+    if (!/^\d{1,15}$/.test(id) || !b || typeof b.idx !== "number" || !Number.isInteger(b.idx) || b.idx < 0 || b.idx > 99 || (b.cell !== 0 && b.cell !== 1)) return reply.code(400).send({ error: "bad answer" });
+    if (typeof b.salt !== "string" || !HEX64.test(b.salt) || !Array.isArray(b.proof) || b.proof.length !== 7 || !b.proof.every((p) => typeof p === "string" && HEX64.test(p))) return reply.code(400).send({ error: "bad answer" });
+    const game = await o.viewer.view<GameView | null>("get_game", { game_id: Number(id) });
+    if (!game || game.mode !== "PvP" || game.status !== "Playing") return reply.code(404).send({ error: "no such duel" });
+    if (game.pending_index !== b.idx) return reply.code(409).send({ error: "that cell is not waiting for an answer" });
+    const root = (game.turn === game.a ? game.root_a : game.root_b)?.replace(/^0x/, "").toLowerCase() ?? null;
+    const proof = b.proof as string[];
+    if (!root || toHex(rootFromProof(b.idx, b.cell, fromHex(b.salt), proof.map(fromHex))) !== root) return reply.code(400).send({ error: "the proof does not match the board" });
+    if (duelAnswers.size >= CACHE_CAP) duelAnswers.clear();
+    duelAnswers.set(`${id}:${root}:${b.idx}`, { idx: b.idx, cell: b.cell, salt: b.salt.toLowerCase(), proof: proof.map((p) => p.toLowerCase()) });
+    return { ok: true };
   });
 
   app.get("/api/game/:id/proofs", { config: { rateLimit: { max: 60, timeWindow: "1 minute" } } }, async (req, reply) => {

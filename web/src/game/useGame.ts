@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import { makeCaller, makeHeight, makeViewer } from "@/lib/chain";
 import type { AppConfig } from "@/lib/config";
 import { ensureGuest, GuestError, refuelGuest } from "@/lib/guest";
-import { fetchEvidence, fetchQuickAnswer } from "@/lib/proofs";
+import { fetchEvidence, fetchQuickAnswer, shareAnswer } from "@/lib/proofs";
 import { browserStorage } from "@/lib/storage";
 import { GameSession, type Snapshot } from "./session";
 
@@ -34,7 +34,8 @@ export function useBoot(cfg: AppConfig): { boot: Boot; retry: () => void } {
           caller: makeCaller(cfg.rpcUrl, cfg.contractId, g.accountId, g.secretKey),
           store,
           evidence: (id) => fetchEvidence(cfg.apiUrl, id),
-          quickAnswer: (id, index) => fetchQuickAnswer(cfg.apiUrl, id, index),
+          quickAnswer: (id, index, root) => fetchQuickAnswer(cfg.apiUrl, id, index, root),
+          shareAnswer: (id, answer) => shareAnswer(cfg.apiUrl, id, answer),
           refuel: () => refuelGuest(cfg.apiUrl, g.publicKey),
           height: makeHeight(cfg.rpcUrl),
         });

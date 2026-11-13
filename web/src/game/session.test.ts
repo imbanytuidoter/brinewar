@@ -493,6 +493,31 @@ describe("instant result", () => {
     expect(chain.history.at(-1)?.result).toBe("Pending");
   });
 
+  it("after a proven hit takes the next target at once and fires it as soon as the chain gives the turn back", async () => {
+    const { chain, session, root } = quick(false);
+    await session.start(placeFleet(seededRng(7)));
+    const g = chain.game as GameView;
+    g.root_b = root;
+    await session.tick();
+    const ships = chain.enemy.flatMap((c, i) => (c === 1 ? [i] : []));
+    const first = ships[0] as number;
+    const next = ships[1] as number;
+    await session.fire(first);
+    await vi.waitFor(() => expect(session.snapshot.canQueue).toBe(true));
+    expect(await session.fire(next)).toBe(true);
+    expect(session.snapshot.queued).toBe(next);
+    expect(session.snapshot.marks.aiming).toBe(next);
+    expect(chain.calls.filter((c) => c === "fire")).toHaveLength(1);
+    const shot = chain.history.at(-1)!;
+    shot.result = "Hit";
+    g.pending_index = null;
+    g.turn = ME;
+    await session.tick();
+    expect(chain.calls.filter((c) => c === "fire")).toHaveLength(2);
+    expect(chain.history.at(-1)?.index).toBe(next);
+    expect(session.snapshot.queued).toBeNull();
+  });
+
   it("ignores an answer whose proof does not match the root", async () => {
     const { chain, session, root } = quick(true);
     await session.start(placeFleet(seededRng(7)));
@@ -539,6 +564,32 @@ describe("duels with a friend", () => {
     expect(chain.game.status).toBe("Playing");
     expect(store.get(boardKey(ME, 9))).not.toBeNull();
     expect(session.snapshot.step).toEqual({ kind: "thinking" });
+  });
+
+  it("shares a proven answer the moment a friend's shot lands, so they see the result without waiting for the chain", async () => {
+    const chain = new FakeContract();
+    const shared: { idx: number; cell: number; salt: string; proof: readonly string[] }[] = [];
+    const session = new GameSession({ accountId: ME, viewer: chain, caller: chain, store: memoryStorage(), evidence: chain.evidence, shareAnswer: async (_id, a) => (shared.push(a), true) });
+    chain.game = {
+      id: 9, mode: "PvP", a: FRIEND, b: FRIEND, root_a: "aa", root_b: null, status: "Waiting", turn: FRIEND, deadline_block: 1,
+      winner: null, finish_reason: null, hits_on_a: 0, hits_on_b: 0, shots: 0, pending_index: null, revealed_a: false,
+      revealed_b: false, created_block: 1, stake: "0", farewell_said: false,
+    };
+    const cells = placeFleet(seededRng(7));
+    await session.join(9, "ab".repeat(32), cells);
+    const g = chain.game as GameView;
+    const water = cells.indexOf(0);
+    g.turn = ME;
+    g.pending_index = water;
+    g.shots = 1;
+    chain.history.push({ n: 0, by: FRIEND, index: water, result: "Pending", block: 2, source: "Player" });
+    await session.tick();
+    await session.tick();
+    expect(shared).toHaveLength(1);
+    const a = shared[0]!;
+    expect(a.idx).toBe(water);
+    expect(a.cell).toBe(0);
+    expect(toHex(rootFromProof(a.idx, a.cell, fromHex(a.salt), a.proof.map(fromHex)))).toBe(g.root_b);
   });
 
   it("refuses a link without its secret before sending anything", async () => {

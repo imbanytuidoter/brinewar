@@ -2,6 +2,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { KeyPair } from "near-api-js";
+import { buildTree, toHex } from "../src/lib/merkle.js";
 import { describe, expect, it } from "vitest";
 import { buildApp, limitKey } from "../src/api/app.js";
 import { sample } from "../src/api/sampler.js";
@@ -10,13 +11,19 @@ import { FakeCaller, FakeViewer, silent } from "./fakes.js";
 
 const key = () => KeyPair.fromRandom("ed25519").getPublicKey().toString();
 
+const duelSalts = Array.from({ length: 100 }, (_, i) => new Uint8Array(32).fill(i));
+const duelCells = Array.from({ length: 100 }, (_, i) => (i === 12 ? 1 : 0));
+const duelTree = buildTree(duelCells, duelSalts);
+const duel = { id: 7, mode: "PvP", a: "p-a", b: "p-b", root_a: "00", root_b: toHex(duelTree.root), status: "Playing", turn: "p-b", pending_index: 12 };
+const duelAnswer = (cell: number) => ({ idx: 12, cell, salt: toHex(duelSalts[12] as Uint8Array), proof: duelTree.proof(12).map(toHex) });
+
 async function setup(over: { players?: Set<string>; createOk?: boolean; timeoutButCreated?: boolean; perIp?: number; perDay?: number; balance?: bigint } = {}) {
   const store = new Store(join(mkdtempSync(join(tmpdir(), "bw-")), "db.sqlite"));
   const players = over.players ?? new Set<string>();
   const viewer = new FakeViewer((method, args) => {
     if (method === "guest_account_for") return `p-${String(args.public_key).slice(8, 24).toLowerCase()}.brinewar.testnet`;
     if (method === "get_player") return players.has(String(args.account_id)) ? { account_id: args.account_id } : null;
-    if (method === "get_game") return args.game_id === 3 ? { id: 3, root_b: "bb" } : null;
+    if (method === "get_game") return args.game_id === 3 ? { id: 3, root_b: "bb" } : args.game_id === 7 ? duel : null;
     if (method === "get_history") return [];
     if (method === "treasury") return { balance: "975", entry: "10", bounty: "25" };
     if (method === "admiralty_map") return { heat: [], boards_counted: 1, day: 7 };
@@ -175,6 +182,18 @@ describe("read endpoints", () => {
     expect((await t.app.inject({ url: "/api/game/3/answer/6" })).statusCode).toBe(404);
     expect((await t.app.inject({ url: "/api/game/3/answer/100" })).statusCode).toBe(400);
     expect((await t.app.inject({ url: "/api/game/x/answer/5" })).statusCode).toBe(400);
+  });
+
+  it("passes a duel answer from the defender to the shooter only when its proof matches the defender's root", async () => {
+    const t = await setup();
+    const root = toHex(duelTree.root);
+    expect((await t.app.inject({ method: "POST", url: "/api/game/7/answer", payload: duelAnswer(0) })).statusCode).toBe(400);
+    expect((await t.app.inject({ url: `/api/game/7/answer/12?root=${root}` })).statusCode).toBe(404);
+    expect((await t.app.inject({ method: "POST", url: "/api/game/7/answer", payload: { ...duelAnswer(1), idx: 13 } })).statusCode).toBe(409);
+    expect((await t.app.inject({ method: "POST", url: "/api/game/7/answer", payload: duelAnswer(1) })).statusCode).toBe(200);
+    const got = await t.app.inject({ url: `/api/game/7/answer/12?root=${root}` });
+    expect(got.json()).toEqual(duelAnswer(1));
+    expect((await t.app.inject({ url: "/api/game/7/answer/12?root=00" })).statusCode).toBe(404);
   });
 
   it("samples treasury and map only when they change", async () => {
