@@ -10,6 +10,8 @@ import { PageShell, Panel, Stat } from "@/ui/PageShell";
 
 type Load = { kind: "loading" } | { kind: "error" } | { kind: "ok"; board: Leaderboard; treasury: string | null; boards: number | null };
 
+const LIVE_MS = 5000;
+
 const n = (v: number | string): string => Number(v).toLocaleString("en-US");
 
 export function CaptainsPage({ cfg }: { readonly cfg: AppConfig }) {
@@ -17,18 +19,30 @@ export function CaptainsPage({ cfg }: { readonly cfg: AppConfig }) {
   const me = useMemo(() => storedAccount(browserStorage()), []);
   useEffect(() => {
     let alive = true;
-    Promise.all([fetchLeaderboard(cfg.apiUrl, fetch, me), fetchTreasury(cfg.apiUrl).catch(() => null), fetchAdmiralty(cfg.apiUrl).catch(() => null)])
-      .then(([board, t, a]) => alive && setLoad({ kind: "ok", board, treasury: t?.current?.balance ?? null, boards: a?.current?.boards_counted ?? null }))
-      .catch(() => alive && setLoad({ kind: "error" }));
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const pull = async (): Promise<void> => {
+      try {
+        const [board, t, a] = await Promise.all([fetchLeaderboard(cfg.apiUrl, fetch, me), fetchTreasury(cfg.apiUrl).catch(() => null), fetchAdmiralty(cfg.apiUrl).catch(() => null)]);
+        if (alive) setLoad({ kind: "ok", board, treasury: t?.current?.balance ?? null, boards: a?.current?.boards_counted ?? null });
+      } catch {
+        if (alive) setLoad((l) => (l.kind === "ok" ? l : { kind: "error" }));
+      }
+      if (alive) timer = setTimeout(() => void (document.hidden ? pullLater() : pull()), LIVE_MS);
+    };
+    const pullLater = (): void => {
+      timer = setTimeout(() => void (document.hidden ? pullLater() : pull()), LIVE_MS);
+    };
+    void pull();
     return () => {
       alive = false;
+      clearTimeout(timer);
     };
   }, [cfg, me]);
 
   return (
     <PageShell
       title="Captains"
-      lede="Ranked by flagship XP. Wins, ships sunk and gold are read from the contract. The Nauarch's record adds up every battle fought against him."
+      lede="Ranked by flagship XP. Wins, ships sunk and gold are read from the contract and update within seconds of every battle. The Nauarch's record adds up every battle fought against him."
     >
       {load.kind === "loading" && <Loader2 className="size-5 animate-spin text-muted" aria-label="Loading the leaderboard" />}
       {load.kind === "error" && <p className="m-0 text-muted">Could not read the leaderboard. Try again in a moment.</p>}

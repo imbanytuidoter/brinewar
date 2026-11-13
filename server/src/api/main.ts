@@ -13,7 +13,8 @@ const store = new Store(config.dbPath);
 const viewer = new NearViewer(reads, config.contract, 15_000);
 const sponsor = new NearCaller(config.sponsor, rpc, config.sponsorKey, config.contract, 60_000);
 const balanceOf = async (accountId: string): Promise<bigint> => BigInt((await reads.viewAccount({ accountId, blockQuery: { finality: "optimistic" } })).amount);
-const app = await buildApp({ viewer, sponsor, store, log, guestsPerIpHour: config.guestsPerIpHour, guestsPerDay: config.guestsPerDay, trustProxy: config.trustProxy, balanceOf, refuelBelow: config.refuelBelowYocto, sampledAt: () => sampledAt, sampleMs: config.sampleMs });
+const LIVE_MS = 4000;
+const app = await buildApp({ viewer, sponsor, store, log, guestsPerIpHour: config.guestsPerIpHour, guestsPerDay: config.guestsPerDay, trustProxy: config.trustProxy, balanceOf, refuelBelow: config.refuelBelowYocto, sampledAt: () => sampledAt, sampleMs: config.sampleMs, liveMs: LIVE_MS });
 
 let sampledAt: number | null = null;
 let sampleFailures = 0;

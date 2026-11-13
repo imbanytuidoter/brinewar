@@ -5,7 +5,7 @@ import type { Logger } from "pino";
 import type { AdmiraltyView, GameView, PlayerView, ShotView, TreasuryView } from "../lib/contract.js";
 import { GUEST_GAS_TGAS } from "../lib/contract.js";
 import type { Store } from "../lib/db.js";
-import { buildLeaderboard, freshCaptain, Snapshots, withCaptain, type Leaderboard } from "../lib/leaderboard.js";
+import { freshCaptain, LiveLeaderboard, type Leaderboard } from "../lib/leaderboard.js";
 import { registerChat } from "./chat.js";
 import type { Caller, Viewer } from "../lib/near.js";
 
@@ -13,7 +13,7 @@ const HOUR = 3_600_000;
 const DAY = 24 * HOUR;
 const NICKNAME = /^[A-Za-z0-9_-]{3,16}$/;
 const CACHE_MS = 5000;
-const LEADERBOARD_MS = 180_000;
+const LEADERBOARD_MS = 600_000;
 const ACCOUNT_RE = /^[a-z0-9][a-z0-9._-]{1,63}$/;
 const CACHE_CAP = 5000;
 const LEADERBOARD_SEEDS = 50;
@@ -53,6 +53,7 @@ export interface AppOptions {
   readonly now?: () => number;
   readonly sampledAt?: () => number | null;
   readonly sampleMs?: number;
+  readonly liveMs?: number;
 }
 
 function isEd25519(key: unknown): key is string {
@@ -164,17 +165,27 @@ export async function buildApp(o: AppOptions) {
     };
   });
 
-  const leaderboard = new Snapshots(() => buildLeaderboard(o.viewer, LEADERBOARD_SEEDS, LEADERBOARD_BATCH), LEADERBOARD_MS, now, (err) => o.log.warn({ err: err instanceof Error ? err.message : String(err) }, "leaderboard refresh failed, serving the last one"));
+  const leaderboard = new LiveLeaderboard(o.viewer, LEADERBOARD_SEEDS, LEADERBOARD_BATCH);
+  if (o.liveMs) {
+    const warn = (what: string) => (err: unknown) => o.log.warn({ err: err instanceof Error ? err.message : String(err) }, what);
+    void leaderboard.get().catch(warn("leaderboard load failed, will retry on the next request"));
+    const live = setInterval(() => void leaderboard.tick().catch(warn("leaderboard live update failed")), o.liveMs);
+    const resync = setInterval(() => void leaderboard.resync().catch(warn("leaderboard resync failed, keeping the live one")), LEADERBOARD_MS);
+    app.addHook("onClose", async () => {
+      clearInterval(live);
+      clearInterval(resync);
+    });
+  }
   app.get<{ Querystring: { me?: string } }>("/api/leaderboard", { config: { rateLimit: { max: 60, timeWindow: "1 minute" } } }, async (req): Promise<Leaderboard> => {
-    const board = await leaderboard.get();
     const me = req.query.me;
-    const plain = { captains: board.captains, nauarch: board.nauarch, total: board.total };
-    if (typeof me !== "string" || !ACCOUNT_RE.test(me)) return plain;
-    const fresh = (await cached(`captain:${me}`, () => freshCaptain(o.viewer, me)).catch((err: unknown) => {
-      req.log.warn({ me, err: err instanceof Error ? err.message : String(err) }, "could not read the captain fresh, serving the snapshot row");
-      return null;
-    })) as Awaited<ReturnType<typeof freshCaptain>>;
-    return fresh ? withCaptain(board, fresh) : plain;
+    if (typeof me === "string" && ACCOUNT_RE.test(me)) {
+      const fresh = (await cached(`captain:${me}`, () => freshCaptain(o.viewer, me)).catch((err: unknown) => {
+        req.log.warn({ me, err: err instanceof Error ? err.message : String(err) }, "could not read the captain fresh, serving the live row");
+        return null;
+      })) as Awaited<ReturnType<typeof freshCaptain>>;
+      if (fresh) leaderboard.patch(fresh);
+    }
+    return leaderboard.get();
   });
 
   app.get("/api/treasury", async () =>

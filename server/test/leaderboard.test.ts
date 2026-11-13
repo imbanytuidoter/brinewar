@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildLeaderboard, freshCaptain, Snapshots, withCaptain } from "../src/lib/leaderboard.js";
+import { buildLeaderboard, freshCaptain, LiveLeaderboard } from "../src/lib/leaderboard.js";
 import { FakeViewer } from "./fakes.js";
 
 const ships: Record<string, object> = {
@@ -50,17 +50,65 @@ describe("leaderboard", () => {
     expect(board.captains.map((c) => c.name)).toEqual(["Bo", "Anna"]);
   });
 
-  it("serves the last snapshot while one refresh runs in the background", async () => {
-    let calls = 0;
-    let now = 0;
-    const snaps = new Snapshots(async () => ++calls, 1000, () => now);
-    expect(await snaps.get()).toBe(1);
-    expect(await snaps.get()).toBe(1);
-    now = 2000;
-    expect(await snaps.get()).toBe(1);
-    await new Promise((r) => setTimeout(r, 0));
-    expect(await snaps.get()).toBe(2);
-    expect(calls).toBe(2);
+});
+
+describe("live leaderboard", () => {
+  function chain() {
+    const state = {
+      games: 3,
+      game: { 0: { a: "p-a.testnet", b: "admiral.testnet", status: "Finished" }, 1: { a: "p-a.testnet", b: "admiral.testnet", status: "Playing" }, 2: { a: "p-b.testnet", b: "admiral.testnet", status: "Placing" } } as Record<number, object>,
+      player: { ...players } as Record<string, object>,
+      ship: { ...ships } as Record<string, object>,
+      calls: [] as string[],
+    };
+    const v = new FakeViewer((method, args) => {
+      state.calls.push(method);
+      if (method === "config") return { players: 3, games: state.games };
+      if (method === "get_game") return state.game[Number(args.game_id)] ?? null;
+      if (method === "get_ship") return state.ship[String(args.token_id)] ?? null;
+      if (method === "get_player") {
+        const p = state.player[String(args.account_id)];
+        if (!p) return null;
+        const flagship = Object.entries(state.ship).find(([, s]) => (s as { captain: string }).captain === args.account_id)?.[0];
+        return { ...p, flagship };
+      }
+      throw new Error(method);
+    });
+    return { state, v };
+  }
+
+  it("updates both captains of a battle the moment it finishes, without a full rebuild", async () => {
+    const { state, v } = chain();
+    const live = new LiveLeaderboard(v, 10, 2);
+    expect((await live.get()).captains.map((c) => c.name)).toEqual(["Bo", "Anna"]);
+    expect(await live.tick()).toEqual([]);
+    state.game[1] = { a: "p-a.testnet", b: "admiral.testnet", status: "Finished" };
+    state.player["p-a.testnet"] = { ...players["p-a.testnet"], wins: 2 };
+    state.ship["ship:1"] = { ...ships["ship:1"], xp: 900, sunk: 20 };
+    state.calls.length = 0;
+    expect(await live.tick()).toEqual(["p-a.testnet"]);
+    expect(state.calls.filter((c) => c === "get_ship")).toHaveLength(1);
+    const board = await live.get();
+    expect(board.captains.map((c) => c.name)).toEqual(["Anna", "Bo"]);
+    expect(board.captains[0]).toMatchObject({ wins: 2, xp: 900, sunk: 20 });
+    expect(board.nauarch).toEqual({ wins: 2, losses: 5, battles: 7 });
+  });
+
+  it("watches battles that start after the first load", async () => {
+    const { state, v } = chain();
+    const live = new LiveLeaderboard(v, 10, 2);
+    await live.get();
+    state.games = 4;
+    state.game[3] = { a: "p-b.testnet", b: "admiral.testnet", status: "Finished" };
+    state.player["p-b.testnet"] = { ...players["p-b.testnet"], wins: 4 };
+    expect(await live.tick()).toEqual(["p-b.testnet"]);
+    expect((await live.get()).captains[0]).toMatchObject({ name: "Bo", wins: 4 });
+    expect(await live.tick()).toEqual([]);
+  });
+
+  it("does nothing before the first load", async () => {
+    const { v } = chain();
+    expect(await new LiveLeaderboard(v, 10, 2).tick()).toEqual([]);
   });
 });
 
@@ -74,9 +122,7 @@ describe("fresh captain row", () => {
     });
     const fresh = await freshCaptain(live, "p-a.testnet");
     expect(fresh).toMatchObject({ account: "p-a.testnet", wins: 2, xp: 500, sunk: 14 });
-    const merged = withCaptain(board, fresh!);
-    expect(merged.captains.map((c) => c.name)).toEqual(["Anna", "Bo"]);
-    expect(merged.nauarch).toEqual({ wins: 2, losses: 5, battles: 7 });
+    expect(board.captains.map((c) => c.name)).toEqual(["Bo", "Anna"]);
   });
 
   it("ignores a ship that belongs to someone else", async () => {

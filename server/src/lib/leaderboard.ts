@@ -72,11 +72,6 @@ export async function freshCaptain(viewer: Viewer, account: string): Promise<Cap
   return ship && ship.captain === account ? entryOf(ship, player) : null;
 }
 
-export function withCaptain(board: RankedBoard, fresh: CaptainEntry): Leaderboard {
-  const all = [...board.all.filter((e) => e.account !== fresh.account), fresh];
-  return rank(all, board.topSeeds);
-}
-
 export async function buildLeaderboard(viewer: Viewer, topSeeds: number, batch: number): Promise<RankedBoard> {
   const { players } = await patient<{ players: number }>(viewer, "config", {});
   const ids = Array.from({ length: players }, (_, i) => i + 1);
@@ -95,42 +90,82 @@ function rank(entries: readonly CaptainEntry[], topSeeds: number): Leaderboard {
   return { captains, nauarch, total: entries.length };
 }
 
-export class Snapshots<T> {
-  #value: T | undefined;
-  #at = -Infinity;
-  #running: Promise<T> | null = null;
-  #failedAt = -Infinity;
+interface GameRow {
+  readonly a: string;
+  readonly b: string;
+  readonly status: string;
+}
+
+export const WATCH_BACK = 100;
+const FORGET_AFTER = 500;
+
+export class LiveLeaderboard {
+  #all = new Map<string, CaptainEntry>();
+  #open = new Set<number>();
+  #seen = 0;
+  #ready: Promise<void> | null = null;
+  #ticking = false;
 
   constructor(
-    private readonly load: () => Promise<T>,
-    private readonly maxAgeMs: number,
-    private readonly now: () => number = Date.now,
-    private readonly onError: (err: unknown) => void = () => undefined,
-    private readonly retryAfterMs = 60_000,
+    private readonly viewer: Viewer,
+    private readonly topSeeds: number,
+    private readonly batch: number,
   ) {}
 
-  #refresh(): Promise<T> {
-    if (!this.#running) {
-      this.#running = this.load()
-        .then((v) => {
-          this.#value = v;
-          this.#at = this.now();
-          return v;
-        })
-        .finally(() => {
-          this.#running = null;
-        });
-    }
-    return this.#running;
+  async #load(): Promise<void> {
+    const { games } = await patient<{ games: number }>(this.viewer, "config", {});
+    const board = await buildLeaderboard(this.viewer, this.topSeeds, this.batch);
+    const recent = Array.from({ length: Math.min(games, WATCH_BACK) }, (_, i) => games - 1 - i);
+    const rows = await inBatches(recent, this.batch, async (id) => ({ id, game: await patient<GameRow | null>(this.viewer, "get_game", { game_id: id }) }));
+    this.#all = new Map(board.all.map((e) => [e.account, e]));
+    this.#open = new Set(rows.filter((r) => r.game !== null && r.game.status !== "Finished").map((r) => r.id));
+    this.#seen = games;
   }
 
-  async get(): Promise<T> {
-    if (this.#value === undefined) return this.#refresh();
-    if (this.now() - this.#at > this.maxAgeMs && this.now() - this.#failedAt > this.retryAfterMs)
-      this.#refresh().catch((err: unknown) => {
-        this.#failedAt = this.now();
-        this.onError(err);
-      });
-    return this.#value;
+  #loaded(): Promise<void> {
+    this.#ready ??= this.#load().catch((err: unknown) => {
+      this.#ready = null;
+      throw err;
+    });
+    return this.#ready;
+  }
+
+  async get(): Promise<Leaderboard> {
+    await this.#loaded();
+    return rank([...this.#all.values()], this.topSeeds);
+  }
+
+  async resync(): Promise<void> {
+    const board = await buildLeaderboard(this.viewer, this.topSeeds, this.batch);
+    this.#all = new Map(board.all.map((e) => [e.account, e]));
+  }
+
+  async tick(): Promise<readonly string[]> {
+    if (this.#ticking || this.#ready === null) return [];
+    this.#ticking = true;
+    try {
+      await this.#ready;
+      const { games } = await this.viewer.view<{ games: number }>("config", {});
+      for (let id = this.#seen; id < games; id++) this.#open.add(id);
+      this.#seen = Math.max(this.#seen, games);
+      for (const id of this.#open) if (id < games - FORGET_AFTER) this.#open.delete(id);
+      const finished = new Set<string>();
+      const rows = await inBatches([...this.#open], this.batch, async (id) => ({ id, game: await this.viewer.view<GameRow | null>("get_game", { game_id: id }) }));
+      for (const { id, game } of rows) {
+        if (game === null || game.status !== "Finished") continue;
+        this.#open.delete(id);
+        finished.add(game.a);
+        finished.add(game.b);
+      }
+      const fresh = await inBatches([...finished], this.batch, (account) => freshCaptain(this.viewer, account));
+      for (const entry of fresh) if (entry) this.#all.set(entry.account, entry);
+      return fresh.filter((e): e is CaptainEntry => e !== null).map((e) => e.account);
+    } finally {
+      this.#ticking = false;
+    }
+  }
+
+  patch(entry: CaptainEntry): void {
+    this.#all.set(entry.account, entry);
   }
 }

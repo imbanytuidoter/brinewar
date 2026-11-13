@@ -136,7 +136,8 @@ export function sections(l: Live): Section[] {
             <li><b>Model:</b> <code>{v(l.model)}</code> on NEAR AI Cloud, inside a TEE. Its signing key is stored in the contract.</li>
             <li><b>Request:</b> the contract itself builds the request body with <code>nauarch_request</code>: the history of shots, the captain's record against him, the hottest cells of the Admiralty map. Temperature is 0 and the seed is fixed, so the same public state gives the same request byte for byte.</li>
             <li><b>Signature:</b> the enclave signs the request and the response. <code>submit_ai_move</code> checks the ed25519 signature against the stored key and that the request matches the current game. A stale or altered move is refused.</li>
-            <li><b>Fallback:</b> if the model is late (over a few seconds) or names an invalid or repeated cell, the contract fires a deterministic shot instead: around known hits first, then the hottest open cell. The battle never stalls on the model.</li>
+            <li><b>How he aims:</b> the contract works out which cells make sense and lists them in the request; the model picks one of them and adds his line. A wounded ship comes first: he fires only along it until it sinks. With no wounded ship he hunts the hottest open cells of the Admiralty map, and when those run out, cells spread across the board. He never fires next to a sunk ship or diagonally from a hit, where no ship can be.</li>
+            <li><b>Fallback:</b> if the model is late (over a few seconds) or names a cell outside that list, the contract fires the first cell of the list instead, labelled as such. The battle never stalls on the model.</li>
             <li><b>His voice:</b> one line of at most 140 characters, limited to game facts. Each line shows <i>signed ✓</i> once your browser has checked it.</li>
           </ul>
         </>
@@ -153,6 +154,7 @@ export function sections(l: Live): Section[] {
             <li>A board counts only if the battle ended with a fleet sunk and that side answered at least {v(l.minHeatShots)} shots.</li>
             <li>One board per captain per day, so nobody can flood the map to steer him.</li>
             <li>The Nauarch's own board never counts.</li>
+            <li>Every verified board shifts the map, so his hunt changes as captains play. If most captains start hiding in the corners, he starts searching the corners.</li>
             <li>When he fires into a hot cell, the callout tells you: <i>Hunting from the Admiralty map</i>, with the share of fleets that sat there.</li>
           </ul>
         </>
@@ -278,6 +280,7 @@ export function sections(l: Live): Section[] {
           <p><b>Can the Nauarch see my ships?</b> No. Neither he nor the model ever gets your board; he learns only from boards revealed after finished battles.</p>
           <p><b>Can I see his board?</b> Not until the end. His root is on chain from the start, and when the battle ends his fleet rises from that root on screen.</p>
           <p><b>I closed the tab mid-battle.</b> Open the site again or press <b>Back to battle</b> on any page; the battle resumes where it was.</p>
+          <p><b>Does the Nauarch learn?</b> Yes, from statistics, not by retraining the model. Every board the contract verifies after a finished battle is added to the Admiralty map, and he hunts the hottest cells of that map first. The more captains play, the sharper his first shots get.</p>
           <p><b>Why is a move slow sometimes?</b> Each shot and answer is a transaction; a block takes about 0.6 s, and the Nauarch also waits for the model.</p>
         </>
       ),
