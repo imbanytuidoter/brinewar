@@ -101,12 +101,26 @@ function drawShip(c: CanvasRenderingContext2D, img: Images, at: Vec, heading: nu
   c.restore();
 }
 
-function label(c: CanvasRenderingContext2D, text: string, x: number, y: number, tone: "place" | "enemy" | "captain" | "bot"): void {
+interface Rect {
+  readonly x: number;
+  readonly y: number;
+  readonly w: number;
+  readonly h: number;
+}
+
+const LABEL_GAP = 3;
+
+function label(c: CanvasRenderingContext2D, text: string, x: number, y: number, tone: "place" | "enemy" | "captain" | "bot", taken: Rect[] | null = null): void {
   c.font = tone === "place" ? "700 15px \"Bespoke Stencil\", Archivo, sans-serif" : "600 12px Archivo, system-ui, sans-serif";
   const w = c.measureText(text).width + 14;
+  const box = { x: x - w / 2, y: y - 11, w, h: 22 };
+  if (taken) {
+    if (taken.some((r) => box.x < r.x + r.w + LABEL_GAP && r.x < box.x + box.w + LABEL_GAP && box.y < r.y + r.h + LABEL_GAP && r.y < box.y + box.h + LABEL_GAP)) return;
+    taken.push(box);
+  }
   c.fillStyle = tone === "enemy" ? "rgba(122,31,61,0.9)" : "rgba(9,24,33,0.78)";
   c.beginPath();
-  c.roundRect(x - w / 2, y - 11, w, 22, 11);
+  c.roundRect(box.x, box.y, w, 22, 11);
   c.fill();
   c.fillStyle = tone === "place" ? "#ffcf5a" : tone === "bot" ? "#a9bcc6" : "#f4f7f8";
   c.textAlign = "center";
@@ -305,20 +319,22 @@ export function WorldMap({ captains, mySail, myFlag, reducedMotion, paused, onEn
       ctx.restore();
 
       const screen = (p: Vec): Vec => ({ x: (p.x - view.current.cx) * v.scale + v.w / 2, y: (p.y - view.current.cy) * v.scale + v.h / 2 });
+      const taken: Rect[] = [];
+      const me = screen(helm.current.pos);
+      label(ctx, "You", me.x, me.y - 44 * v.scale, "place", taken);
       for (const p of PLACES) {
         const s = screen(p);
-        label(ctx, p.name, s.x, s.y - 40 * v.scale, "place");
+        label(ctx, p.name, s.x, s.y - 40 * v.scale, "place", taken);
       }
       for (const p of patrols) {
         const s = screen(p.pos);
-        label(ctx, "Nauarch's patrol", s.x, s.y - 46 * v.scale, "enemy");
+        label(ctx, "Nauarch's patrol", s.x, s.y - 46 * v.scale, "enemy", taken);
       }
-      for (const f of shown) {
+      const byRank = [...shown].sort((a, b) => (a.rank ?? Number.MAX_SAFE_INTEGER) - (b.rank ?? Number.MAX_SAFE_INTEGER));
+      for (const f of byRank) {
         const s = screen(f);
-        label(ctx, f.rank === null ? `${f.captain.name} · bot` : `#${f.rank} ${f.captain.name}`, s.x, s.y - 44 * v.scale, f.rank === null ? "bot" : "captain");
+        label(ctx, f.rank === null ? `${f.captain.name} · bot` : `#${f.rank} ${f.captain.name}`, s.x, s.y - 44 * v.scale, f.rank === null ? "bot" : "captain", taken);
       }
-      const me = screen(helm.current.pos);
-      label(ctx, "You", me.x, me.y - 44 * v.scale, "place");
       drawMini(miniRef.current, fleetRef.current, patrols.map((p) => p.pos), helm.current.pos, view.current);
       raf = requestAnimationFrame(frame);
     };
