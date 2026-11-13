@@ -100,7 +100,7 @@ cd web && BRINEWAR_API_PROXY=http://127.0.0.1:8797 VITE_NEAR_RPC_URL=<rpcUrl fro
 
 Without `NEAR_AI_API_KEY` the Nauarch plays only deterministic moves, and the UI labels them. A full scripted battle on the sandbox: `cd server && npm run e2e` (about 10 minutes).
 
-Tests at the time of writing: 136 contract, 99 server, 180 web, plus 2 Playwright runs against the live testnet site (a battle with the Nauarch and a two-browser duel).
+Tests at the time of writing: 136 contract, 99 server, 181 web, plus 2 Playwright runs against the live testnet site (a battle with the Nauarch and a two-browser duel).
 
 ## Prior art
 
