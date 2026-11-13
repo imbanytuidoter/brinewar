@@ -115,8 +115,8 @@ function unionShips(...lists: ReadonlyArray<readonly (readonly number[])[]>): (r
 }
 
 export const BLOCK_MS = 587;
-const QUICK_POLL_MS = 250;
-const QUICK_TRIES = 48;
+const QUICK_POLL_MS = 60;
+const QUICK_TRIES = 40;
 
 export function provenResult(a: QuickAnswer, index: number, root: string | null): "Hit" | "Miss" | null {
   if (!root || a.idx !== index || (a.cell !== 0 && a.cell !== 1)) return null;

@@ -6,6 +6,8 @@ import type { Side } from "./types";
 
 const MAX_PARTICLES = 4000;
 const FLIGHT_SECONDS = 1.15;
+const LOB_FROM = 0.55;
+const LOB_PACE = 0.4;
 const FUSE_COLOR = "#ffb347";
 const FUSE_RATE = 0.8;
 const REST_HEIGHT = 0.18;
@@ -216,7 +218,8 @@ export class EffectsEngine {
       if (!f) continue;
       const waiting = f.hold !== null && f.held < HOLD_MAX_SECONDS && f.hold();
       if (f.t < f.max) {
-        f.t = Math.min(f.max, f.t + dt);
+        const lobbing = waiting && f.t / f.max >= LOB_FROM;
+        f.t = Math.min(f.max, f.t + dt * (lobbing ? LOB_PACE : 1));
         const k = f.t / f.max;
         this.#tmp.lerpVectors(f.from, f.to, k);
         this.#tmp.y = THREE.MathUtils.lerp(f.from.y, REST_HEIGHT, k) + Math.sin(k * Math.PI) * 4.2;

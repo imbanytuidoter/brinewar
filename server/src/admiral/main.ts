@@ -51,6 +51,7 @@ process.on("SIGINT", stop);
 log.info({ contract: config.contract, admiral: config.admiral, model: model !== null }, "the Nauarch takes the helm");
 const SLOW_TICK_MS = 2000;
 const IDLE_TICK_MS = 1000;
+const ACTIVE_TICK_MS = 100;
 while (running) {
   const started = Date.now();
   let active = true;
@@ -61,6 +62,6 @@ while (running) {
   }
   const took = Date.now() - started;
   if (took > SLOW_TICK_MS) log.warn({ ms: took }, "slow tick");
-  await new Promise((r) => setTimeout(r, active ? config.tickMs : Math.max(config.tickMs, IDLE_TICK_MS)));
+  await new Promise((r) => setTimeout(r, active ? Math.min(config.tickMs, ACTIVE_TICK_MS) : Math.max(config.tickMs, IDLE_TICK_MS)));
 }
 store.close();

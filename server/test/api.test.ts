@@ -186,6 +186,16 @@ describe("read endpoints", () => {
     expect((await t.app.inject({ url: "/api/game/x/answer/5" })).statusCode).toBe(400);
   });
 
+  it("holds a waiting request open until the Nauarch's answer lands, so the shooter learns it at once", async () => {
+    const t = await setup();
+    setTimeout(() => t.store.saveAnswer(3, { idx: 7, cell: 0, salt: "aa", proof: ["bb"], tx: null }), 120);
+    const started = Date.now();
+    const res = await t.app.inject({ url: "/api/game/3/answer/7?wait=1" });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({ idx: 7, cell: 0 });
+    expect(Date.now() - started).toBeLessThan(1000);
+  });
+
   it("passes a duel answer from the defender to the shooter only when its proof matches the defender's root", async () => {
     const t = await setup();
     const root = toHex(duelTree.root);

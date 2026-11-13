@@ -18,6 +18,8 @@ const LEADERBOARD_MS = 600_000;
 const ACCOUNT_RE = /^[a-z0-9][a-z0-9._-]{1,63}$/;
 const CACHE_CAP = 5000;
 const HEX64 = /^[0-9a-f]{64}$/i;
+const ANSWER_WAIT_MS = 2500;
+const ANSWER_POLL_MS = 40;
 const LEADERBOARD_SEEDS = 50;
 const LEADERBOARD_BATCH = 3;
 
@@ -56,6 +58,7 @@ export interface AppOptions {
   readonly sampledAt?: () => number | null;
   readonly sampleMs?: number;
   readonly liveMs?: number;
+  readonly answerWaitMs?: number;
 }
 
 export function shipClaim(raw: unknown, idx: number): number[] | null {
@@ -157,16 +160,25 @@ export async function buildApp(o: AppOptions) {
   });
 
   const duelAnswers = new Map<string, { idx: number; cell: number; salt: string; proof: string[]; sunk: number[] | null }>();
-  app.get<{ Querystring: { root?: string } }>("/api/game/:id/answer/:index", { config: { rateLimit: { max: 400, timeWindow: "1 minute" } } }, async (req, reply) => {
+  app.get<{ Querystring: { root?: string; wait?: string } }>("/api/game/:id/answer/:index", { config: { rateLimit: { max: 400, timeWindow: "1 minute" } } }, async (req, reply) => {
     const { id, index } = req.params as { id: string; index: string };
     if (!/^\d{1,15}$/.test(id) || !/^\d{1,2}$/.test(index)) return reply.code(400).send({ error: "bad game or cell" });
     const idx = Number(index);
-    const row = o.store.answers(Number(id)).find((a) => a.idx === idx);
-    if (row) return { idx: row.idx, cell: row.cell, salt: row.salt, proof: row.proof, sunk: row.cell === 1 ? (o.store.sunk(Number(id)).find((ship) => ship.includes(idx)) ?? null) : null };
+    const gameId = Number(id);
     const root = typeof req.query.root === "string" ? req.query.root.toLowerCase() : "";
-    const shared = HEX64.test(root) ? duelAnswers.get(`${id}:${root}:${idx}`) : undefined;
-    if (!shared) return reply.code(404).send({ error: "not answered yet" });
-    return shared;
+    const find = (): object | null => {
+      const row = o.store.answers(gameId).find((a) => a.idx === idx);
+      if (row) return { idx: row.idx, cell: row.cell, salt: row.salt, proof: row.proof, sunk: row.cell === 1 ? (o.store.sunk(gameId).find((ship) => ship.includes(idx)) ?? null) : null };
+      return HEX64.test(root) ? (duelAnswers.get(`${id}:${root}:${idx}`) ?? null) : null;
+    };
+    const until = Date.now() + (req.query.wait === "1" ? (o.answerWaitMs ?? ANSWER_WAIT_MS) : 0);
+    let found = find();
+    while (!found && Date.now() < until && !req.raw.destroyed) {
+      await new Promise((r) => setTimeout(r, ANSWER_POLL_MS));
+      found = find();
+    }
+    if (!found) return reply.code(404).send({ error: "not answered yet" });
+    return found;
   });
 
   app.post("/api/game/:id/answer", { config: { rateLimit: { max: 120, timeWindow: "1 minute" } } }, async (req, reply) => {

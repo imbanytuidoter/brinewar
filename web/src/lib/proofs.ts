@@ -57,10 +57,10 @@ export async function fetchEvidence(apiUrl: string, gameId: number, fetchFn: typ
   return parseEvidence(await res.json(), gameId);
 }
 
-const QUICK_TIMEOUT_MS = 2500;
+const QUICK_TIMEOUT_MS = 4000;
 
 export async function fetchQuickAnswer(apiUrl: string, gameId: number, index: number, root: string | null = null, fetchFn: typeof fetch = fetch): Promise<QuickAnswer | null> {
-  const query = root ? `?root=${encodeURIComponent(root.replace(/^0x/, ""))}` : "";
+  const query = root ? `?wait=1&root=${encodeURIComponent(root.replace(/^0x/, ""))}` : "?wait=1";
   const res = await fetchFn(`${apiUrl}/api/game/${gameId}/answer/${index}${query}`, { signal: AbortSignal.timeout(QUICK_TIMEOUT_MS) });
   if (!res.ok) return null;
   const raw = (await res.json()) as unknown;

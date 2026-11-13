@@ -80,10 +80,15 @@ export class Admiral {
   }
 
   async tick(): Promise<boolean> {
-    const [config, height] = await Promise.all([this.#o.viewer.view<ConfigView>("config"), this.#o.height()]);
+    const start = this.#cursor;
+    const [config, height, firstPage] = await Promise.all([
+      this.#o.viewer.view<ConfigView>("config"),
+      this.#o.height(),
+      this.#o.viewer.view<GameView[]>("games_since", { from_id: start, limit: PAGE }),
+    ]);
     let lowestOpen: number | null = null;
-    for (let from = this.#cursor; from < config.games; from += PAGE) {
-      const games = await this.#o.viewer.view<GameView[]>("games_since", { from_id: from, limit: PAGE });
+    for (let from = start; from < config.games; from += PAGE) {
+      const games = from === start ? firstPage : await this.#o.viewer.view<GameView[]>("games_since", { from_id: from, limit: PAGE });
       for (const g of games) {
         const action = this.#decide(g, height);
         if (action.kind === "done") this.#forget(g);
