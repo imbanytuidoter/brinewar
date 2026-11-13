@@ -22,8 +22,7 @@ export function FleetPage({ cfg }: { readonly cfg: AppConfig }) {
       title="Your fleet"
       lede={
         <p className="m-0">
-          Your flagship is a NEP-245 token with its own battle record, and it ranks up only by fighting. Skins are tokens too. They change sails, flag, hull and the colour of
-          your cannon trail, and nothing about how the ship plays.
+          Your flagship is a NEP-245 token with its own battle record, and it ranks up only by fighting. Skins are tokens too. Each rank unlocks a grander one: lanterns, a gold finish, St Elmo's fire on the masts, and for an Admiral all of it. They change how the ship looks and nothing about how it plays.
         </p>
       }
     >
