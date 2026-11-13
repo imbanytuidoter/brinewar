@@ -72,6 +72,10 @@ export class Store {
     return this.db.prepare("SELECT n, account, text, at FROM chat WHERE game_id = ? AND n > ? ORDER BY n LIMIT ?").all(gameId, after, limit) as { n: number; account: string; text: string; at: number }[];
   }
 
+  chatCount(gameId: number): number {
+    return (this.db.prepare("SELECT COUNT(*) AS c FROM chat WHERE game_id = ?").get(gameId) as { c: number }).c;
+  }
+
   chatCountSince(account: string, since: number): number {
     return (this.db.prepare("SELECT COUNT(*) AS c FROM chat WHERE account = ? AND at > ?").get(account, since) as { c: number }).c;
   }

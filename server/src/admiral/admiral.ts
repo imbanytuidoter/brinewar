@@ -55,7 +55,7 @@ export class Admiral {
   readonly #busy = new Set<number>();
   readonly #boards = new Map<number, Board>();
   readonly #failures = new Map<number, number>();
-  readonly #acted = new Map<number, string>();
+  readonly #acted = new Map<number, Set<string>>();
   #cursor = 0;
 
   constructor(o: AdmiralOptions) {
@@ -77,12 +77,13 @@ export class Admiral {
         if (action.kind !== "done" && lowestOpen === null) lowestOpen = g.id;
         if (action.kind === "done" || action.kind === "wait" || this.#busy.has(g.id)) continue;
         const state = stateOf(g);
-        if (this.#acted.get(g.id) === state) continue;
+        if (this.#acted.get(g.id)?.has(state)) continue;
         this.#busy.add(g.id);
         void this.#run(g, action).finally(() => {
           const streak = this.#failures.get(g.id) ?? 0;
           if (streak === 0) {
-            this.#acted.set(g.id, state);
+            const after = action.kind === "answer" ? [stateOf({ ...g, pending_index: null, turn: this.#o.caller.accountId })] : [];
+            this.#acted.set(g.id, new Set([state, ...after]));
             this.#busy.delete(g.id);
             return;
           }

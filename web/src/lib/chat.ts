@@ -32,12 +32,15 @@ export function chatClient(apiUrl: string, account: string, secretKey: string, f
   const sign = (bytes: Uint8Array): string => hex(kp.sign(bytes).signature);
   return {
     async send(gameId, text) {
-      const signedAt = now();
-      const res = await fetchFn(`${apiUrl}/api/duel/${gameId}/chat`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ account, publicKey, signedAt, text, signature: sign(chatPayload("say", gameId, account, signedAt, text)) }),
-      }).catch(() => null);
+      const post = (signedAt: number) =>
+        fetchFn(`${apiUrl}/api/duel/${gameId}/chat`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ account, publicKey, signedAt, text, signature: sign(chatPayload("say", gameId, account, signedAt, text)) }),
+        }).catch(() => null);
+      const at = now();
+      const res = await post(at);
+      if (res?.status === 409) return (await post(at + 1))?.ok ?? false;
       return res?.ok ?? false;
     },
     async read(gameId, after) {

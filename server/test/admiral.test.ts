@@ -105,6 +105,16 @@ describe("admiral", () => {
     expect(t.caller.calls.filter((c) => c.method === "answer")).toHaveLength(2);
   });
 
+  it("does not fire twice when a lagging read still shows the moment between its answer and its shot", async () => {
+    const t = setup({ answerPassesTurn: true });
+    await t.settle();
+    t.set({ status: "Playing", root_b: t.store.board(0)?.root as string, turn: ADM, pending_index: 12, shots: 1 });
+    await t.settle();
+    await t.settle();
+    await t.settle();
+    expect(t.caller.calls.filter((c) => c.method === "nauarch_fallback")).toHaveLength(1);
+  });
+
   it("fires right after answering, without waiting for the next tick", async () => {
     const t = setup({ answerPassesTurn: true });
     await t.settle();

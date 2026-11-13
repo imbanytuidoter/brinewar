@@ -1,5 +1,5 @@
 import { Anchor, Loader2 } from "lucide-react";
-import { useCallback, useMemo, useState } from "react";
+import { lazy, Suspense, useCallback, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useBoot } from "@/game/useGame";
 import { useHarbourStats } from "@/game/useHarbour";
@@ -8,16 +8,25 @@ import { Landing } from "@/ui/Landing";
 import { sound } from "@/lib/sound";
 import { readConfig, type AppConfig } from "@/lib/config";
 import { PlayPage } from "@/pages/PlayPage";
-import { AdmiraltyPage } from "@/pages/AdmiraltyPage";
-import { FleetPage } from "@/pages/FleetPage";
-import { CaptainsPage } from "@/pages/CaptainsPage";
-import { DocsPage } from "@/pages/docs/DocsPage";
-import { JudgesPage } from "@/pages/JudgesPage";
-import { ReplayPage } from "@/pages/ReplayPage";
-import { TreasuryPage } from "@/pages/TreasuryPage";
-import { VerifyPage } from "@/pages/VerifyPage";
+
+const AdmiraltyPage = lazy(() => import("@/pages/AdmiraltyPage").then((m) => ({ default: m.AdmiraltyPage })));
+const FleetPage = lazy(() => import("@/pages/FleetPage").then((m) => ({ default: m.FleetPage })));
+const CaptainsPage = lazy(() => import("@/pages/CaptainsPage").then((m) => ({ default: m.CaptainsPage })));
+const DocsPage = lazy(() => import("@/pages/docs/DocsPage").then((m) => ({ default: m.DocsPage })));
+const JudgesPage = lazy(() => import("@/pages/JudgesPage").then((m) => ({ default: m.JudgesPage })));
+const ReplayPage = lazy(() => import("@/pages/ReplayPage").then((m) => ({ default: m.ReplayPage })));
+const TreasuryPage = lazy(() => import("@/pages/TreasuryPage").then((m) => ({ default: m.TreasuryPage })));
+const VerifyPage = lazy(() => import("@/pages/VerifyPage").then((m) => ({ default: m.VerifyPage })));
 
 export function App() {
+  return (
+    <Suspense fallback={<Shell title="Brinewar" text="Raising the charts…" />}>
+      <Routes />
+    </Suspense>
+  );
+}
+
+function Routes() {
   const cfg = useMemo((): AppConfig | Error => {
     try {
       return readConfig(import.meta.env as Record<string, string | undefined>);

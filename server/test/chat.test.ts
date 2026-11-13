@@ -75,6 +75,26 @@ describe("duel chat", () => {
     expect((await t.app.inject({ method: "POST", url: "/api/duel/7/chat", payload: say(t.host, 7, "x".repeat(201)) })).statusCode).toBe(400);
   });
 
+  it("answers 503 without leaking the RPC error when the chain is down", async () => {
+    const c = captain();
+    const store = new Store(join(mkdtempSync(join(tmpdir(), "bw-")), "db.sqlite"), () => NOW);
+    const viewer = new FakeViewer(() => {
+      throw new Error("rpc https://secret-node.example 502");
+    });
+    const app = await buildApp({ viewer, sponsor: new FakeCaller("s"), store, log: silent, guestsPerIpHour: 2, guestsPerDay: 10, trustProxy: 0, now: () => NOW });
+    const res = await app.inject({ method: "POST", url: "/api/duel/7/chat", payload: say(c, 7, "hi") });
+    expect(res.statusCode).toBe(503);
+    expect(res.body).not.toContain("secret-node");
+  });
+
+  it("refuses an old read signature sooner than a message", async () => {
+    const t = await setup();
+    const sig = hex(t.host.kp.sign(chatPayload("read", 7, t.host.account, NOW - 60_000)).signature);
+    const url = `/api/duel/7/chat?account=${t.host.account}&publicKey=${encodeURIComponent(t.host.publicKey)}&signedAt=${NOW - 60_000}&signature=${sig}`;
+    expect((await t.app.inject({ method: "GET", url })).statusCode).toBe(403);
+    expect((await t.app.inject({ method: "POST", url: "/api/duel/7/chat", payload: say(t.host, 7, "late", NOW - 60_000) })).statusCode).toBe(200);
+  });
+
   it("cleans control and direction characters out of messages", () => {
     expect(cleanText("a‮b\n\tc")).toBe("a b c");
     expect(cleanText("   ")).toBeNull();

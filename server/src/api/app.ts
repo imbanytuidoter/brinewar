@@ -64,6 +64,12 @@ export async function buildApp(o: AppOptions) {
   const now = o.now ?? Date.now;
   const app = Fastify({ loggerInstance: o.log, trustProxy: o.trustProxy > 0 ? (_addr: string, hop: number) => hop < o.trustProxy : false, bodyLimit: 4096 });
   await app.register(rateLimit, { max: 240, timeWindow: "1 minute", keyGenerator: (req) => limitKey(req.ip) });
+  app.setErrorHandler((err: FastifyError, req, reply) => {
+    req.log.error({ err: err.message }, "request failed");
+    const status = err.statusCode && err.statusCode < 500 ? err.statusCode : 500;
+    void reply.code(status).send({ error: status === 429 ? "slow down" : status < 500 ? err.message : "internal error" });
+  });
+
   const inflight = new Map<string, Promise<{ status: number; body: unknown }>>();
   const cache = new Map<string, { at: number; body: unknown }>();
   const cached = async (key: string, load: () => Promise<unknown>): Promise<unknown> => {
@@ -165,11 +171,6 @@ export async function buildApp(o: AppOptions) {
 
   await app.register(async (scope) => registerChat(scope, o.viewer, o.store, now));
 
-  app.setErrorHandler((err: FastifyError, req, reply) => {
-    req.log.error({ err: err.message }, "request failed");
-    const status = err.statusCode && err.statusCode < 500 ? err.statusCode : 500;
-    void reply.code(status).send({ error: status === 429 ? "slow down" : status < 500 ? err.message : "internal error" });
-  });
 
   return app;
 }
