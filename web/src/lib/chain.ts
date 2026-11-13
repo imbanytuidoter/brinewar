@@ -6,7 +6,7 @@ export const PLAYER_REVEAL_GAS_TGAS = 30;
 export function playerGas(method: string): number {
   return method === "reveal" ? PLAYER_REVEAL_GAS_TGAS : PLAYER_GAS_TGAS;
 }
-const VIEW_TIMEOUT_MS = 15_000;
+const VIEW_TIMEOUT_MS = 6_000;
 const CALL_TIMEOUT_MS = 60_000;
 const BLOCK_HASH_TTL_MS = 10 * 60_000;
 const STALE_KEY = /nonce|expired|InvalidTransaction|InvalidAccessKey/i;
@@ -85,12 +85,16 @@ export function rotate<T extends object>(items: readonly T[]): T {
   });
 }
 
+export const RPC_RETRY = { retries: 2, wait: 200, backoff: 1.5 } as const;
+
 function endpoints(rpcUrl: string): JsonRpcProvider[] {
-  return rpcUrl.split(",").map((u) => u.trim()).filter(Boolean).map((url) => new JsonRpcProvider({ url }));
+  return rpcUrl.split(",").map((u) => u.trim()).filter(Boolean).map((url) => new JsonRpcProvider({ url }, RPC_RETRY));
 }
 
 export function readRpc(rpcUrl: string): Provider {
-  return writeRpc(rpcUrl);
+  const list = endpoints(rpcUrl);
+  if (list.length <= 1) return list[0] ?? new JsonRpcProvider({ url: rpcUrl }, RPC_RETRY);
+  return rotate(list.map((_, i) => new FailoverRpcProvider([...list.slice(i), ...list.slice(0, i)])));
 }
 
 export function makeHeight(rpcUrl: string): () => Promise<number> {
@@ -100,7 +104,7 @@ export function makeHeight(rpcUrl: string): () => Promise<number> {
 
 export function writeRpc(rpcUrl: string): Provider {
   const list = endpoints(rpcUrl);
-  if (list.length <= 1) return list[0] ?? new JsonRpcProvider({ url: rpcUrl });
+  if (list.length <= 1) return list[0] ?? new JsonRpcProvider({ url: rpcUrl }, RPC_RETRY);
   return new FailoverRpcProvider(list);
 }
 

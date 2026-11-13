@@ -1,5 +1,5 @@
 use crate::events::emit;
-use crate::fleet::{BOARD_SIZE, CELLS, SHIP_CELLS};
+use crate::fleet::{BOARD_SIZE, CELLS, FLEET, SHIP_CELLS};
 use crate::game::{Game, Mode, ShotResult, ShotSource, Side, Status};
 use crate::{settle_answer, Brinewar, BrinewarExt};
 use near_sdk::serde_json::{json, Value};
@@ -247,7 +247,36 @@ fn sight(game: &Game) -> Sight {
             afloat.push(ship);
         }
     }
+    sink_by_fleet(&mut afloat, &mut sunk);
     Sight { hits, afloat, sunk }
+}
+
+fn sink_by_fleet(afloat: &mut Vec<Vec<u8>>, sunk: &mut Vec<Vec<u8>>) {
+    let mut left: Vec<usize> = FLEET
+        .iter()
+        .flat_map(|&(len, count)| std::iter::repeat_n(len, count))
+        .collect();
+    for ship in sunk.iter() {
+        if let Some(i) = left.iter().position(|&l| l == ship.len()) {
+            left.swap_remove(i);
+        }
+    }
+    while let Some(longest) = left.iter().copied().max() {
+        let Some(i) = afloat.iter().position(|s| s.len() >= longest) else {
+            break;
+        };
+        let ship = afloat.remove(i);
+        if let Some(j) = left.iter().position(|&l| l == ship.len()) {
+            left.swap_remove(j);
+        }
+        sunk.push(ship);
+    }
+}
+
+pub fn aim_cells(game: &Game) -> Vec<u8> {
+    match aim(game) {
+        Aim::Finish(c) | Aim::Chart(c) | Aim::Hunt(c) => c,
+    }
 }
 
 fn touches(a: u8, b: u8) -> bool {
@@ -337,10 +366,7 @@ pub fn allowed(game: &Game, cell: u8) -> bool {
 }
 
 pub fn deterministic_shot(game: &Game) -> u8 {
-    let cells = match aim(game) {
-        Aim::Finish(c) | Aim::Chart(c) | Aim::Hunt(c) => c,
-    };
-    cells
+    aim_cells(game)
         .first()
         .copied()
         .unwrap_or_else(|| env::panic_str("no cell left to fire at"))
@@ -544,6 +570,14 @@ impl Brinewar {
             return Some(hex::encode(m.public_key));
         }
         env::storage_read(&model_key_slot(&model)).map(hex::encode)
+    }
+
+    pub fn nauarch_aim(&self, game_id: u64) -> Vec<u8> {
+        let game = self.load(game_id);
+        if game.mode != Mode::VsNauarch || game.status != Status::Playing {
+            return Vec::new();
+        }
+        aim_cells(&game)
     }
 
     pub fn nauarch_request(&self, game_id: u64, kind: MoveKind) -> String {

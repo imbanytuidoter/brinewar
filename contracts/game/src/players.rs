@@ -826,7 +826,11 @@ mod tests {
             let svg = ship_svg_styled(2, false, st);
             for part in svg.split("url(#").skip(1) {
                 let id = part.split(')').next().unwrap_or_default();
-                assert!(svg.contains(&format!("id=\"{id}\"")), "missing gradient {id} in {}", st.name);
+                assert!(
+                    svg.contains(&format!("id=\"{id}\"")),
+                    "missing gradient {id} in {}",
+                    st.name
+                );
             }
         }
         for svg in &svgs {

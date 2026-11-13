@@ -348,6 +348,11 @@ export class GameSession {
     return captain;
   }
 
+  async nauarchAim(gameId: number): Promise<number[]> {
+    const cells = await this.#d.viewer.view<number[]>("nauarch_aim", { game_id: gameId });
+    return Array.isArray(cells) ? cells.filter((c) => Number.isInteger(c) && c >= 0 && c < 100) : [];
+  }
+
   async rename(nickname: string): Promise<boolean> {
     const r = await this.#send("Renaming your captain", "set_nickname", { nickname });
     if (r.ok) await this.#captain().catch(() => null);
@@ -525,10 +530,9 @@ export class GameSession {
     const id = this.#snap.gameId;
     if (id === null || this.#firing) return false;
     const local = this.#local;
-    const [game, history] = await Promise.all([
-      this.#d.viewer.view<GameView | null>("get_game", { game_id: id }),
-      this.#d.viewer.view<ShotView[]>("get_history", { game_id: id }),
-    ]);
+    const battle = await this.#d.viewer.view<{ readonly game: GameView; readonly history: ShotView[] } | null>("get_battle", { game_id: id });
+    const game = battle?.game ?? null;
+    const history = battle?.history ?? [];
     if (local !== this.#local || this.#firing || (game && history.length !== game.shots)) return false;
     if (!game) {
       clearBattle(this.#d.store, me);

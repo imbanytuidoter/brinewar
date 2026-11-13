@@ -42,6 +42,7 @@ class FakeContract implements Viewer, Caller {
       active_game_of: this.game && this.game.status !== "Finished" ? this.game.id : null,
       get_game: this.game && args.game_id === this.game.id ? { ...this.game } : null,
       get_history: this.history.map((s) => ({ ...s })),
+      get_battle: this.game && args.game_id === this.game.id ? { game: { ...this.game }, history: this.history.map((s) => ({ ...s })) } : null,
       model: { model: MODEL, public_key: bytesToHex(ed25519.getPublicKey(this.secret)) },
       get_player: { account_id: args.account_id, nickname: null, display_name: args.account_id === ME ? "Captain" : "Ishmael", gold: this.gold, games_vs_nauarch: 0, wins: 0, losses: 0, last_result: null, fav_zone: null, flagship: "ship:1" },
       get_ship: { token_id: "ship:1", owner_id: ME, captain: ME, class: "c", rank: this.xp >= 100 ? "Lieutenant" : "Ensign", xp: this.xp, next_rank_xp: 100, wins: 0, losses: 0, sunk: 0, frozen: false },
@@ -529,7 +530,7 @@ describe("instant result", () => {
     const view = chain.view.bind(chain);
     let held = false;
     chain.view = async <T,>(method: string, args?: Record<string, unknown>): Promise<T> => {
-      if (method === "get_history" && !held) {
+      if (method === "get_battle" && !held) {
         held = true;
         const before = await view<T>(method, args);
         await gate;

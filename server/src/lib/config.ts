@@ -53,7 +53,7 @@ export function urls(env: Env, key: string, fallback: string): string {
   return list.map((u) => url({ [key]: u }, key, fallback)).join(",");
 }
 
-const TESTNET_SPARES = ["https://rpc.testnet.near.org", "https://test.rpc.fastnear.com"];
+const TESTNET_SPARES = ["https://test.rpc.fastnear.com", "https://near-testnet.drpc.org", "https://rpc.testnet.near.org"];
 
 export function rpcUrls(env: Env): string {
   const listed = urls(env, "NEAR_RPC_URL", "https://rpc.testnet.fastnear.com").split(",");

@@ -20,7 +20,8 @@ use codec::{cells_to_string, parse_cells, parse_hash, parse_proof, parse_salts};
 use events::emit;
 use fleet::{ships, validate_fleet, CELLS, SHIP_CELLS};
 use game::{
-    FinishReason, Game, GameView, Mode, Shot, ShotResult, ShotSource, ShotView, Side, Status,
+    BattleView, FinishReason, Game, GameView, Mode, Shot, ShotResult, ShotSource, ShotView, Side,
+    Status,
 };
 use merkle::{board_root, root_from_proof};
 use nauarch::{ModelKey, MoveKind};
@@ -552,6 +553,14 @@ impl Brinewar {
 
     pub fn get_game(&self, game_id: u64) -> Option<GameView> {
         self.games.get(&game_id).map(GameView::from)
+    }
+
+    pub fn get_battle(&self, game_id: u64) -> Option<BattleView> {
+        let game = self.games.get(&game_id)?;
+        Some(BattleView {
+            game: GameView::from(game),
+            history: self.get_history(game_id),
+        })
     }
 
     pub fn get_history(&self, game_id: u64) -> Vec<ShotView> {

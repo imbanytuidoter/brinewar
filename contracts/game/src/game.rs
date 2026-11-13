@@ -242,6 +242,12 @@ pub struct ShotView {
     pub source: ShotSource,
 }
 
+#[near(serializers = [json])]
+pub struct BattleView {
+    pub game: GameView,
+    pub history: Vec<ShotView>,
+}
+
 impl From<&Game> for GameView {
     fn from(g: &Game) -> Self {
         GameView {

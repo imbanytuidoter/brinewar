@@ -209,8 +209,15 @@ fn win_grows_the_flagship_and_reveal_adds_sunk_ships() {
     let owned = m.c.ship_svg(ship_token(0), Some("coral".into())).unwrap();
     assert_ne!(owned, svg);
     assert!(owned.contains("#f2a58e"));
-    assert_eq!(m.c.ship_svg(ship_token(0), Some("admiral".into())).unwrap(), svg);
-    assert_eq!(m.c.ship_svg(ship_token(0), Some("no-such-skin".into())).unwrap(), svg);
+    assert_eq!(
+        m.c.ship_svg(ship_token(0), Some("admiral".into())).unwrap(),
+        svg
+    );
+    assert_eq!(
+        m.c.ship_svg(ship_token(0), Some("no-such-skin".into()))
+            .unwrap(),
+        svg
+    );
 }
 
 #[test]
@@ -1036,4 +1043,59 @@ fn with_a_map_the_model_hunts_only_the_hot_cells() {
         "fired at {}",
         last.index
     );
+}
+
+#[test]
+fn a_ship_as_long_as_the_longest_left_afloat_counts_as_sunk() {
+    let mut m = Match::started();
+    m.fire(&player(), 1);
+    m.answer_truthfully(&nauarch(), 1);
+    for cell in [0, 1, 2, 3, 20, 21, 22] {
+        m.fire(&nauarch(), cell);
+        m.answer_truthfully(&player(), cell);
+    }
+    m.chain.act(&nauarch());
+    let request = m.c.nauarch_request(m.id, MoveKind::Shot);
+    assert!(request.contains("A3, B3, C3"), "{request}");
+    let aim = m.c.nauarch_aim(m.id);
+    assert!(!aim.is_empty());
+    assert!(!aim.contains(&23), "{aim:?}");
+    assert!(
+        aim.iter()
+            .all(|&c| c / 10 != 1 && c / 10 != 3 || c % 10 > 4),
+        "{aim:?}"
+    );
+    m.ai(MoveKind::Shot, r#"{"shot":"D3","line":"One more."}"#);
+    let history = m.c.get_history(m.id);
+    let last = history.last().unwrap();
+    assert_eq!(last.source, ShotSource::ModelFallback);
+    assert!(aim.contains(&last.index), "{} not in {aim:?}", last.index);
+}
+
+#[test]
+fn the_nauarch_aims_at_exactly_the_cells_his_prompt_offers() {
+    let mut m = Match::started();
+    m.fire(&player(), 1);
+    m.answer_truthfully(&nauarch(), 1);
+    m.chain.act(&nauarch());
+    let aim = m.c.nauarch_aim(m.id);
+    let request = m.c.nauarch_request(m.id, MoveKind::Shot);
+    let offered = request
+        .split("your own reckoning: ")
+        .nth(1)
+        .and_then(|r| r.split('.').next())
+        .unwrap();
+    let named: Vec<String> = aim.iter().map(|&c| crate::nauarch::cell_name(c)).collect();
+    assert_eq!(offered.split(", ").collect::<Vec<_>>(), named, "{request}");
+}
+
+#[test]
+fn one_read_returns_the_game_and_its_history_together() {
+    let mut m = Match::started();
+    m.fire(&player(), 1);
+    m.answer_truthfully(&nauarch(), 1);
+    let battle = m.c.get_battle(m.id).unwrap();
+    assert_eq!(battle.game.shots as usize, battle.history.len());
+    assert_eq!(battle.history[0].index, 1);
+    assert!(m.c.get_battle(9_999).is_none());
 }

@@ -126,10 +126,14 @@ export class NearCaller implements Caller {
   }
 }
 
+export const RPC_RETRY = { retries: 2, wait: 200, backoff: 1.5 } as const;
+
+const endpoint = (url: string): JsonRpcProvider => new JsonRpcProvider({ url }, RPC_RETRY);
+
 export function provider(urls: string): Provider {
   const list = urls.split(",").map((u) => u.trim()).filter(Boolean);
   if (list.length === 0) throw new Error("no RPC URL");
-  const providers = list.map((url) => new JsonRpcProvider({ url }));
+  const providers = list.map(endpoint);
   return providers.length === 1 ? (providers[0] as JsonRpcProvider) : new FailoverRpcProvider(providers);
 }
 
@@ -154,7 +158,7 @@ export function rotate<T extends object>(items: readonly T[]): T {
 export function readProvider(urls: string): Provider {
   const list = urls.split(",").map((u) => u.trim()).filter(Boolean);
   if (list.length === 0) throw new Error("no RPC URL");
-  const providers = list.map((url) => new JsonRpcProvider({ url }));
+  const providers = list.map(endpoint);
   if (providers.length === 1) return providers[0] as JsonRpcProvider;
   return rotate(providers.map((_, i) => new FailoverRpcProvider([...providers.slice(i), ...providers.slice(0, i)])));
 }
