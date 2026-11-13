@@ -4,7 +4,7 @@ import { PublicKey } from "near-api-js";
 import type { Logger } from "pino";
 import type { AdmiraltyView, GameView, PlayerView, ShotView, TreasuryView } from "../lib/contract.js";
 import { GUEST_GAS_TGAS } from "../lib/contract.js";
-import type { Store } from "../lib/db.js";
+import type { GuestLimits, Store } from "../lib/db.js";
 import { freshCaptain, LiveLeaderboard, type Leaderboard } from "../lib/leaderboard.js";
 import { fromHex, rootFromProof, toHex } from "../lib/merkle.js";
 import { registerChat } from "./chat.js";
@@ -51,6 +51,7 @@ export interface AppOptions {
   readonly store: Store;
   readonly log: Logger;
   readonly guestsPerIpHour: number;
+  readonly guestsPerIpDay?: number;
   readonly guestsPerDay: number;
   readonly trustProxy: number;
   readonly balanceOf?: (accountId: string) => Promise<bigint>;
@@ -108,6 +109,8 @@ export async function buildApp(o: AppOptions) {
     return reply.code(stale ? 503 : 200).send({ ok: !stale, lastSampleAgeMs: last ? now() - last.at : null, lastSampleRunAgeMs: ran === null ? null : now() - ran });
   });
 
+  const guestLimits = (): GuestLimits => ({ perIpHour: o.guestsPerIpHour, perIpDay: o.guestsPerIpDay ?? 0, perDay: o.guestsPerDay, hourAgo: now() - HOUR, dayAgo: now() - DAY });
+
   app.post("/api/guest", { config: { rateLimit: { max: 10, timeWindow: "1 minute" } } }, async (req, reply) => {
     const body = (req.body ?? {}) as { publicKey?: unknown; nickname?: unknown };
     if (!isEd25519(body.publicKey)) return reply.code(400).send({ error: "publicKey must be an ed25519 public key" });
@@ -131,7 +134,7 @@ export async function buildApp(o: AppOptions) {
                 })
               : null;
           if (low === null || o.refuelBelow === undefined || low >= o.refuelBelow) return { status: 200, body: { accountId, created: false } };
-          const slot = o.store.reserveGuest(limitKey(req.ip), accountId, o.guestsPerIpHour, o.guestsPerDay, now() - HOUR, now() - DAY);
+          const slot = o.store.reserveGuest(limitKey(req.ip), accountId, guestLimits());
           if (typeof slot !== "number") {
             req.log.warn({ accountId, limit: slot }, "refuel refused by the guest limit");
             return { status: 200, body: { accountId, created: false, refueled: false } };
@@ -142,7 +145,7 @@ export async function buildApp(o: AppOptions) {
           if (!refueled) req.log.warn({ accountId, tx: r.txHash, error: r.error }, "refuel failed");
           return { status: 200, body: { accountId, created: false, refueled, txHash: r.txHash } };
         }
-        const slot = o.store.reserveGuest(limitKey(req.ip), accountId, o.guestsPerIpHour, o.guestsPerDay, now() - HOUR, now() - DAY);
+        const slot = o.store.reserveGuest(limitKey(req.ip), accountId, guestLimits());
         if (slot === "ip") return { status: 429, body: { error: "too many new captains from this address, try again later" } };
         if (slot === "day") return { status: 429, body: { error: "the harbour is full today, try again tomorrow" } };
         const r = await o.sponsor.call("create_guest", { public_key: publicKey, nickname }, GUEST_GAS_TGAS);

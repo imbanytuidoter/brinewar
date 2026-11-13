@@ -17,7 +17,7 @@ const duelTree = buildTree(duelCells, duelSalts);
 const duel = { id: 7, mode: "PvP", a: "p-a", b: "p-b", root_a: "00", root_b: toHex(duelTree.root), status: "Playing", turn: "p-b", pending_index: 12 };
 const duelAnswer = (cell: number) => ({ idx: 12, cell, salt: toHex(duelSalts[12] as Uint8Array), proof: duelTree.proof(12).map(toHex) });
 
-async function setup(over: { players?: Set<string>; createOk?: boolean; timeoutButCreated?: boolean; perIp?: number; perDay?: number; balance?: bigint } = {}) {
+async function setup(over: { players?: Set<string>; createOk?: boolean; timeoutButCreated?: boolean; perIp?: number; perIpDay?: number; perDay?: number; balance?: bigint } = {}) {
   const store = new Store(join(mkdtempSync(join(tmpdir(), "bw-")), "db.sqlite"));
   const players = over.players ?? new Set<string>();
   const viewer = new FakeViewer((method, args) => {
@@ -43,7 +43,7 @@ async function setup(over: { players?: Set<string>; createOk?: boolean; timeoutB
     20,
   );
   const app = await buildApp({
-    viewer, sponsor, store, log: silent, guestsPerIpHour: over.perIp ?? 2, guestsPerDay: over.perDay ?? 10, trustProxy: 0,
+    viewer, sponsor, store, log: silent, guestsPerIpHour: over.perIp ?? 2, guestsPerIpDay: over.perIpDay ?? 0, guestsPerDay: over.perDay ?? 10, trustProxy: 0,
     balanceOf: async () => over.balance ?? 10n ** 23n, refuelBelow: 8n * 10n ** 22n,
   });
   return { app, store, sponsor, viewer };
@@ -86,6 +86,15 @@ describe("POST /api/guest", () => {
     t.store.recordGuest("10.0.0.9", "x", null);
     const day = await t.app.inject({ method: "POST", url: "/api/guest", payload: { publicKey: key() }, remoteAddress: "10.0.0.8" });
     expect(day.statusCode).toBe(429);
+  });
+
+  it("caps one address over a whole day, so a single visitor cannot use up the harbour", async () => {
+    const t = await setup({ perIp: 100, perIpDay: 2, perDay: 50 });
+    const codes: number[] = [];
+    for (let i = 0; i < 3; i++) codes.push((await t.app.inject({ method: "POST", url: "/api/guest", payload: { publicKey: key() } })).statusCode);
+    expect(codes).toEqual([200, 200, 429]);
+    const other = await t.app.inject({ method: "POST", url: "/api/guest", payload: { publicKey: key() }, remoteAddress: "10.0.0.8" });
+    expect(other.statusCode).toBe(200);
   });
 
   it("lets one address create guests freely when the per-address limit is off, keeping the daily cap", async () => {

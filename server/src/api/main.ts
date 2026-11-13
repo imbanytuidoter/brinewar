@@ -16,7 +16,7 @@ await bindLineageSoon(store, viewer, config.contract, log);
 const sponsor = new NearCaller(config.sponsor, rpc, config.sponsorKey, config.contract, 60_000);
 const balanceOf = async (accountId: string): Promise<bigint> => BigInt((await reads.viewAccount({ accountId, blockQuery: { finality: "optimistic" } })).amount);
 const LIVE_MS = 4000;
-const app = await buildApp({ viewer, sponsor, store, log, guestsPerIpHour: config.guestsPerIpHour, guestsPerDay: config.guestsPerDay, trustProxy: config.trustProxy, balanceOf, refuelBelow: config.refuelBelowYocto, sampledAt: () => sampledAt, sampleMs: config.sampleMs, liveMs: LIVE_MS });
+const app = await buildApp({ viewer, sponsor, store, log, guestsPerIpHour: config.guestsPerIpHour, guestsPerIpDay: config.guestsPerIpDay, guestsPerDay: config.guestsPerDay, trustProxy: config.trustProxy, balanceOf, refuelBelow: config.refuelBelowYocto, sampledAt: () => sampledAt, sampleMs: config.sampleMs, liveMs: LIVE_MS });
 
 let sampledAt: number | null = null;
 let sampleFailures = 0;

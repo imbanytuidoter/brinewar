@@ -106,6 +106,7 @@ export interface ApiConfig {
   host: string;
   port: number;
   guestsPerIpHour: number;
+  guestsPerIpDay: number;
   guestsPerDay: number;
   trustProxy: number;
   sampleMs: number;
@@ -129,6 +130,7 @@ export function apiConfig(env: Env): ApiConfig {
     host: optional(env, "API_HOST") ?? "127.0.0.1",
     port: int(env, "API_PORT", 8791, 1),
     guestsPerIpHour: int(env, "GUESTS_PER_IP_HOUR", 0, 0),
+    guestsPerIpDay: int(env, "GUESTS_PER_IP_DAY", 0, 0),
     guestsPerDay: int(env, "GUESTS_PER_DAY", 200, 1),
     trustProxy: int(env, "TRUST_PROXY", 0),
     sampleMs: int(env, "SAMPLE_MS", 15_000, 1000),

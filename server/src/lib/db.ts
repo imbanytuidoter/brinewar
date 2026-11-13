@@ -50,6 +50,14 @@ export interface AiMoveInput {
   tx?: string | null;
 }
 
+export interface GuestLimits {
+  readonly perIpHour: number;
+  readonly perIpDay: number;
+  readonly perDay: number;
+  readonly hourAgo: number;
+  readonly dayAgo: number;
+}
+
 export class Store {
   readonly db: DatabaseSync;
 
@@ -143,9 +151,10 @@ export class Store {
     return Number(r.n);
   }
 
-  reserveGuest(ip: string, account: string, perIp: number, perDay: number, hourAgo: number, dayAgo: number): number | "ip" | "day" {
-    if (perIp > 0 && this.guestsSince(hourAgo, ip) >= perIp) return "ip";
-    if (this.guestsSince(dayAgo) >= perDay) return "day";
+  reserveGuest(ip: string, account: string, limits: GuestLimits): number | "ip" | "day" {
+    if (limits.perIpHour > 0 && this.guestsSince(limits.hourAgo, ip) >= limits.perIpHour) return "ip";
+    if (limits.perIpDay > 0 && this.guestsSince(limits.dayAgo, ip) >= limits.perIpDay) return "ip";
+    if (this.guestsSince(limits.dayAgo) >= limits.perDay) return "day";
     const r = this.db.prepare("INSERT INTO guests (ip, account, tx, at, status) VALUES (?, ?, NULL, ?, 'pending')").run(ip, account, this.now());
     return Number(r.lastInsertRowid);
   }
