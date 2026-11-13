@@ -1,4 +1,6 @@
 const MUTE_KEY = "brinewar.muted";
+const VOLUME_KEY = "brinewar.volume";
+const DEFAULT_VOLUME = 0.8;
 const SAMPLES = ["cannon", "splash", "hit", "sunk"] as const;
 type Sample = (typeof SAMPLES)[number];
 const MASTER = 0.55;
@@ -10,6 +12,24 @@ function readMuted(): boolean {
     return window.localStorage.getItem(MUTE_KEY) === "1";
   } catch {
     return false;
+  }
+}
+
+function readVolume(): number {
+  try {
+    const raw = window.localStorage.getItem(VOLUME_KEY);
+    const v = raw === null ? Number.NaN : Number(raw);
+    return Number.isFinite(v) && v >= 0 && v <= 1 ? v : DEFAULT_VOLUME;
+  } catch {
+    return DEFAULT_VOLUME;
+  }
+}
+
+function persistVolume(volume: number): void {
+  try {
+    window.localStorage.setItem(VOLUME_KEY, String(volume));
+  } catch {
+    return;
   }
 }
 
@@ -28,10 +48,24 @@ class SoundBoard {
   readonly #samples = new Map<Sample, AudioBuffer>();
   #loading = false;
   #muted = typeof window === "undefined" ? true : readMuted();
+  #volume = typeof window === "undefined" ? DEFAULT_VOLUME : readVolume();
   readonly #listeners = new Set<Listener>();
 
   get muted(): boolean {
     return this.#muted;
+  }
+
+  get volume(): number {
+    return this.#volume;
+  }
+
+  setVolume(volume: number): void {
+    const v = Math.min(1, Math.max(0, volume));
+    this.#volume = v;
+    persistVolume(v);
+    if (this.#master && this.#ctx) this.#master.gain.setTargetAtTime(MASTER * v, this.#ctx.currentTime, 0.02);
+    if (v > 0 && this.#muted) this.setMuted(false);
+    else this.#listeners.forEach((fn) => fn(this.#muted));
   }
 
   subscribe(fn: Listener): () => void {
@@ -51,7 +85,7 @@ class SoundBoard {
     if (!this.#ctx) {
       this.#ctx = new AudioContext();
       this.#master = this.#ctx.createGain();
-      this.#master.gain.value = MASTER;
+      this.#master.gain.value = MASTER * this.#volume;
       this.#master.connect(this.#ctx.destination);
       const len = this.#ctx.sampleRate;
       this.#noise = this.#ctx.createBuffer(1, len, this.#ctx.sampleRate);

@@ -113,7 +113,7 @@ export function PlayPage({ cfg, session, stats, landing, onEnter }: PlayPageProp
   const [encounter, setEncounter] = useState<Encounter | null>(null);
   const captains = useMapCaptains(cfg, snap.accountId);
   const [layoutPick, setLayoutPick] = useState(() => randomLayout());
-  const layout = useMemo(() => layoutForBattle(browserStorage(), snap.gameId, layoutPick), [snap.gameId, layoutPick]);
+  const layout = useMemo(() => layoutForBattle(snap.gameId, layoutPick), [snap.gameId, layoutPick]);
   const chatKey = useMemo(() => loadOrCreateKey(browserStorage()).secretKey, []);
   const again = useCallback(() => {
     session.leave();

@@ -1,7 +1,6 @@
 import { ShieldCheck } from "lucide-react";
 import { SHIP_CELLS } from "@/lib/contract";
-import { MuteToggle } from "./MuteToggle";
-import { Nav } from "./Nav";
+import { SiteHeader } from "./SiteHeader";
 
 interface TopBarProps {
   readonly myHits: number;
@@ -13,27 +12,25 @@ interface TopBarProps {
 
 export function TopBar({ myHits, enemyHits, showScore, verifyHref, enemyLabel = "Nauarch" }: TopBarProps) {
   return (
-    <header className="pointer-events-none fixed inset-x-0 top-0 z-10 flex flex-wrap items-center justify-between gap-x-3 gap-y-2 px-[max(16px,env(safe-area-inset-right))] pt-[calc(10px+env(safe-area-inset-top))] pb-2.5">
-      <a href="/" className="pointer-events-auto font-display text-[22px] leading-none font-bold tracking-[0.01em] [text-shadow:0_2px_12px_rgb(0_0_0/0.35)]">
-        Brinewar
-      </a>
-      <Nav compact className="pointer-events-auto" />
-      <div className="pointer-events-auto flex flex-wrap items-center justify-end gap-2 max-sm:w-full">
-        <MuteToggle />
-        {showScore && (
-          <>
-            <Chip label="Your fleet" value={SHIP_CELLS - myHits} />
-            <Chip label={enemyLabel} value={SHIP_CELLS - enemyHits} />
-          </>
-        )}
-        {verifyHref && (
-          <a href={verifyHref} className="inline-flex items-center gap-1.5 rounded-full border border-line bg-glass px-3 py-1.5 text-xs font-semibold backdrop-blur-md hover:border-brass">
-            <ShieldCheck className="size-3.5 text-ok" aria-hidden />
-            Verify
-          </a>
-        )}
-      </div>
-    </header>
+    <SiteHeader
+      overlay
+      tools={
+        <>
+          {showScore && (
+            <>
+              <Chip label="Your fleet" value={SHIP_CELLS - myHits} />
+              <Chip label={enemyLabel} value={SHIP_CELLS - enemyHits} />
+            </>
+          )}
+          {verifyHref && (
+            <a href={verifyHref} className="inline-flex items-center gap-1.5 rounded-full border border-line bg-glass px-3 py-1.5 text-xs font-semibold backdrop-blur-md hover:border-brass">
+              <ShieldCheck className="size-3.5 text-ok" aria-hidden />
+              Verify
+            </a>
+          )}
+        </>
+      }
+    />
   );
 }
 

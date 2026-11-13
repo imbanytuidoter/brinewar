@@ -1,18 +1,21 @@
 import { describe, expect, it } from "vitest";
-import { memoryStorage } from "@/lib/storage";
 import { layoutForBattle, randomLayout } from "./layoutChoice";
+import { LAYOUTS } from "./layouts";
 
 describe("battle setting", () => {
-  it("keeps the setting chosen at setup once the battle has a number, also after a reload", () => {
-    const store = memoryStorage();
-    expect(layoutForBattle(store, null, 2)).toBe(2);
-    expect(layoutForBattle(store, 41, 2)).toBe(2);
-    expect(layoutForBattle(store, 41, 3)).toBe(2);
-    expect(layoutForBattle(store, 42, 3)).toBe(3);
+  it("gives both captains of a battle the same setting, taken from the battle number", () => {
+    expect(layoutForBattle(41, 0)).toBe(layoutForBattle(41, 3));
+    expect(layoutForBattle(41, 0)).toBe(41 % LAYOUTS.length);
+    expect(layoutForBattle(null, 2)).toBe(2);
   });
 
-  it("picks a valid setting at random", () => {
+  it("cycles through every setting", () => {
+    const seen = new Set(Array.from({ length: LAYOUTS.length }, (_, i) => layoutForBattle(100 + i, 0)));
+    expect(seen.size).toBe(LAYOUTS.length);
+  });
+
+  it("picks a valid setting at random before a battle has a number", () => {
     expect(randomLayout(() => 0)).toBe(0);
-    expect(randomLayout(() => 0.999)).toBeGreaterThan(0);
+    expect(randomLayout(() => 0.999)).toBe(LAYOUTS.length - 1);
   });
 });

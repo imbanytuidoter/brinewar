@@ -1,4 +1,4 @@
-import { ArrowLeft, Loader2, Pause, Play, RotateCcw, ShieldCheck } from "lucide-react";
+import { Loader2, Pause, Play, RotateCcw, ShieldCheck } from "lucide-react";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { marksFrom } from "@/game/engine";
@@ -13,8 +13,7 @@ import { fetchEvidence } from "@/lib/proofs";
 import { sound } from "@/lib/sound";
 import { confirmedSunk } from "@/lib/sunk";
 import { CalloutBanner } from "@/ui/CalloutBanner";
-import { BattleReturn } from "@/ui/Nav";
-import { MuteToggle } from "@/ui/MuteToggle";
+import { SiteHeader } from "@/ui/SiteHeader";
 import { NauarchBubble } from "@/ui/NauarchBubble";
 import type { Mood } from "@/ui/NauarchPortrait";
 
@@ -127,23 +126,18 @@ function Theatre({ replay }: { readonly replay: Replay }) {
       </Suspense>
       <CalloutBanner callout={feed.callout} />
 
-      <header className="fixed inset-x-0 top-0 z-10 flex flex-wrap items-center justify-between gap-3 px-4 pt-[calc(12px+env(safe-area-inset-top))]">
-        <a href="/judges" className="inline-flex items-center gap-1.5 rounded-full border border-line bg-glass px-3 py-1.5 text-xs font-semibold backdrop-blur-md hover:border-brass">
-          <ArrowLeft className="size-3.5" aria-hidden />
-          Judges
-        </a>
-        <p className="m-0 rounded-full border border-line bg-glass px-3 py-1.5 text-xs backdrop-blur-md">
-          Replay of battle #{game.id} from the chain · shot {Math.min(step, history.length)} of {history.length}
-        </p>
-        <div className="flex items-center gap-2">
-          <BattleReturn />
-          <MuteToggle />
+      <SiteHeader
+        overlay
+        tools={
           <a href={`/verify/${game.id}`} className="inline-flex items-center gap-1.5 rounded-full border border-line bg-glass px-3 py-1.5 text-xs font-semibold backdrop-blur-md hover:border-brass">
             <ShieldCheck className="size-3.5 text-ok" aria-hidden />
             Verify every proof
           </a>
-        </div>
-      </header>
+        }
+      />
+      <p className="pointer-events-none fixed top-[calc(104px+env(safe-area-inset-top))] left-1/2 z-10 m-0 -translate-x-1/2 rounded-full border border-line bg-glass px-3 py-1.5 text-xs whitespace-nowrap backdrop-blur-md lg:top-[calc(60px+env(safe-area-inset-top))]">
+        Replay of battle #{game.id} from the chain · shot {Math.min(step, history.length)} of {history.length}
+      </p>
 
       <div className="fixed bottom-[calc(16px+env(safe-area-inset-bottom))] left-4 z-10 max-sm:bottom-[calc(96px+env(safe-area-inset-bottom))]">
         <NauarchBubble mood={moodOf(feed.last)} line={line} thinking={false} fallback="Every line here was signed by the model on NEAR AI and checked by the contract." txHref={() => null} />

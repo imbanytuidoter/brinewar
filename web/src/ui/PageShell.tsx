@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Nav } from "./Nav";
+import { SiteHeader } from "./SiteHeader";
 
 interface PageShellProps {
   readonly title: string;
@@ -9,14 +9,9 @@ interface PageShellProps {
 
 export function PageShell({ title, lede, children }: PageShellProps) {
   return (
-    <main className="min-h-full bg-[radial-gradient(120%_80%_at_50%_0%,#174b61,#0b2230_60%)] px-4 pt-[calc(16px+env(safe-area-inset-top))] pb-16">
-      <div className="mx-auto grid max-w-5xl gap-8">
-        <header className="flex flex-wrap items-center justify-between gap-3">
-          <a href="/" className="font-display text-[22px] leading-none font-bold">
-            Brinewar
-          </a>
-          <Nav />
-        </header>
+    <main className="min-h-full bg-[radial-gradient(120%_80%_at_50%_0%,#174b61,#0b2230_60%)] pb-16">
+      <SiteHeader />
+      <div className="mx-auto grid max-w-5xl gap-8 px-4 pt-4">
         <section className="grid gap-3 pt-4">
           <h1 className="m-0 font-display text-[clamp(36px,6vw,64px)] leading-[0.95] font-bold tracking-[0.01em] uppercase">{title}</h1>
           <div className="max-w-[62ch] text-base leading-relaxed text-muted">{lede}</div>
