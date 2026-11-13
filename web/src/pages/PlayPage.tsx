@@ -74,15 +74,13 @@ export function PlayPage({ cfg, session, stats, landing, onEnter }: PlayPageProp
   const clearCells = useMemo(() => clearWater(sunkTheirs, snap.marks.enemy), [sunkTheirs, snap.marks.enemy]);
   const heat = stats.admiralty && stats.admiralty.boards_counted > 0 ? stats.admiralty.heat : null;
   const feed = useBattleFeed({ myShips, myMarks: snap.marks.mine, enemyMarks: snap.marks.enemy, sunkTheirs, heat, boards: stats.admiralty?.boards_counted ?? 0, rival: duel ? (rival ?? "Your friend") : null });
-  const firedSound = feed.fired;
   const onFire = useCallback(
     (index: number) => {
       sound.unlock();
       if (clearCells.has(index)) return;
-      firedSound(index);
       void session.fire(index);
     },
-    [session, firedSound, clearCells],
+    [session, clearCells],
   );
   const sail = useCallback(() => {
     sound.unlock();
@@ -178,7 +176,7 @@ export function PlayPage({ cfg, session, stats, landing, onEnter }: PlayPageProp
         </div>
       )}
 
-      <RevealSeal show={inBattle && result !== null && (duel ? theyRevealed : snap.enemyFleet !== null)} tx={duel ? null : snap.enemyRevealTx} txHref={duel ? null : txLink(cfg, snap.enemyRevealTx)} reducedMotion={reducedMotion} />
+      <RevealSeal show={inBattle && result !== null && (duel ? theyRevealed : snap.enemyFleet !== null)} tx={duel ? null : snap.enemyRevealTx} txHref={duel ? null : txLink(cfg, snap.enemyRevealTx)} reducedMotion={reducedMotion} opponent={duel ? (rival ?? "Your friend") : "The Nauarch"} />
 
       <TopBar myHits={g ? hitsOnMe(g, snap.accountId) : 0} enemyHits={g ? hitsOnThem(g, snap.accountId) : 0} showScore={inBattle && step !== "invite"} verifyHref={step === "invite" ? null : verifyHref} enemyLabel={duel ? (rival ?? "Friend") : "Nauarch"} />
 
@@ -190,7 +188,7 @@ export function PlayPage({ cfg, session, stats, landing, onEnter }: PlayPageProp
         </div>
       )}
 
-      <div className={cn("fixed bottom-[calc(16px+env(safe-area-inset-bottom))] left-[max(16px,env(safe-area-inset-left))] z-10 max-sm:bottom-[calc(140px+env(safe-area-inset-bottom))]", (showLanding || onChart || step === "invite" || (!inBattle && joinId !== null)) && "hidden", duel && result && "max-sm:hidden")}>
+      <div className={cn("fixed bottom-[calc(16px+env(safe-area-inset-bottom))] left-[max(16px,env(safe-area-inset-left))] z-10 max-sm:bottom-[calc(140px+env(safe-area-inset-bottom))]", (showLanding || onChart || step === "invite" || (!inBattle && joinId !== null)) && "hidden", result && "max-sm:hidden")}>
         {duel && snap.gameId !== null && step !== "lost-board" ? (
           <DuelChat apiUrl={cfg.apiUrl} gameId={snap.gameId} me={snap.accountId} secretKey={chatKey} rival={rival ?? "Your friend"} />
         ) : (

@@ -49,7 +49,6 @@ export function useBattleFeed(ctx: FeedContext): {
   readonly callout: Callout | null;
   readonly last: CalloutTone | null;
   readonly onLaunch: (side: Side, cell: number, hit: boolean) => void;
-  readonly fired: (cell: number) => void;
   readonly announce: (ship: readonly number[]) => void;
   readonly onLand: (side: Side, cell: number, hit: boolean) => void;
 } {
@@ -75,7 +74,6 @@ export function useBattleFeed(ctx: FeedContext): {
     setLast(tone);
   }, []);
 
-  const heard = useRef(new Set<number>());
   const shownSunk = useRef(new Set<string>());
   const landedHits = useRef(new Set<number>());
   const announce = useCallback(
@@ -89,13 +87,9 @@ export function useBattleFeed(ctx: FeedContext): {
     },
     [show],
   );
-  const fired = useCallback((cell: number) => {
-    heard.current.add(cell);
-    sound.cannon();
-  }, []);
-  const onLaunch = useCallback((side: Side, cell: number) => {
-    if (side !== "enemy") sound.incoming();
-    else if (!heard.current.delete(cell)) sound.cannon();
+  const onLaunch = useCallback((side: Side) => {
+    if (side === "enemy") sound.cannon();
+    else sound.incoming();
   }, []);
 
   const onLand = useCallback(
@@ -140,5 +134,5 @@ export function useBattleFeed(ctx: FeedContext): {
     [show],
   );
 
-  return { callout, last, onLaunch, fired, announce, onLand };
+  return { callout, last, onLaunch, announce, onLand };
 }
