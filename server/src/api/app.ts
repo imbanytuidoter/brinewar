@@ -58,6 +58,15 @@ export interface AppOptions {
   readonly liveMs?: number;
 }
 
+export function shipClaim(raw: unknown, idx: number): number[] | null {
+  if (!Array.isArray(raw) || raw.length < 1 || raw.length > 4 || !raw.every((c) => Number.isInteger(c) && c >= 0 && c <= 99)) return null;
+  const cells = [...new Set(raw as number[])].sort((a, b) => a - b);
+  if (cells.length !== raw.length || !cells.includes(idx)) return null;
+  const across = cells.every((c) => Math.floor(c / 10) === Math.floor((cells[0] as number) / 10)) && cells.every((c, i) => i === 0 || c === (cells[i - 1] as number) + 1);
+  const down = cells.every((c, i) => i === 0 || c === (cells[i - 1] as number) + 10);
+  return across || down ? cells : null;
+}
+
 function isEd25519(key: unknown): key is string {
   if (typeof key !== "string" || !key.startsWith("ed25519:") || key.length > 100) return false;
   try {
@@ -147,13 +156,13 @@ export async function buildApp(o: AppOptions) {
     return reply.code(out.status).send(out.body);
   });
 
-  const duelAnswers = new Map<string, { idx: number; cell: number; salt: string; proof: string[] }>();
+  const duelAnswers = new Map<string, { idx: number; cell: number; salt: string; proof: string[]; sunk: number[] | null }>();
   app.get<{ Querystring: { root?: string } }>("/api/game/:id/answer/:index", { config: { rateLimit: { max: 400, timeWindow: "1 minute" } } }, async (req, reply) => {
     const { id, index } = req.params as { id: string; index: string };
     if (!/^\d{1,15}$/.test(id) || !/^\d{1,2}$/.test(index)) return reply.code(400).send({ error: "bad game or cell" });
     const idx = Number(index);
     const row = o.store.answers(Number(id)).find((a) => a.idx === idx);
-    if (row) return { idx: row.idx, cell: row.cell, salt: row.salt, proof: row.proof };
+    if (row) return { idx: row.idx, cell: row.cell, salt: row.salt, proof: row.proof, sunk: row.cell === 1 ? (o.store.sunk(Number(id)).find((ship) => ship.includes(idx)) ?? null) : null };
     const root = typeof req.query.root === "string" ? req.query.root.toLowerCase() : "";
     const shared = HEX64.test(root) ? duelAnswers.get(`${id}:${root}:${idx}`) : undefined;
     if (!shared) return reply.code(404).send({ error: "not answered yet" });
@@ -162,7 +171,7 @@ export async function buildApp(o: AppOptions) {
 
   app.post("/api/game/:id/answer", { config: { rateLimit: { max: 120, timeWindow: "1 minute" } } }, async (req, reply) => {
     const { id } = req.params as { id: string };
-    const b = req.body as { idx?: unknown; cell?: unknown; salt?: unknown; proof?: unknown } | null;
+    const b = req.body as { idx?: unknown; cell?: unknown; salt?: unknown; proof?: unknown; sunk?: unknown } | null;
     if (!/^\d{1,15}$/.test(id) || !b || typeof b.idx !== "number" || !Number.isInteger(b.idx) || b.idx < 0 || b.idx > 99 || (b.cell !== 0 && b.cell !== 1)) return reply.code(400).send({ error: "bad answer" });
     if (typeof b.salt !== "string" || !HEX64.test(b.salt) || !Array.isArray(b.proof) || b.proof.length !== 7 || !b.proof.every((p) => typeof p === "string" && HEX64.test(p))) return reply.code(400).send({ error: "bad answer" });
     const game = await o.viewer.view<GameView | null>("get_game", { game_id: Number(id) });
@@ -172,7 +181,8 @@ export async function buildApp(o: AppOptions) {
     const proof = b.proof as string[];
     if (!root || toHex(rootFromProof(b.idx, b.cell, fromHex(b.salt), proof.map(fromHex))) !== root) return reply.code(400).send({ error: "the proof does not match the board" });
     if (duelAnswers.size >= CACHE_CAP) duelAnswers.clear();
-    duelAnswers.set(`${id}:${root}:${b.idx}`, { idx: b.idx, cell: b.cell, salt: b.salt.toLowerCase(), proof: proof.map((p) => p.toLowerCase()) });
+    const sunk = b.cell === 1 ? shipClaim(b.sunk, b.idx) : null;
+    duelAnswers.set(`${id}:${root}:${b.idx}`, { idx: b.idx, cell: b.cell, salt: b.salt.toLowerCase(), proof: proof.map((p) => p.toLowerCase()), sunk });
     return { ok: true };
   });
 

@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { KeyPair } from "near-api-js";
 import { buildTree, toHex } from "../src/lib/merkle.js";
 import { describe, expect, it } from "vitest";
-import { buildApp, limitKey } from "../src/api/app.js";
+import { buildApp, shipClaim, limitKey } from "../src/api/app.js";
 import { sample } from "../src/api/sampler.js";
 import { Store } from "../src/lib/db.js";
 import { FakeCaller, FakeViewer, silent } from "./fakes.js";
@@ -178,7 +178,9 @@ describe("read endpoints", () => {
     t.store.saveAnswer(3, { idx: 5, cell: 1, salt: "aa", proof: ["bb"], tx: null });
     const ok = await t.app.inject({ url: "/api/game/3/answer/5" });
     expect(ok.statusCode).toBe(200);
-    expect(ok.json()).toEqual({ idx: 5, cell: 1, salt: "aa", proof: ["bb"] });
+    expect(ok.json()).toEqual({ idx: 5, cell: 1, salt: "aa", proof: ["bb"], sunk: null });
+    t.store.saveSunk(3, [4, 5]);
+    expect((await t.app.inject({ url: "/api/game/3/answer/5" })).json().sunk).toEqual([4, 5]);
     expect((await t.app.inject({ url: "/api/game/3/answer/6" })).statusCode).toBe(404);
     expect((await t.app.inject({ url: "/api/game/3/answer/100" })).statusCode).toBe(400);
     expect((await t.app.inject({ url: "/api/game/x/answer/5" })).statusCode).toBe(400);
@@ -192,8 +194,19 @@ describe("read endpoints", () => {
     expect((await t.app.inject({ method: "POST", url: "/api/game/7/answer", payload: { ...duelAnswer(1), idx: 13 } })).statusCode).toBe(409);
     expect((await t.app.inject({ method: "POST", url: "/api/game/7/answer", payload: duelAnswer(1) })).statusCode).toBe(200);
     const got = await t.app.inject({ url: `/api/game/7/answer/12?root=${root}` });
-    expect(got.json()).toEqual(duelAnswer(1));
+    expect(got.json()).toEqual({ ...duelAnswer(1), sunk: null });
     expect((await t.app.inject({ url: "/api/game/7/answer/12?root=00" })).statusCode).toBe(404);
+  });
+
+  it("accepts only a straight ship of one to four cells through the answered cell as a sunk claim", () => {
+    expect(shipClaim([12, 13], 12)).toEqual([12, 13]);
+    expect(shipClaim([2, 12, 22], 22)).toEqual([2, 12, 22]);
+    expect(shipClaim([12], 12)).toEqual([12]);
+    expect(shipClaim([9, 10], 9)).toBeNull();
+    expect(shipClaim([12, 14], 12)).toBeNull();
+    expect(shipClaim([12, 13], 14)).toBeNull();
+    expect(shipClaim([1, 2, 3, 4, 5], 1)).toBeNull();
+    expect(shipClaim("x", 1)).toBeNull();
   });
 
   it("samples treasury and map only when they change", async () => {

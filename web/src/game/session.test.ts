@@ -6,7 +6,7 @@ import type { Caller, CallResult, Viewer } from "@/lib/chain";
 import type { GameView, PublicMove, ShotView } from "@/lib/contract";
 import type { NauarchEvidence } from "@/lib/proofs";
 import { cellName } from "@/lib/utils";
-import { placeFleet, seededRng } from "@/lib/fleet";
+import { placeFleet, seededRng, ships } from "@/lib/fleet";
 import { boardKey } from "@/lib/guest";
 import { buildTree, fromHex, rootFromProof, sha256, toHex } from "@/lib/merkle";
 import { signedText } from "@/lib/nauarch";
@@ -516,6 +516,110 @@ describe("instant result", () => {
     expect(chain.calls.filter((c) => c === "fire")).toHaveLength(2);
     expect(chain.history.at(-1)?.index).toBe(next);
     expect(session.snapshot.queued).toBeNull();
+  });
+
+  it("drops a chain read that started before the shot, so a shown result never flickers away", async () => {
+    const { chain, session, root } = quick(false);
+    await session.start(placeFleet(seededRng(7)));
+    (chain.game as GameView).root_b = root;
+    await session.tick();
+    const target = chain.enemy.indexOf(0);
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((r) => (release = r));
+    const view = chain.view.bind(chain);
+    let held = false;
+    chain.view = async <T,>(method: string, args?: Record<string, unknown>): Promise<T> => {
+      if (method === "get_history" && !held) {
+        held = true;
+        const before = await view<T>(method, args);
+        await gate;
+        return before;
+      }
+      return view<T>(method, args);
+    };
+    let landFire: () => void = () => undefined;
+    const fireGate = new Promise<void>((r) => (landFire = r));
+    const call = chain.call.bind(chain);
+    chain.call = async (method: string, args: Record<string, unknown>) => {
+      if (method === "fire") await fireGate;
+      return call(method, args);
+    };
+    const slowPoll = session.tick();
+    await new Promise((r) => setTimeout(r, 0));
+    const firing = session.fire(target);
+    await vi.waitFor(() => expect(session.snapshot.marks.enemy.get(target)).toBe("miss"));
+    release();
+    await slowPoll;
+    expect(session.snapshot.marks.enemy.get(target)).toBe("miss");
+    landFire();
+    await firing;
+    expect(session.snapshot.marks.enemy.get(target)).toBe("miss");
+  });
+
+  it("keeps a proven result when a chain read finishes its slow clock lookup afterwards", async () => {
+    const chain = new FakeContract();
+    chain.slowAnswers = true;
+    const salts = Array.from({ length: 100 }, (_, i) => new Uint8Array(32).fill(i));
+    const tree = buildTree(chain.enemy, salts);
+    let slow = false;
+    let release: () => void = () => undefined;
+    let inLookup: () => void = () => undefined;
+    const lookupStarted = new Promise<void>((r) => (inLookup = r));
+    const height = async (): Promise<number> => {
+      if (slow) {
+        inLookup();
+        await new Promise<void>((r) => (release = r));
+      }
+      return 1;
+    };
+    const quickAnswer = async (_id: number, index: number) => {
+      await lookupStarted;
+      return { idx: index, cell: chain.enemy[index] as number, salt: toHex(salts[index] as Uint8Array), proof: tree.proof(index).map(toHex) };
+    };
+    const session = new GameSession({ accountId: ME, viewer: chain, caller: chain, store: memoryStorage(), evidence: chain.evidence, quickAnswer, height });
+    await session.start(placeFleet(seededRng(7)));
+    (chain.game as GameView).root_b = toHex(tree.root);
+    await session.tick();
+    const target = chain.enemy.indexOf(0);
+    slow = true;
+    (chain.game as GameView).deadline_block += 5;
+    const firing = session.fire(target);
+    await vi.waitFor(() => expect(session.snapshot.marks.enemy.get(target)).toBe("miss"));
+    release();
+    await firing;
+    expect(session.snapshot.marks.enemy.get(target)).toBe("miss");
+  });
+
+  it("never marks its own pending shot as a miss when the game view and the history come from different blocks", async () => {
+    const { chain, session } = setup();
+    const cells = placeFleet(seededRng(7));
+    await session.start(cells);
+    const g = chain.game as GameView;
+    const water = cells.indexOf(0);
+    const mine = chain.enemy.indexOf(1);
+    g.turn = ME;
+    g.pending_index = water;
+    g.shots = 2;
+    chain.history.push({ n: 0, by: NAU, index: water, result: "Pending", block: 2, source: "Model" });
+    chain.history.push({ n: 1, by: ME, index: mine, result: "Pending", block: 3, source: "Player" });
+    await session.tick();
+    expect(session.snapshot.marks.enemy.get(mine)).toBeUndefined();
+  });
+
+  it("knows a ship is sunk the moment the proof of its last cell arrives", async () => {
+    const chain = new FakeContract();
+    chain.slowAnswers = true;
+    const salts = Array.from({ length: 100 }, (_, i) => new Uint8Array(32).fill(i));
+    const tree = buildTree(chain.enemy, salts);
+    const single = ships(chain.enemy).find((x) => x.length === 1)?.[0] as number;
+    const quickAnswer = async (_id: number, index: number) => ({ idx: index, cell: chain.enemy[index] as number, salt: toHex(salts[index] as Uint8Array), proof: tree.proof(index).map(toHex), sunk: index === single ? [single] : null });
+    const session = new GameSession({ accountId: ME, viewer: chain, caller: chain, store: memoryStorage(), evidence: chain.evidence, quickAnswer });
+    await session.start(placeFleet(seededRng(7)));
+    (chain.game as GameView).root_b = toHex(tree.root);
+    await session.tick();
+    await session.fire(single);
+    await vi.waitFor(() => expect(session.snapshot.marks.enemy.get(single)).toBe("hit"));
+    expect(session.snapshot.announcedSunk).toEqual([[single]]);
   });
 
   it("ignores an answer whose proof does not match the root", async () => {

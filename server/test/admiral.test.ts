@@ -156,6 +156,16 @@ describe("admiral", () => {
     expect(t.store.answers(0).find((a) => a.idx === water)?.tx).toBe("tx-answer");
   });
 
+  it("announces a sunk ship together with the early proof, before its answer lands", async () => {
+    const t = setup({ reject: (m) => m === "answer" });
+    await t.settle();
+    const cells = placeFleet(seededRng(3));
+    const single = ships(cells).find((s) => s.length === 1)?.[0] as number;
+    t.set({ status: "Playing", root_b: t.store.board(0)?.root as string, turn: ADM, pending_index: single, shots: 1 });
+    await t.settle();
+    expect(t.store.sunk(0)).toEqual([[single]]);
+  });
+
   it("keeps the proof and does not resend when the RPC times out on a combined answer", async () => {
     const t = setup({ timeoutOn: (m) => m === "answer" });
     await t.settle();

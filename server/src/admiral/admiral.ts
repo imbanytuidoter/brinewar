@@ -210,7 +210,10 @@ export class Admiral {
     const board = this.#board(g.id);
     if (!board) throw new Error(`no board for game ${g.id}`);
     const early = answerArgs(board, g.id, index);
-    if (!this.#o.store.answers(g.id).some((a) => a.idx === index)) this.#o.store.saveAnswer(g.id, { idx: index, cell: early.cell, salt: early.salt, proof: early.proof, tx: null });
+    if (!this.#o.store.answers(g.id).some((a) => a.idx === index)) {
+      this.#o.store.saveAnswer(g.id, { idx: index, cell: early.cell, salt: early.salt, proof: early.proof, tx: null });
+      if (early.cell === 1) this.#announceSunk(g.id, board, index);
+    }
     if (board.cells[index] !== 0 || g.mode !== "VsNauarch") {
       if (await this.#answer(g, index)) await this.#followUp(g, index);
       return;

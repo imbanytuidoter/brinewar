@@ -65,7 +65,8 @@ export async function fetchQuickAnswer(apiUrl: string, gameId: number, index: nu
   if (!res.ok) return null;
   const raw = (await res.json()) as unknown;
   if (!isObj(raw) || typeof raw.idx !== "number" || typeof raw.cell !== "number" || typeof raw.salt !== "string" || !Array.isArray(raw.proof) || !raw.proof.every((p) => typeof p === "string")) return null;
-  return { idx: raw.idx, cell: raw.cell, salt: raw.salt, proof: raw.proof as string[] };
+  const sunk = Array.isArray(raw.sunk) && raw.sunk.length <= 4 && raw.sunk.every((c) => Number.isInteger(c) && c >= 0 && c < 100) ? (raw.sunk as number[]) : null;
+  return { idx: raw.idx, cell: raw.cell, salt: raw.salt, proof: raw.proof as string[], sunk };
 }
 
 export async function shareAnswer(apiUrl: string, gameId: number, answer: QuickAnswer, fetchFn: typeof fetch = fetch): Promise<boolean> {

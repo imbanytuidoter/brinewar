@@ -101,6 +101,17 @@ export interface QuickAnswer {
   readonly cell: number;
   readonly salt: string;
   readonly proof: readonly string[];
+  readonly sunk?: readonly number[] | null;
+}
+
+function shipKey(ship: readonly number[]): string {
+  return [...ship].sort((a, b) => a - b).join();
+}
+
+function unionShips(...lists: ReadonlyArray<readonly (readonly number[])[]>): (readonly number[])[] {
+  const seen = new Map<string, readonly number[]>();
+  for (const list of lists) for (const ship of list) seen.set(shipKey(ship), ship);
+  return [...seen.values()];
 }
 
 export const BLOCK_MS = 587;
@@ -163,6 +174,8 @@ export class GameSession {
   readonly #quick = new Map<string, "Hit" | "Miss">();
   readonly #shared = new Set<string>();
   #queued: { readonly gameId: number; readonly index: number } | null = null;
+  #local = 0;
+  #quickSunk: (readonly number[])[] = [];
   #firing = false;
   #deferred: { key: string; gameId: number; index: number; since: number } | null = null;
 
@@ -322,6 +335,7 @@ export class GameSession {
     this.#settled = null;
     this.#chainHistory = 0;
     clearBattle(this.#d.store, this.#d.accountId);
+    this.#quickSunk = [];
     this.#set({ gameId: id, game: null, history: [], marks: EMPTY_MARKS, step: null, board, lines: [], error: null, enemyFleet: null, enemyRevealTx: null, rewards: null, opponentName: null, invite: null, deadlineAt: null, announcedSunk: [], canQueue: false, queued: null });
   }
 
@@ -392,6 +406,7 @@ export class GameSession {
     const g = this.#snap.game;
     if (g && this.#snap.busy === null && canTarget(index, this.#snap.marks) && this.#queueable(g, this.#snap.step, this.#snap.history)) {
       this.#queued = { gameId: g.id, index };
+      this.#local += 1;
       const history = this.#withQueued(g.id, this.#snap.history);
       this.#set({ history, marks: marksFrom(history, this.#d.accountId), canQueue: false, queued: index });
       return true;
@@ -399,6 +414,7 @@ export class GameSession {
     if (!g || this.#snap.step?.kind !== "fire" || this.#snap.busy !== null || !canTarget(index, this.#snap.marks)) return false;
     const before = { history: this.#snap.history, marks: this.#snap.marks, step: this.#snap.step };
     const history = [...this.#snap.history, { n: g.shots, by: this.#d.accountId, index, result: "Pending" as const, block: 0, source: "Player" as const }];
+    this.#local += 1;
     this.#set({ history, marks: marksFrom(history, this.#d.accountId), step: { kind: "wait" } });
     this.#firing = true;
     const d = this.#deferred;
@@ -427,7 +443,10 @@ export class GameSession {
     if (!send || this.#shared.has(key)) return;
     this.#shared.add(key);
     const a = answerArgs(board, gameId, index);
-    void send(gameId, { idx: index, cell: a.cell, salt: a.salt, proof: a.proof }).catch(() => this.#shared.delete(key));
+    const hitOnMe = new Set(this.#snap.history.filter((s) => s.by !== this.#d.accountId && s.result === "Hit").map((s) => s.index).concat(index));
+    const ship = a.cell === 1 ? ships(board.cells).find((s) => s.includes(index)) : undefined;
+    const sunk = ship && ship.every((c) => hitOnMe.has(c)) ? ship : null;
+    void send(gameId, { idx: index, cell: a.cell, salt: a.salt, proof: a.proof, sunk }).catch(() => this.#shared.delete(key));
   }
 
   #withQuick(gameId: number, history: readonly ShotView[]): ShotView[] {
@@ -449,9 +468,13 @@ export class GameSession {
       const result = answer ? provenResult(answer, index, root) : null;
       if (result) {
         this.#quick.set(`${gameId}:${index}`, result);
+        this.#local += 1;
         if (this.#snap.gameId !== gameId) return;
         const history = this.#withQuick(gameId, this.#snap.history);
-        this.#set({ history, marks: marksFrom(history, this.#d.accountId), canQueue: this.#queueable(this.#snap.game, this.#snap.step, history) });
+        const marks = marksFrom(history, this.#d.accountId);
+        const ship = result === "Hit" && answer?.sunk && answer.sunk.includes(index) && answer.sunk.length <= 4 && answer.sunk.every((c) => marks.enemy.get(c) === "hit") ? answer.sunk : null;
+        if (ship) this.#quickSunk = unionShips(this.#quickSunk, [ship]);
+        this.#set({ history, marks, canQueue: this.#queueable(this.#snap.game, this.#snap.step, history), announcedSunk: ship ? unionShips(this.#snap.announcedSunk, [ship]) : this.#snap.announcedSunk });
         return;
       }
       await new Promise((r) => setTimeout(r, QUICK_POLL_MS));
@@ -501,10 +524,12 @@ export class GameSession {
   async #battle(me: string): Promise<boolean> {
     const id = this.#snap.gameId;
     if (id === null || this.#firing) return false;
+    const local = this.#local;
     const [game, history] = await Promise.all([
       this.#d.viewer.view<GameView | null>("get_game", { game_id: id }),
       this.#d.viewer.view<ShotView[]>("get_history", { game_id: id }),
     ]);
+    if (local !== this.#local || this.#firing || (game && history.length !== game.shots)) return false;
     if (!game) {
       clearBattle(this.#d.store, me);
       this.#set({ gameId: null, game: null, step: null });
@@ -530,8 +555,10 @@ export class GameSession {
       await this.fire(index);
       return true;
     }
+    const deadlineAt = await this.#deadline(game, step);
+    if (local !== this.#local || this.#firing) return false;
     const seen = this.#withQueued(id, this.#withQuick(id, shown));
-    this.#set({ game, history: seen, marks: marksFrom(seen, me), step, board, invite, canQueue: this.#queueable(game, step, seen), queued: this.#queued?.index ?? null, deadlineAt: await this.#deadline(game, step) });
+    this.#set({ game, history: seen, marks: marksFrom(seen, me), step, board, invite, canQueue: this.#queueable(game, step, seen), queued: this.#queued?.index ?? null, deadlineAt });
     const acted = await this.#act(game, step, board);
     await this.#claimIfLate(game, step);
     if (game.mode === "VsNauarch") await this.#refreshEvidence(game, history).catch(() => undefined);
@@ -550,7 +577,8 @@ export class GameSession {
     if (this.#deferred?.key !== key) this.#deferred = { key, gameId: game.id, index: step.index, since: this.#now() };
     if (this.#now() - this.#deferred.since >= DEFER_ANSWER_MS) return { step, shown: history };
     const last = history.length - 1;
-    const shown = history.map((s, i) => (i === last && s.result === "Pending" ? { ...s, result: "Miss" as const } : s));
+    const theirs = (s: ShotView): boolean => s.by !== this.#d.accountId && s.index === step.index;
+    const shown = history.map((s, i) => (i === last && s.result === "Pending" && theirs(s) ? { ...s, result: "Miss" as const } : s));
     return { step: { kind: "fire" }, shown };
   }
 
@@ -617,7 +645,7 @@ export class GameSession {
     this.#evidenceFails = 0;
     this.#nauarchShots = nauarchShots.length;
     const hit = new Set(history.filter((s) => s.by !== g.b && s.result === "Hit").map((s) => s.index));
-    const announced = ev.sunk.filter((ship) => ship.every((c) => hit.has(c)));
+    const announced = unionShips(ev.sunk.filter((ship) => ship.every((c) => hit.has(c))), this.#quickSunk);
     if (announced.length !== this.#snap.announcedSunk.length) this.#set({ announcedSunk: announced });
     if (wantFleet && ev.reveal && g.root_b) {
       const fleet = verifiedFleet(ev.reveal.cells, ev.reveal.salts, g.root_b);
