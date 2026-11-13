@@ -61,11 +61,12 @@ interface BoardProps {
   readonly look?: ShipLook | null;
   readonly hulls?: Hullset;
   readonly wrecks?: readonly (readonly number[])[] | null;
+  readonly aiming?: number | null;
 }
 
-function Board({ side, ships, marks, look = null, hulls = "brine", wrecks = null }: BoardProps) {
+function Board({ side, ships, marks, look = null, hulls = "brine", wrecks = null, aiming = null }: BoardProps) {
   const { effects } = useRuntime();
-  const landed = useMarkFlights(side, marks);
+  const landed = useMarkFlights(side, marks, aiming);
   useEffect(() => {
     const flagship = ships.reduce<readonly number[] | null>((best, s) => (!best || s.length > best.length ? s : best), null);
     effects.setOrigin(side, flagship);
@@ -131,7 +132,7 @@ function World(props: SeaSceneProps) {
           <Effects />
           <Scenery layout={layoutFor(props.layout ?? null)} />
           <Board side="mine" ships={props.myShips} marks={props.myMarks} look={props.myLook ?? null} hulls={props.myLook?.hulls ?? "brine"} />
-          <Board side="enemy" ships={props.enemyShips ?? NO_SHIPS} marks={props.enemyMarks} hulls={props.enemyHulls ?? "pirate"} wrecks={props.enemyShips === null ? props.enemyWrecks : null} />
+          <Board side="enemy" ships={props.enemyShips ?? NO_SHIPS} marks={props.enemyMarks} hulls={props.enemyHulls ?? "pirate"} wrecks={props.enemyShips === null ? props.enemyWrecks : null} aiming={props.aiming ?? null} />
         </Suspense>
       </Shaker>
     </>

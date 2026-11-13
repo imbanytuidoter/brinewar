@@ -22,7 +22,7 @@ function game(over: Partial<GameView> = {}): GameView {
   };
 }
 
-function setup(opts: { model?: FakeModel | null; reject?: (m: string) => boolean; timeoutMs?: number; answerPassesTurn?: boolean; cooldownMs?: number; shotBudgetMs?: number } = {}) {
+function setup(opts: { model?: FakeModel | null; timeoutOn?: (m: string) => boolean; reject?: (m: string) => boolean; timeoutMs?: number; answerPassesTurn?: boolean; cooldownMs?: number; shotBudgetMs?: number } = {}) {
   const store = new Store(join(mkdtempSync(join(tmpdir(), "bw-")), "db.sqlite"));
   let current = game();
   const viewer = new FakeViewer((method) => {
@@ -35,6 +35,7 @@ function setup(opts: { model?: FakeModel | null; reject?: (m: string) => boolean
   });
   const caller = new FakeCaller(ADM, (method) => {
     if (opts.reject?.(method)) return { txHash: "bad", ok: false, error: "Smart contract panicked: no" };
+    if (opts.timeoutOn?.(method)) return { txHash: null, ok: false, error: "call answer timed out after 20000 ms" };
     if (method === "answer" && opts.answerPassesTurn) current = { ...current, pending_index: null, turn: ADM };
     return { txHash: `tx-${method}`, ok: true };
   });
@@ -130,6 +131,16 @@ describe("admiral", () => {
     expect((answer?.args.then_ai as { signature_hex: string }).signature_hex).toMatch(/^[0-9a-f]{128}$/);
     expect(t.caller.calls.some((c) => c.method === "submit_ai_move")).toBe(false);
     expect(t.store.aiMoves(0)[0]?.tx).toBe("tx-answer");
+  });
+
+  it("keeps the proof and does not resend when the RPC times out on a combined answer", async () => {
+    const t = setup({ timeoutOn: (m) => m === "answer" });
+    await t.settle();
+    const water = placeFleet(seededRng(3)).findIndex((c) => c === 0);
+    t.set({ status: "Playing", root_b: t.store.board(0)?.root as string, turn: ADM, pending_index: water, shots: 1 });
+    await t.settle();
+    expect(t.caller.calls.filter((c) => c.method === "answer")).toHaveLength(1);
+    expect(t.store.answers(0).map((a) => a.idx)).toEqual([water]);
   });
 
   it("fires right after answering, without waiting for the next tick", async () => {

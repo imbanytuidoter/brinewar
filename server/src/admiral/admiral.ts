@@ -55,6 +55,10 @@ interface SignedMove {
   readonly text: string;
 }
 
+function isTimeout(error: string | undefined): boolean {
+  return /timed out/i.test(error ?? "");
+}
+
 function stateOf(g: GameView): string {
   return `${g.status}:${g.shots}:${g.pending_index}:${g.turn}:${g.root_b !== null}:${g.revealed_b}:${g.farewell_said}`;
 }
@@ -194,6 +198,7 @@ export class Admiral {
     if (!board) throw new Error(`no board for game ${g.id}`);
     const args = answerArgs(board, g.id, index);
     const r = await this.#send(g.id, "answer", args);
+    if (!r.ok && isTimeout(r.error)) this.#o.store.saveAnswer(g.id, { idx: index, cell: args.cell, salt: args.salt, proof: args.proof, tx: null });
     if (!r.ok) return false;
     this.#o.store.saveAnswer(g.id, { idx: index, cell: args.cell, salt: args.salt, proof: args.proof, tx: r.tx });
     if (args.cell === 1) this.#announceSunk(g.id, board, index);
@@ -220,7 +225,8 @@ export class Admiral {
     const args = answerArgs(board, g.id, index);
     const follow = signed ? { then_ai: { response_body: signed.response, signature_hex: signed.signature } } : { then_fallback: true };
     const r = await this.#send(g.id, "answer", { ...args, ...follow });
-    if (!r.ok) {
+    const unknown = !r.ok && isTimeout(r.error);
+    if (!r.ok && !unknown) {
       if (await this.#answer(g, index)) await this.#followUp(g, index);
       return;
     }
