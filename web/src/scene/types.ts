@@ -40,4 +40,5 @@ export interface SeaSceneProps {
   readonly enemyClear?: ReadonlySet<number>;
   readonly onLaunch?: (side: Side, cell: number, hit: boolean) => void;
   readonly onLand?: (side: Side, cell: number, hit: boolean) => void;
+  readonly onQueued?: (settlesAt: number) => void;
 }

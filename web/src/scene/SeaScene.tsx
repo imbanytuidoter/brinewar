@@ -103,18 +103,20 @@ function Shaker({ children }: { readonly children: React.ReactNode }) {
 function World(props: SeaSceneProps) {
   const runtime = useRuntime();
   useReveal(props.enemyShips !== null);
-  const { onLaunch, onLand, enemyClear } = props;
+  const { onLaunch, onLand, onQueued, enemyClear } = props;
   useEffect(() => {
     runtime.effects.setClear(enemyClear ?? NO_CELLS);
   }, [runtime, enemyClear]);
   useEffect(() => {
     runtime.hooks.launch = onLaunch ?? null;
     runtime.hooks.land = onLand ?? null;
+    runtime.hooks.queued = onQueued ?? null;
     return () => {
       runtime.hooks.launch = null;
       runtime.hooks.land = null;
+      runtime.hooks.queued = null;
     };
-  }, [runtime, onLaunch, onLand]);
+  }, [runtime, onLaunch, onLand, onQueued]);
   return (
     <>
       <Sky />

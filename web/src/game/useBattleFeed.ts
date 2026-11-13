@@ -27,6 +27,9 @@ export interface FeedContext {
   readonly gameId?: number | null;
 }
 
+const SETTLE_MARGIN_MS = 150;
+const FLIGHT_GUARD_MS = 4000;
+
 const SHIP_NAMES: Readonly<Record<number, string>> = { 4: "Man-of-war", 3: "Frigate", 2: "Brig", 1: "Sloop" };
 
 export function shipName(length: number): string {
@@ -52,6 +55,9 @@ export function useBattleFeed(ctx: FeedContext): {
   readonly onLaunch: (side: Side, cell: number, hit: boolean) => void;
   readonly announce: (ship: readonly number[]) => void;
   readonly onLand: (side: Side, cell: number, hit: boolean) => void;
+  readonly onQueued: (at: number) => void;
+  readonly flight: { readonly side: Side; readonly cell: number } | null;
+  readonly settling: boolean;
 } {
   const ref = useRef(ctx);
   const streak = useRef(0);
@@ -93,7 +99,27 @@ export function useBattleFeed(ctx: FeedContext): {
     },
     [show],
   );
-  const onLaunch = useCallback((side: Side) => {
+  const [flight, setFlight] = useState<{ readonly side: Side; readonly cell: number } | null>(null);
+  const [settlesAt, setSettlesAt] = useState(0);
+  const [settling, setSettling] = useState(false);
+  useEffect(() => {
+    const wait = settlesAt - performance.now();
+    if (wait <= 0) {
+      setSettling(false);
+      return;
+    }
+    setSettling(true);
+    const t = setTimeout(() => setSettling(false), wait + SETTLE_MARGIN_MS);
+    return () => clearTimeout(t);
+  }, [settlesAt]);
+  const onQueued = useCallback((at: number) => setSettlesAt((prev) => Math.max(prev, at)), []);
+  useEffect(() => {
+    if (!flight) return;
+    const t = setTimeout(() => setFlight((f) => (f === flight ? null : f)), FLIGHT_GUARD_MS);
+    return () => clearTimeout(t);
+  }, [flight]);
+  const onLaunch = useCallback((side: Side, cell: number) => {
+    setFlight({ side, cell });
     if (side === "enemy") sound.cannon();
     else sound.incoming();
   }, []);
@@ -101,6 +127,7 @@ export function useBattleFeed(ctx: FeedContext): {
   const onLand = useCallback(
     (side: Side, cell: number, hit: boolean) => {
       const c = ref.current;
+      setFlight((f) => (f && f.side === side && f.cell === cell ? null : f));
       if (side === "enemy") {
         if (!hit) {
           streak.current = 0;
@@ -141,5 +168,5 @@ export function useBattleFeed(ctx: FeedContext): {
     [show],
   );
 
-  return { callout, last, onLaunch, announce, onLand };
+  return { callout, last, onLaunch, announce, onLand, onQueued, flight, settling };
 }

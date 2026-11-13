@@ -5,6 +5,8 @@ import type { Mark, Side } from "./types";
 
 const SHAKE_TAKEN = 1;
 const SHAKE_GIVEN = 0.55;
+const SHOT_SLOT_MS = 1400;
+const FLIGHT_MS = 1150;
 
 function isSubset(prev: ReadonlyMap<number, Mark>, next: ReadonlyMap<number, Mark>): boolean {
   for (const [cell, mark] of prev) if (next.get(cell) !== mark) return false;
@@ -16,6 +18,7 @@ export function useMarkFlights(side: Side, marks: ReadonlyMap<number, Mark>): Re
   const { effects } = runtime;
   const seen = useRef<ReadonlyMap<number, Mark> | null>(null);
   const generation = useRef(0);
+  const pending = useRef<ReturnType<typeof setTimeout>[]>([]);
   const [landed, setLanded] = useState<ReadonlyMap<number, Mark>>(() => new Map());
 
   useEffect(() => {
@@ -29,7 +32,9 @@ export function useMarkFlights(side: Side, marks: ReadonlyMap<number, Mark>): Re
       return;
     }
     const gen = generation.current;
-    for (const [cell, mark] of addedMarks(prev, marks)) {
+    const timers = pending.current;
+    const launch = (cell: number, mark: Mark): void => {
+      if (generation.current !== gen) return;
       const hit = mark === "hit";
       runtime.hooks.launch?.(side, cell, hit);
       effects.fly(side, cell, () => {
@@ -39,8 +44,28 @@ export function useMarkFlights(side: Side, marks: ReadonlyMap<number, Mark>): Re
         runtime.hooks.land?.(side, cell, hit);
         setLanded((l) => new Map(l).set(cell, mark));
       });
-    }
+    };
+    const queue = (): void => {
+      for (const [cell, mark] of addedMarks(prev, marks)) {
+        const now = performance.now();
+        const start = Math.max(now, runtime.volley.busyUntil);
+        runtime.volley.busyUntil = start + (runtime.reduced ? 0 : SHOT_SLOT_MS);
+        runtime.hooks.queued?.(start + (runtime.reduced ? 0 : FLIGHT_MS));
+        if (start <= now) launch(cell, mark);
+        else timers.push(setTimeout(() => launch(cell, mark), start - now));
+      }
+    };
+    if (side === "enemy") queue();
+    else timers.push(setTimeout(queue, 0));
   }, [marks, side, effects, runtime]);
+
+  useEffect(() => {
+    const timers = pending.current;
+    return () => {
+      for (const t of timers) clearTimeout(t);
+      timers.length = 0;
+    };
+  }, []);
 
   return landed;
 }

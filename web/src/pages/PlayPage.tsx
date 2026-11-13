@@ -21,7 +21,7 @@ import { clearWater, confirmedSunk, mergeSunk } from "@/lib/sunk";
 import type { AppConfig } from "@/lib/config";
 import { txLink } from "@/lib/config";
 import { cryptoRng, placeFleet, ships } from "@/lib/fleet";
-import { cn } from "@/lib/utils";
+import { cellName, cn } from "@/lib/utils";
 import { EndCard } from "@/ui/EndCard";
 import { FireByName } from "@/ui/FireByName";
 import { Landing } from "@/ui/Landing";
@@ -31,7 +31,7 @@ import { RevealSeal } from "@/ui/RevealSeal";
 import { TopBar } from "@/ui/TopBar";
 import { DuelChat } from "@/ui/DuelChat";
 import { ResultSplash } from "@/ui/ResultSplash";
-import { turnOf, TurnBanner } from "@/ui/TurnBanner";
+import { turnOf, TurnBanner, type Turn } from "@/ui/TurnBanner";
 
 const SeaScene = lazy(() => import("@/scene/SeaScene").then((m) => ({ default: m.SeaScene })));
 
@@ -74,13 +74,14 @@ export function PlayPage({ cfg, session, stats, landing, onEnter }: PlayPageProp
   const clearCells = useMemo(() => clearWater(sunkTheirs, snap.marks.enemy), [sunkTheirs, snap.marks.enemy]);
   const heat = stats.admiralty && stats.admiralty.boards_counted > 0 ? stats.admiralty.heat : null;
   const feed = useBattleFeed({ myShips, myMarks: snap.marks.mine, enemyMarks: snap.marks.enemy, sunkTheirs, heat, boards: stats.admiralty?.boards_counted ?? 0, rival: duel ? (rival ?? "Your friend") : null, gameId: snap.gameId });
+  const shotsInAir = feed.flight !== null || feed.settling;
   const onFire = useCallback(
     (index: number) => {
       sound.unlock();
-      if (clearCells.has(index)) return;
+      if (clearCells.has(index) || shotsInAir) return;
       void session.fire(index);
     },
-    [session, clearCells],
+    [session, clearCells, shotsInAir],
   );
   const sail = useCallback(() => {
     sound.unlock();
@@ -118,7 +119,9 @@ export function PlayPage({ cfg, session, stats, landing, onEnter }: PlayPageProp
     setView("setup");
   }, []);
 
-  const turn = inBattle && !result ? turnOf({ step, busy: snap.busy, aiming: snap.marks.aiming, incoming: g?.pending_index ?? null, rival, phase: g?.status ?? null }) : null;
+  const canFire = step === "fire" && snap.busy === null && !shotsInAir;
+  const planned = inBattle && !result ? turnOf({ step, busy: snap.busy, aiming: snap.marks.aiming, incoming: g?.pending_index ?? null, rival, phase: g?.status ?? null }) : null;
+  const turn = planned && step === "fire" && shotsInAir ? inFlightTurn(feed.flight, rival) : planned;
   const showLanding = landing && !inBattle && joinId === null;
   const onChart = !inBattle && joinId === null && !landing && view === "chart";
   useEffect(() => {
@@ -152,7 +155,7 @@ export function PlayPage({ cfg, session, stats, landing, onEnter }: PlayPageProp
           enemyMarks={snap.marks.enemy}
           enemyShips={snap.enemyFleet}
           aiming={snap.marks.aiming}
-          canFire={step === "fire" && snap.busy === null}
+          canFire={canFire}
           reducedMotion={reducedMotion}
           onFire={onFire}
           myLook={myLook}
@@ -163,6 +166,7 @@ export function PlayPage({ cfg, session, stats, landing, onEnter }: PlayPageProp
           enemyClear={clearCells}
           onLaunch={feed.onLaunch}
           onLand={feed.onLand}
+          onQueued={feed.onQueued}
         />
       </Suspense>
       )}
@@ -251,7 +255,7 @@ export function PlayPage({ cfg, session, stats, landing, onEnter }: PlayPageProp
             </Button>
           </div>
         )}
-        {inBattle && !result && step !== "lost-board" && step !== "invite" && <FireByName disabled={step !== "fire" || snap.busy !== null} onFire={onFire} />}
+        {inBattle && !result && step !== "lost-board" && step !== "invite" && <FireByName disabled={!canFire} onFire={onFire} />}
         {inBattle && !result && step !== "lost-board" && step !== "invite" && (
           <Button size="sm" variant="ghost" onClick={() => void session.resign()} disabled={snap.busy !== null}>
             <Flag aria-hidden />
@@ -271,6 +275,13 @@ export function PlayPage({ cfg, session, stats, landing, onEnter }: PlayPageProp
   );
 }
 
+
+function inFlightTurn(flight: { readonly side: string; readonly cell: number } | null, rival: string | null): Turn {
+  const them = rival ?? "The Nauarch";
+  if (flight?.side === "enemy") return { side: "you", title: `Your shot · ${cellName(flight.cell)}`, sub: null };
+  if (flight) return { side: "them", title: `${them} fired · ${cellName(flight.cell)}`, sub: null };
+  return { side: "them", title: `${them} fires`, sub: null };
+}
 
 function moodOf(tone: CalloutTone | null): Mood {
   if (tone === "taken" || tone === "lost") return "smug";
