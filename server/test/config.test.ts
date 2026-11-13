@@ -6,7 +6,11 @@ describe("rpc list", () => {
     const list = rpcUrls({ NEAR_RPC_URL: "https://a.example,https://rpc.testnet.near.org", GAME_CONTRACT: "brinewar.testnet" }).split(",");
     expect(list[0]).toBe("https://a.example");
     expect(list).toContain("https://test.rpc.fastnear.com");
-    expect(list.filter((u) => u === "https://rpc.testnet.near.org")).toHaveLength(1);
+    expect(list).not.toContain("https://rpc.testnet.near.org");
+  });
+
+  it("drops the retired near.org endpoint, which answers in seconds, unless it is the only one", () => {
+    expect(rpcUrls({ NEAR_RPC_URL: "https://rpc.testnet.near.org", GAME_CONTRACT: "game.near" })).toBe("https://rpc.testnet.near.org");
   });
 
   it("adds no testnet spares outside testnet", () => {
