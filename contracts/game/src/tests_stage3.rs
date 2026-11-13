@@ -204,8 +204,13 @@ fn win_grows_the_flagship_and_reveal_adds_sunk_ships() {
     assert_eq!(ship.sunk, 10);
     assert_eq!(ship.xp, 20 * XP_HIT + XP_WIN + 10 * XP_SUNK);
     assert_eq!(ship.rank, "Captain");
-    let svg = m.c.ship_svg(ship_token(0)).unwrap();
+    let svg = m.c.ship_svg(ship_token(0), None).unwrap();
     assert!(svg.contains("<svg"));
+    let owned = m.c.ship_svg(ship_token(0), Some("coral".into())).unwrap();
+    assert_ne!(owned, svg);
+    assert!(owned.contains("#f2a58e"));
+    assert_eq!(m.c.ship_svg(ship_token(0), Some("admiral".into())).unwrap(), svg);
+    assert_eq!(m.c.ship_svg(ship_token(0), Some("no-such-skin".into())).unwrap(), svg);
 }
 
 #[test]

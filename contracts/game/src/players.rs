@@ -148,6 +148,7 @@ pub fn guest_account_id(public_key: &PublicKey, parent: &AccountId) -> AccountId
 }
 
 struct ShipStyle {
+    name: &'static str,
     sky: (&'static str, &'static str),
     sea: (&'static str, &'static str),
     hull: &'static str,
@@ -155,19 +156,18 @@ struct ShipStyle {
     sail: &'static str,
     shade: &'static str,
     flag: &'static str,
-    masts: usize,
-    ports: usize,
-    rows: usize,
     lantern: Option<&'static str>,
     masthead: Option<&'static str>,
     sparks: Option<&'static str>,
     banners: bool,
     night: bool,
     bolt: bool,
+    ghost: bool,
 }
 
-const SHIP_STYLES: [ShipStyle; 5] = [
+const SKIN_STYLES: [ShipStyle; 7] = [
     ShipStyle {
+        name: "brine",
         sky: ("#3d8fd0", "#bfe6ff"),
         sea: ("#2f9cc4", "#0f5f86"),
         hull: "#b07a4c",
@@ -175,17 +175,50 @@ const SHIP_STYLES: [ShipStyle; 5] = [
         sail: "#f4f7f8",
         shade: "#c9d6dc",
         flag: "#3fb6c9",
-        masts: 1,
-        ports: 0,
-        rows: 1,
         lantern: None,
         masthead: None,
         sparks: None,
         banners: false,
         night: false,
         bolt: false,
+        ghost: false,
     },
     ShipStyle {
+        name: "coral",
+        sky: ("#ff9a7a", "#ffe0c8"),
+        sea: ("#3fa7b8", "#14607a"),
+        hull: "#d9785a",
+        trim: "#ffc2ae",
+        sail: "#f2a58e",
+        shade: "#d9826b",
+        flag: "#ff6a3d",
+        lantern: None,
+        masthead: None,
+        sparks: None,
+        banners: true,
+        night: false,
+        bolt: false,
+        ghost: false,
+    },
+    ShipStyle {
+        name: "ghost",
+        sky: ("#4b5d66", "#b9c9cf"),
+        sea: ("#56707a", "#1f3038"),
+        hull: "#9fb0b8",
+        trim: "#e6f2f7",
+        sail: "#dbe7ec",
+        shade: "#9fb0b8",
+        flag: "#f4f7f8",
+        lantern: None,
+        masthead: Some("#c8f0ff"),
+        sparks: Some("#e6f7ff"),
+        banners: false,
+        night: false,
+        bolt: false,
+        ghost: true,
+    },
+    ShipStyle {
+        name: "night-watch",
         sky: ("#0b1630", "#2a3f6e"),
         sea: ("#173a5c", "#08182b"),
         hull: "#8a5a3c",
@@ -193,17 +226,16 @@ const SHIP_STYLES: [ShipStyle; 5] = [
         sail: "#2d4673",
         shade: "#1d2f52",
         flag: "#ffb347",
-        masts: 2,
-        ports: 3,
-        rows: 1,
         lantern: Some("#ffb347"),
         masthead: None,
         sparks: None,
         banners: false,
         night: true,
         bolt: false,
+        ghost: false,
     },
     ShipStyle {
+        name: "gilded",
         sky: ("#3c5a9c", "#ffcf8a"),
         sea: ("#3e8fa0", "#164a6a"),
         hull: "#e9bf4f",
@@ -211,17 +243,16 @@ const SHIP_STYLES: [ShipStyle; 5] = [
         sail: "#fff4d8",
         shade: "#e6d3a8",
         flag: "#b3123f",
-        masts: 2,
-        ports: 4,
-        rows: 1,
         lantern: None,
         masthead: None,
         sparks: Some("#ffe08a"),
         banners: true,
         night: false,
         bolt: false,
+        ghost: false,
     },
     ShipStyle {
+        name: "storm",
         sky: ("#1c2a38", "#4e6474"),
         sea: ("#2a4c5c", "#0e2230"),
         hull: "#6f8592",
@@ -229,17 +260,16 @@ const SHIP_STYLES: [ShipStyle; 5] = [
         sail: "#3e5566",
         shade: "#2b3c49",
         flag: "#7fe0d0",
-        masts: 3,
-        ports: 5,
-        rows: 1,
         lantern: None,
         masthead: Some("#7ff6e6"),
         sparks: Some("#c6fbff"),
         banners: false,
         night: false,
         bolt: true,
+        ghost: false,
     },
     ShipStyle {
+        name: "admiral",
         sky: ("#2a1846", "#f0a060"),
         sea: ("#5a3a5a", "#1a1a38"),
         hull: "#7a3e2a",
@@ -247,17 +277,19 @@ const SHIP_STYLES: [ShipStyle; 5] = [
         sail: "#9b1636",
         shade: "#6e0f27",
         flag: "#ffcf5a",
-        masts: 3,
-        ports: 6,
-        rows: 2,
         lantern: Some("#ffd36b"),
         masthead: Some("#ffd36b"),
         sparks: Some("#ffd36b"),
         banners: true,
         night: false,
         bolt: false,
+        ghost: false,
     },
 ];
+
+const RANK_STYLE: [usize; 5] = [0, 3, 4, 5, 6];
+const RANK_FRAMES: [(usize, usize, usize); 5] =
+    [(1, 0, 1), (2, 3, 1), (2, 4, 1), (3, 5, 1), (3, 6, 2)];
 
 const SPARK_SPOTS: [(u32, u32); 9] = [
     (96, 62),
@@ -283,26 +315,36 @@ const STAR_SPOTS: [(u32, u32); 10] = [
     (300, 12),
 ];
 
-fn glow(x: u32, y: u32, r: u32, color: &str, class: &str) -> String {
+fn skin_style(name: &str) -> Option<&'static ShipStyle> {
+    SKIN_STYLES.iter().find(|st| st.name == name)
+}
+
+fn glow(x: u32, y: u32, r: u32, color: &str, class: &str, key: &str) -> String {
     format!(
-        r##"<circle class="{class}" cx="{x}" cy="{y}" r="{r}" fill="url(#g{}{class})"/><circle cx="{x}" cy="{y}" r="{}" fill="{color}"/>"##,
-        &color[1..],
+        r##"<circle class="{class}" cx="{x}" cy="{y}" r="{r}" fill="url(#{key}{class})"/><circle cx="{x}" cy="{y}" r="{}" fill="{color}"/>"##,
         r / 5
     )
 }
 
 fn ship_svg_markup(rank: usize, frozen: bool) -> String {
-    let st = &SHIP_STYLES[rank.min(SHIP_STYLES.len() - 1)];
+    let rank = rank.min(RANK_FRAMES.len() - 1);
+    ship_svg_styled(rank, frozen, &SKIN_STYLES[RANK_STYLE[rank]])
+}
+
+fn ship_svg_styled(rank: usize, frozen: bool, st: &ShipStyle) -> String {
+    let rank = rank.min(RANK_FRAMES.len() - 1);
+    let (masts, ports, rows) = RANK_FRAMES[rank];
+    let key = format!("{}{rank}", st.name.replace('-', ""));
     let mut defs = format!(
-        r##"<linearGradient id="sky{rank}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="{}"/><stop offset="1" stop-color="{}"/></linearGradient><linearGradient id="sea{rank}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="{}"/><stop offset="1" stop-color="{}"/></linearGradient>"##,
+        r##"<linearGradient id="{key}sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="{}"/><stop offset="1" stop-color="{}"/></linearGradient><linearGradient id="{key}sea" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="{}"/><stop offset="1" stop-color="{}"/></linearGradient>"##,
         st.sky.0, st.sky.1, st.sea.0, st.sea.1
     );
     for (c, class) in [(st.lantern, "lantern"), (st.masthead, "masthead")] {
         if let Some(c) = c {
-            defs.push_str(&format!(r##"<radialGradient id="g{}{class}"><stop offset="0" stop-color="{c}" stop-opacity="0.9"/><stop offset="1" stop-color="{c}" stop-opacity="0"/></radialGradient>"##, &c[1..]));
+            defs.push_str(&format!(r##"<radialGradient id="{key}{class}"><stop offset="0" stop-color="{c}" stop-opacity="0.9"/><stop offset="1" stop-color="{c}" stop-opacity="0"/></radialGradient>"##));
         }
     }
-    let mut sky = format!(r##"<rect width="320" height="200" fill="url(#sky{rank})"/>"##);
+    let mut sky = format!(r##"<rect width="320" height="200" fill="url(#{key}sky)"/>"##);
     if st.night {
         for (x, y) in STAR_SPOTS {
             sky.push_str(&format!(
@@ -315,22 +357,23 @@ fn ship_svg_markup(rank: usize, frozen: bool) -> String {
         sky.push_str(r##"<path class="bolt" d="M262 8 L248 40 L258 40 L242 76 L270 34 L259 34 L272 8 Z" fill="#e8fbff" opacity="0.85"/>"##);
     }
     let sea = format!(
-        r##"<rect y="140" width="320" height="60" fill="url(#sea{rank})"/><path d="M0 150 Q40 144 80 150 T160 150 T240 150 T320 150" stroke="#ffffff" stroke-opacity="0.25" fill="none"/><path d="M0 172 Q50 166 100 172 T200 172 T300 172" stroke="#ffffff" stroke-opacity="0.15" fill="none"/>"##
+        r##"<rect y="140" width="320" height="60" fill="url(#{key}sea)"/><path d="M0 150 Q40 144 80 150 T160 150 T240 150 T320 150" stroke="#ffffff" stroke-opacity="0.25" fill="none"/><path d="M0 172 Q50 166 100 172 T200 172 T300 172" stroke="#ffffff" stroke-opacity="0.15" fill="none"/>"##
     );
-    let slots: &[u32] = match st.masts {
+    let slots: &[u32] = match masts {
         1 => &[160],
         2 => &[128, 196],
         _ => &[104, 160, 216],
     };
+    let sail_opacity = if st.ghost { "0.72" } else { "1" };
     let mut rig = String::new();
     for (i, &x) in slots.iter().enumerate() {
-        let top = if st.masts == 3 && i == 1 { 22 } else { 34 };
+        let top = if masts == 3 && i == 1 { 22 } else { 34 };
         rig.push_str(&format!(
             r##"<line x1="{x}" y1="{top}" x2="{x}" y2="128" stroke="#3a2618" stroke-width="3"/>"##
         ));
         for (y1, y2, w) in [(top + 12, top + 42, 28), (top + 48, top + 84, 34)] {
             rig.push_str(&format!(
-                r##"<path d="M{} {y1} Q{x} {} {} {y1} L{} {y2} Q{x} {} {} {y2} Z" fill="{}" stroke="{}" stroke-width="1"/>"##,
+                r##"<path d="M{} {y1} Q{x} {} {} {y1} L{} {y2} Q{x} {} {} {y2} Z" fill="{}" fill-opacity="{sail_opacity}" stroke="{}" stroke-width="1"/>"##,
                 x - w, y1 - 5, x + w, x + w - 3, y2 + 7, x - w + 3, st.sail, st.shade
             ));
         }
@@ -355,36 +398,34 @@ fn ship_svg_markup(rank: usize, frozen: bool) -> String {
             ));
         }
         if let Some(c) = st.masthead {
-            rig.push_str(&glow(x, top - 2, 16, c, "masthead"));
+            rig.push_str(&glow(x, top - 2, 16, c, "masthead", &key));
         }
     }
     rig.push_str(
         r##"<line x1="276" y1="126" x2="306" y2="104" stroke="#3a2618" stroke-width="2.5"/>"##,
     );
     let fore = slots[slots.len() - 1] + 40;
-    rig.push_str(&format!(
-        r##"<path d="M{fore} 74 L302 106 L{fore} 118 Z" fill="{}" stroke="{}" stroke-width="1"/>"##,
-        st.sail, st.shade
-    ));
+    rig.push_str(&format!(r##"<path d="M{fore} 74 L302 106 L{fore} 118 Z" fill="{}" fill-opacity="{sail_opacity}" stroke="{}" stroke-width="1"/>"##, st.sail, st.shade));
+    let hull_opacity = if st.ghost { "0.85" } else { "1" };
     let mut hull = format!(
-        r##"<path d="M40 124 H280 Q276 146 254 162 H76 Q52 150 40 124 Z" fill="{}"/><path d="M40 124 H280 L278 131 H43 Z" fill="{}"/><path d="M76 162 H254" stroke="#000" stroke-opacity="0.25" stroke-width="2"/>"##,
+        r##"<path d="M40 124 H280 Q276 146 254 162 H76 Q52 150 40 124 Z" fill="{}" fill-opacity="{hull_opacity}"/><path d="M40 124 H280 L278 131 H43 Z" fill="{}"/><path d="M76 162 H254" stroke="#000" stroke-opacity="0.25" stroke-width="2"/>"##,
         st.hull, st.trim
     );
-    for row in 0..st.rows {
+    for row in 0..rows {
         let y = 140 + row as u32 * 11;
-        for k in 0..st.ports {
-            let x = if st.ports == 1 {
+        for k in 0..ports {
+            let x = if ports == 1 {
                 160
             } else {
-                88 + (k as u32 * 144) / (st.ports as u32 - 1)
+                88 + (k as u32 * 144) / (ports as u32 - 1)
             };
             hull.push_str(&format!(r##"<rect class="port" x="{}" y="{}" width="8" height="6" rx="1" fill="#1a1208" stroke="{}" stroke-width="1"/>"##, x - 4, y - 3, st.trim));
         }
     }
     let mut light = String::new();
     if let Some(c) = st.lantern {
-        light.push_str(&glow(272, 116, 18, c, "lantern"));
-        light.push_str(&glow(48, 114, 18, c, "lantern"));
+        light.push_str(&glow(272, 116, 18, c, "lantern", &key));
+        light.push_str(&glow(48, 114, 18, c, "lantern", &key));
     }
     if let Some(c) = st.sparks {
         for (x, y) in SPARK_SPOTS {
@@ -392,6 +433,9 @@ fn ship_svg_markup(rank: usize, frozen: bool) -> String {
                 r##"<circle cx="{x}" cy="{y}" r="1.8" fill="{c}" opacity="0.85"/>"##
             ));
         }
+    }
+    if st.ghost {
+        light.push_str(r##"<rect class="mist" y="118" width="320" height="40" fill="#e6f2f7" opacity="0.22"/>"##);
     }
     let pips: String = (0..=rank)
         .map(|i| {
@@ -547,9 +591,18 @@ impl Brinewar {
         })
     }
 
-    pub fn ship_svg(&self, token_id: String) -> Option<String> {
+    pub fn ship_svg(&self, token_id: String, skin: Option<String>) -> Option<String> {
         let s = self.ships.get(&ship_id(&token_id)?)?;
-        Some(ship_svg_markup(rank_of(s.xp), s.owner != s.captain))
+        let rank = rank_of(s.xp);
+        let frozen = s.owner != s.captain;
+        let owned = skin
+            .as_deref()
+            .and_then(skin_style)
+            .filter(|st| self.balance(&format!("skin:{}", st.name), &s.owner) > 0);
+        Some(match owned {
+            Some(st) => ship_svg_styled(rank, frozen, st),
+            None => ship_svg_markup(rank, frozen),
+        })
     }
 }
 
@@ -766,6 +819,16 @@ mod tests {
             assert_eq!(svg.matches("class=\"pip\"").count(), r + 1);
         }
         assert!(ship_svg_markup(2, true).contains("class=\"frost\""));
+        let ghost = ship_svg_styled(4, false, skin_style("ghost").unwrap());
+        assert!(ghost.contains("class=\"mist\""));
+        assert_eq!(ghost.matches("class=\"port\"").count(), 12);
+        for st in &SKIN_STYLES {
+            let svg = ship_svg_styled(2, false, st);
+            for part in svg.split("url(#").skip(1) {
+                let id = part.split(')').next().unwrap_or_default();
+                assert!(svg.contains(&format!("id=\"{id}\"")), "missing gradient {id} in {}", st.name);
+            }
+        }
         for svg in &svgs {
             for part in svg.split("url(#").skip(1) {
                 let id = part.split(')').next().unwrap_or_default();
