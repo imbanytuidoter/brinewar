@@ -62,7 +62,7 @@ interface Skins {
 }
 
 const rankIndex = (name: string): number => RANKS.findIndex(([r]) => r === name);
-const RANK_SKIN: Readonly<Record<string, string>> = { Ensign: "brine", Lieutenant: "night-watch", Captain: "gilded", Commodore: "storm", Admiral: "admiral" };
+const shipClass = (rank: string): string => RANK_SHIPS.find(([r]) => r === rank)?.[2] ?? "";
 
 function FleetView({ cfg, session }: { readonly cfg: AppConfig; readonly session: GameSession }) {
   const snap = useSession(session);
@@ -151,9 +151,12 @@ function FleetView({ cfg, session }: { readonly cfg: AppConfig; readonly session
           </div>
           <div className="grid gap-1.5">
             <div className="flex items-baseline justify-between">
-              <p className="m-0 font-display text-2xl font-bold">{progress.rank}</p>
+              <p className="m-0 font-display text-2xl font-bold">
+                {progress.rank}
+                <span className="ml-2 font-sans text-sm font-semibold text-muted">{shipClass(progress.rank)}</span>
+              </p>
               <p className="m-0 text-xs text-muted tabular-nums">
-                {ship?.xp ?? 0} XP{progress.next ? ` · next: ${progress.next} at ${ship?.next_rank_xp}` : " · top rank"}
+                {ship?.xp ?? 0} XP{progress.next ? ` · next: ${progress.next}, a ${shipClass(progress.next).toLowerCase()}, at ${ship?.next_rank_xp}` : " · top rank"}
               </p>
             </div>
             <div className="h-2 overflow-hidden rounded-full bg-white/10" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progress.share * 100)} aria-label="Progress to the next rank">
@@ -176,44 +179,6 @@ function FleetView({ cfg, session }: { readonly cfg: AppConfig; readonly session
         <Stat label="Won / lost" value={`${captain.player.wins} / ${captain.player.losses}`} />
         <Stat label="His ships sunk" value={ship?.sunk ?? 0} sub={captain.player.fav_zone ? `you like to hide ${captain.player.fav_zone}` : undefined} />
       </section>
-
-      <Panel>
-        <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <h2 className="m-0 font-display text-2xl font-bold">Your flagship by rank</h2>
-          <p className="m-0 text-xs text-muted">Each rank refits the flagship as a bigger ship and mints a grander skin. Tap a rank to preview it above.</p>
-        </div>
-        <ol className="m-0 grid list-none grid-cols-2 gap-3 p-0 sm:grid-cols-5">
-          {RANK_SHIPS.map(([rank, , cls]) => {
-            const here = rank === progress.rank;
-            const skin = RANK_SKIN[rank] ?? DEFAULT_SKIN;
-            const l = skinLook(skin);
-            const reached = rankIndex(rank) <= rankIndex(progress.rank);
-            const glow = l.lights?.color ?? l.aura?.color ?? null;
-            return (
-              <li key={rank}>
-                <button
-                  type="button"
-                  onClick={() => setPreview(skin === DEFAULT_SKIN ? null : skin)}
-                  className={cn("grid w-full gap-1.5 rounded-xl border p-3 text-left transition-colors hover:border-brass", here ? "border-brass bg-brass/10" : "border-line bg-white/5")}
-                >
-                  <span
-                    className="relative grid aspect-[40/33] place-items-center overflow-hidden rounded-lg bg-[radial-gradient(circle_at_50%_35%,#2f7fb8,#0e2a3b_78%)]"
-                    style={glow ? { boxShadow: `inset 0 0 28px ${glow}55` } : undefined}
-                  >
-                    <img src={`/ships/rank-${rank.toLowerCase()}.png`} alt={`${rank} flagship in the ${l.title} skin`} loading="lazy" className={cn("size-full object-contain", !reached && "opacity-80 saturate-75")} />
-                    {!reached && <Lock className="absolute top-1.5 right-1.5 size-3.5 text-ink/80" aria-hidden />}
-                  </span>
-                  <span className="text-xs font-semibold">{rank}</span>
-                  <span className="text-[11px] text-muted">
-                    {cls} · {l.title}
-                    {here ? " · now" : ""}
-                  </span>
-                </button>
-              </li>
-            );
-          })}
-        </ol>
-      </Panel>
 
       <Panel>
         <div className="flex flex-wrap items-baseline justify-between gap-2">
