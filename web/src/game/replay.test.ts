@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { GameView, ShotView } from "@/lib/contract";
-import { buildReplay, candidates, isShowcase } from "./replay";
+import { buildReplay, findShowcases, isShowcase, pageStarts } from "./replay";
 
 const game = (over: Partial<GameView> = {}): GameView => ({
   id: 7, mode: "VsNauarch", a: "p-1.brinewar.testnet", b: "admiral.brinewar.testnet", root_a: "aa", root_b: "bb", status: "Finished", turn: "p-1.brinewar.testnet",
@@ -29,8 +29,22 @@ describe("replay", () => {
     expect(r.nauarchShips).toBeNull();
   });
 
-  it("scans the latest games first", () => {
-    expect(candidates(3)).toEqual([3, 2, 1, 0]);
-    expect(candidates(100)).toHaveLength(40);
+  it("walks back through every page of games, newest first", () => {
+    expect(pageStarts(3)).toEqual([0]);
+    expect(pageStarts(250)).toEqual([150, 50, 0]);
+  });
+
+  it("finds a showcase battle even when the latest hundred battles were all abandoned", async () => {
+    const abandoned = (id: number) => ({ id, mode: "VsNauarch", status: "Finished", winner: "n", b: "n", finish_reason: "Timeout", revealed_b: true });
+    const won = (id: number) => ({ ...abandoned(id), finish_reason: "FleetSunk" });
+    const viewer = {
+      view: async <T,>(_m: string, args?: object): Promise<T> => {
+        const from = (args as { from_id: number }).from_id;
+        const ids = Array.from({ length: 100 }, (_, i) => from + i).filter((id) => id <= 250);
+        return ids.map((id) => (id === 35 || id === 40 ? won(id) : abandoned(id))) as T;
+      },
+    };
+    const found = await findShowcases(viewer, 250, 2);
+    expect(found.map((g) => g.id)).toEqual([40, 35]);
   });
 });

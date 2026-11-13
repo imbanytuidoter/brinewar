@@ -62,6 +62,7 @@ export default defineConfig(({ mode }) => ({
     rollupOptions: {
       output: {
         manualChunks(id) {
+          if (/node_modules\/(react|react-dom|scheduler)\//.test(id)) return "react";
           if (id.includes("node_modules/three") || id.includes("@react-three")) return "three";
           if (id.includes("near-api-js") || id.includes("@near-js") || id.includes("@noble")) return "near";
           return undefined;

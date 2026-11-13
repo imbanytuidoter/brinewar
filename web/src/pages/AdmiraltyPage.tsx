@@ -12,6 +12,12 @@ const FIRST_VOLLEY = 10;
 
 type Load = { kind: "loading" } | { kind: "error" } | { kind: "ok"; frames: readonly AdmiraltyView[] };
 
+const DAY_MS = 86_400_000;
+
+function dayDate(day: number, today: number): string {
+  return new Date(Date.now() - (today - day) * DAY_MS).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
 export function framesOf(h: AdmiraltyHistory): AdmiraltyView[] {
   const byDay = new Map<number, AdmiraltyView>();
   for (const d of h.days) byDay.set(d.data.day, d.data);
@@ -64,9 +70,9 @@ export function AdmiraltyPage({ cfg }: { readonly cfg: AppConfig }) {
       {frame && (
         <>
           <section className="grid gap-3 sm:grid-cols-3">
-            <Stat label="Boards counted" value={frame.boards_counted} sub={first && first !== frame ? `${frame.boards_counted - first.boards_counted} more than on day ${first.day}` : undefined} />
+            <Stat label="Boards counted" value={frame.boards_counted} sub={first && first !== frame ? `${frame.boards_counted - first.boards_counted} more than on ${dayDate(first.day, frames[frames.length - 1]?.day ?? first.day)}` : undefined} />
             <Stat label="Hottest cell" value={hunted[0] !== undefined ? cellName(hunted[0]) : "none"} sub={hunted[0] !== undefined ? `${Math.round(((frame.heat[hunted[0]] ?? 0) / frame.boards_counted) * 100)}% of boards` : undefined} />
-            <Stat label="Chain day" value={frame.day} sub={index === frames.length - 1 ? "today" : "history"} />
+            <Stat label="Day" value={dayDate(frame.day, frames[frames.length - 1]?.day ?? frame.day)} sub={`chain day ${frame.day}${index === frames.length - 1 ? " · today" : ""}`} />
           </section>
           <Panel className="sm:grid-cols-[minmax(0,460px)_1fr] sm:items-start">
             <Heatmap heat={frame.heat} boards={frame.boards_counted} hunted={huntedSet} />
@@ -74,7 +80,7 @@ export function AdmiraltyPage({ cfg }: { readonly cfg: AppConfig }) {
               {frames.length > 1 && (
                 <label className="grid gap-2 text-sm">
                   <span className="flex justify-between text-muted">
-                    <span>Day {frame.day}</span>
+                    <span>{dayDate(frame.day, frames[frames.length - 1]?.day ?? frame.day)}</span>
                     <span>
                       {index + 1} of {frames.length}
                     </span>

@@ -2,7 +2,7 @@ import { Loader2, Pause, Play, RotateCcw, ShieldCheck } from "lucide-react";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { marksFrom } from "@/game/engine";
-import { buildReplay, candidates, isShowcase, type Replay } from "@/game/replay";
+import { buildReplay, findShowcases, isShowcase, type Replay } from "@/game/replay";
 import { useBattleFeed } from "@/game/useBattleFeed";
 import { useReducedMotion } from "@/game/useGame";
 import { loadModelKeys } from "@/lib/nauarch";
@@ -19,18 +19,16 @@ import type { Mood } from "@/ui/NauarchPortrait";
 
 const SeaScene = lazy(() => import("@/scene/SeaScene").then((m) => ({ default: m.SeaScene })));
 
-const SCAN_BATCH = 8;
+const SHOWCASES = 6;
 
 type Load = { kind: "loading" } | { kind: "none" } | { kind: "error" } | { kind: "ok"; replay: Replay };
 
 async function loadReplay(cfg: AppConfig, wanted: number | null): Promise<Replay | null> {
   const viewer = makeViewer(cfg.rpcUrl, cfg.contractId);
-  const ids = wanted !== null ? [wanted] : candidates((await viewer.view<ConfigView>("config")).games);
-  const games: GameView[] = [];
-  for (let i = 0; i < ids.length; i += SCAN_BATCH) {
-    const batch = await Promise.all(ids.slice(i, i + SCAN_BATCH).map((id) => viewer.view<GameView | null>("get_game", { game_id: id }).catch(() => null)));
-    games.push(...batch.filter((g): g is GameView => g !== null && isShowcase(g)));
-  }
+  const games: GameView[] =
+    wanted !== null
+      ? [await viewer.view<GameView | null>("get_game", { game_id: wanted })].filter((g): g is GameView => g !== null && isShowcase(g))
+      : await findShowcases(viewer, (await viewer.view<ConfigView>("config")).games, SHOWCASES);
   for (const game of [...games].sort((x, y) => x.shots - y.shots)) {
     const id = game.id;
     const [history, ev] = await Promise.all([viewer.view<ShotView[]>("get_history", { game_id: id }), fetchEvidence(cfg.apiUrl, id).catch(() => null)]);
@@ -56,6 +54,7 @@ export function ReplayPage({ cfg, gameId }: { readonly cfg: AppConfig; readonly 
   return (
     <main className="grid h-full place-items-center bg-[radial-gradient(120%_80%_at_50%_0%,#2a8db6,#0b2230_70%)] px-4 text-center">
       <div className="grid justify-items-center gap-3">
+        <h1 className="m-0 font-display text-4xl font-bold">Replay</h1>
         {load.kind === "loading" && <Loader2 className="size-5 animate-spin text-brass" aria-hidden />}
         <p className="m-0 max-w-sm text-muted">{text}</p>
         <a href="/judges" className="text-xs text-brass underline-offset-2 hover:underline">
@@ -107,6 +106,7 @@ function Theatre({ replay }: { readonly replay: Replay }) {
 
   return (
     <main className="fixed inset-0">
+      <h1 className="sr-only">Replay of battle #{replay.game.id}</h1>
       <Suspense fallback={<div className="grid h-full place-items-center bg-gradient-to-b from-[#8fd3ff] to-[#2a8db6] font-semibold text-deep">Raising the fleets…</div>}>
         <SeaScene
           myShips={replay.captainShips}

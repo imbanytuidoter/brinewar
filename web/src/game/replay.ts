@@ -1,3 +1,4 @@
+import type { Viewer } from "@/lib/chain";
 import type { GameView, ShotView } from "@/lib/contract";
 import { ships } from "@/lib/fleet";
 import { bindMoves, type Check, type ModelKeys } from "@/lib/nauarch";
@@ -6,7 +7,7 @@ import { verifiedFleet } from "./session";
 
 const STEP_MS = 420;
 const QUICK_MS = 90;
-const SCAN = 40;
+const PAGE = 100;
 
 export interface SpokenLine {
   readonly text: string;
@@ -46,6 +47,20 @@ export function buildReplay(game: GameView, history: readonly ShotView[], ev: Na
   return { game, history: ordered, captainShips: ships(hitOnCaptain), nauarchShips, lines, delays };
 }
 
-export function candidates(total: number): number[] {
-  return Array.from({ length: Math.min(SCAN, total + 1) }, (_, i) => total - i).filter((id) => id >= 0);
+export function pageStarts(total: number): number[] {
+  const starts: number[] = [];
+  for (let from = Math.max(0, total - PAGE); ; from = Math.max(0, from - PAGE)) {
+    starts.push(from);
+    if (from === 0) return starts;
+  }
+}
+
+export async function findShowcases(viewer: Viewer, total: number, want: number): Promise<GameView[]> {
+  const found: GameView[] = [];
+  for (const from of pageStarts(total)) {
+    const page = await viewer.view<GameView[]>("games_since", { from_id: from, limit: PAGE });
+    found.push(...page.filter(isShowcase).sort((x, y) => y.id - x.id));
+    if (found.length >= want) break;
+  }
+  return found.slice(0, want);
 }

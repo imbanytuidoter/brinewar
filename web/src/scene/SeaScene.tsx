@@ -171,7 +171,7 @@ export function SeaScene(props: SeaSceneProps) {
 
   return (
     <Canvas
-      dpr={[1, 2]}
+      dpr={[1, 1.5]}
       gl={{ antialias: true, powerPreference: "high-performance" }}
       camera={{ fov: 42, near: 0.1, far: 300, position: [0, 17, 19] }}
       onCreated={({ gl }) => {

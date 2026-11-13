@@ -1,6 +1,6 @@
 # Brinewar
 
-A naval battle on NEAR where the blockchain stays out of sight. You open the site and play: no wallet, no seed phrase, no popup. Every shot is a NEAR transaction, every answer comes with a Merkle proof the contract checks, and your opponent, **the Nauarch**, is an AI admiral: every move his model makes is produced by NEAR AI Cloud inside a TEE, signed there, and verified by the contract before it counts (if the model is late or wrong, the contract plays a deterministic shot, labelled as such). He learns where all captains hide their ships from an on-chain map, keeps a treasury that pays bounties and grows poor when he loses, and remembers you between battles.
+A naval battle on NEAR where the blockchain stays out of sight. You open the site and play: no wallet, no seed phrase, no popup. Every shot is a NEAR transaction, every answer comes with a Merkle proof the contract checks, and your opponent, **the Nauarch**, is an AI admiral: every move his model makes is produced by NEAR AI Cloud inside a TEE, signed there, and verified by the contract before it counts (if the model is late or wrong, the contract plays a deterministic shot, labelled as such). He learns where all captains hide their ships from an on-chain map, keeps a treasury that pays bounties and grows poor when he loses, and reads your record against him before every move.
 
 Play: **https://brinewar.imbanytui.xyz** · For judges: **https://brinewar.imbanytui.xyz/judges**
 
@@ -63,7 +63,7 @@ Example transactions are linked from the Verify page of any battle. Deployment s
 - The admin pins the NEAR AI model key after checking its attestation; the contract does not verify a TDX quote itself.
 - The game contract funds guest accounts and their gas; a sponsor account signs the sign-ups.
 - The admiralty map was seeded with scripted battles by test captains named `Seed_NN` so it was not empty on day one, and most of its boards so far come from them; the landing and the Admiralty page show the live count.
-- A shot's result takes about 3 s: your transaction lands in about 2 s and the Nauarch's proven answer reaches your browser right after. The cannonball flies on the click so the wait is not dead air, but a full battle still takes 10–15 minutes.
+- A shot's result takes a few seconds (about 3–6 s on testnet): your transaction lands in about 2 s and the Nauarch's proven answer reaches your browser right after. The cannonball flies on the click so the wait is not dead air, but a full battle still takes 10–15 minutes.
 - The replay rebuilds the captain's fleet from the Nauarch's hits, so it only shows battles he won by sinking the whole fleet. A captain's board is revealed in a transaction, not kept in contract state.
 - "Save progress with Google" (NEAR Auth) is not shipped: the shared testnet client only accepts `localhost:3000`. See [`docs/research/2026-11-11-near-auth.md`](docs/research/2026-11-11-near-auth.md).
 
@@ -100,7 +100,7 @@ cd web && BRINEWAR_API_PROXY=http://127.0.0.1:8797 VITE_NEAR_RPC_URL=<rpcUrl fro
 
 Without `NEAR_AI_API_KEY` the Nauarch plays only deterministic moves, and the UI labels them. A full scripted battle on the sandbox: `cd server && npm run e2e` (about 10 minutes).
 
-Tests at the time of writing: 136 contract, 98 server, 178 web, plus 2 Playwright runs against the live testnet site (a battle with the Nauarch and a two-browser duel).
+Tests at the time of writing: 136 contract, 99 server, 180 web, plus 2 Playwright runs against the live testnet site (a battle with the Nauarch and a two-browser duel).
 
 ## Prior art
 

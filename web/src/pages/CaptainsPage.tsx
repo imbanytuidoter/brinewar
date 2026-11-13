@@ -1,6 +1,6 @@
 import { Crown, Loader2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { fetchAdmiralty, fetchLeaderboard, fetchTreasury, type Leaderboard } from "@/lib/api";
+import { fetchAdmiralty, fetchLeaderboard, fetchTreasury, type CaptainEntry, type Leaderboard } from "@/lib/api";
 import type { AppConfig } from "@/lib/config";
 import { storedAccount } from "@/lib/guest";
 import { browserStorage } from "@/lib/storage";
@@ -54,8 +54,11 @@ export function CaptainsPage({ cfg }: { readonly cfg: AppConfig }) {
 function Board({ board, treasury, boards, me }: { readonly board: Leaderboard; readonly treasury: string | null; readonly boards: number | null; readonly me: string | null }) {
   const { nauarch } = board;
   const [tests, setTests] = useState(false);
+  const [idle, setIdle] = useState(false);
   const seeds = board.captains.filter((c) => c.seed).length;
-  const shown = board.captains.filter((c) => tests || !c.seed);
+  const sailed = (c: CaptainEntry): boolean => c.xp > 0 || c.wins > 0 || c.sunk > 0 || c.account === me;
+  const idlers = board.captains.filter((c) => !c.seed && !sailed(c)).length;
+  const shown = board.captains.filter((c) => (tests || !c.seed) && (idle || c.seed || sailed(c)));
   const winRate = nauarch.battles > 0 ? Math.round((nauarch.wins / nauarch.battles) * 100) : null;
   const myPlace = me ? shown.findIndex((c) => c.account === me) : -1;
   return (
@@ -65,7 +68,7 @@ function Board({ board, treasury, boards, me }: { readonly board: Leaderboard; r
         <div className="grid gap-3">
           <p className="m-0 font-display text-2xl font-bold">The Nauarch</p>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <Stat label="Battles" value={n(nauarch.battles)} />
+            <Stat label="Battles with him" value={n(nauarch.battles)} />
             <Stat label="He won" value={n(nauarch.wins)} sub={winRate !== null ? `${winRate}% of battles` : undefined} />
             <Stat label="Captains won" value={n(nauarch.losses)} sub="bounty only for sinking his fleet" />
             <Stat label="Treasury" value={treasury ? n(treasury) : "·"} sub={boards !== null ? `${n(boards)} boards studied` : "gold"} />
@@ -78,6 +81,12 @@ function Board({ board, treasury, boards, me }: { readonly board: Leaderboard; r
           <h2 className="m-0 font-display text-2xl font-bold">Top captains</h2>
           <div className="flex flex-wrap items-center gap-3 text-xs text-muted">
             <span>{myPlace >= 0 ? `You are #${myPlace + 1}` : `${board.total} captains signed on`}</span>
+            {idlers > 0 && (
+              <label className="inline-flex cursor-pointer items-center gap-1.5">
+                <input type="checkbox" checked={idle} onChange={(e) => setIdle(e.target.checked)} className="accent-brass" />
+                Show {idlers} captains who have not scored yet
+              </label>
+            )}
             {seeds > 0 && (
               <label className="inline-flex cursor-pointer items-center gap-1.5">
                 <input type="checkbox" checked={tests} onChange={(e) => setTests(e.target.checked)} className="accent-brass" />
@@ -89,7 +98,7 @@ function Board({ board, treasury, boards, me }: { readonly board: Leaderboard; r
         {shown.length === 0 ? (
           <p className="m-0 text-muted">No captain has earned XP yet. Be the first.</p>
         ) : (
-          <div className="-mx-1 overflow-x-auto">
+          <div className="-mx-1 overflow-x-auto" tabIndex={0} role="region" aria-label="Top captains table">
             <table className="w-full min-w-[560px] border-collapse text-left text-[13px]">
               <thead className="text-xs tracking-[0.08em] text-muted uppercase">
                 <tr>

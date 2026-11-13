@@ -1,16 +1,11 @@
-import { Anchor, Loader2 } from "lucide-react";
-import { lazy, Suspense, useCallback, useEffect, useState, useSyncExternalStore } from "react";
+import { Anchor } from "lucide-react";
+import { lazy, Suspense, useEffect, useSyncExternalStore } from "react";
 import { Button } from "@/components/ui/button";
-import { useBoot } from "@/game/useGame";
-import { useHarbourStats } from "@/game/useHarbour";
-import { duelFromLocation } from "@/ui/DuelCards";
-import { Landing } from "@/ui/Landing";
 import { Shipwreck } from "@/ui/Shipwreck";
+import { Shell } from "@/ui/Shell";
 import "@/lib/musicBox";
 import { captureLinks, currentRoute, pageKey, subscribeRoute } from "@/lib/router";
-import { sound } from "@/lib/sound";
 import { readConfig, type AppConfig } from "@/lib/config";
-import { PlayPage } from "@/pages/PlayPage";
 
 const AdmiraltyPage = lazy(() => import("@/pages/AdmiraltyPage").then((m) => ({ default: m.AdmiraltyPage })));
 const FleetPage = lazy(() => import("@/pages/FleetPage").then((m) => ({ default: m.FleetPage })));
@@ -19,6 +14,7 @@ const DocsPage = lazy(() => import("@/pages/docs/DocsPage").then((m) => ({ defau
 const JudgesPage = lazy(() => import("@/pages/JudgesPage").then((m) => ({ default: m.JudgesPage })));
 const ReplayPage = lazy(() => import("@/pages/ReplayPage").then((m) => ({ default: m.ReplayPage })));
 const TreasuryPage = lazy(() => import("@/pages/TreasuryPage").then((m) => ({ default: m.TreasuryPage })));
+const PlayRoute = lazy(() => import("@/pages/PlayRoute").then((m) => ({ default: m.Play })));
 const VerifyPage = lazy(() => import("@/pages/VerifyPage").then((m) => ({ default: m.VerifyPage })));
 
 export function App() {
@@ -67,69 +63,6 @@ function Routes() {
   if (path === "/docs") return <DocsPage cfg={cfg} />;
   const replay = /^\/replay(?:\/(\d{1,15}))?$/.exec(path);
   if (replay) return <ReplayPage cfg={cfg} gameId={replay[1] ? Number(replay[1]) : null} />;
-  return <Play cfg={cfg} />;
+  return <PlayRoute cfg={cfg} />;
 }
 
-const LANDED = "brinewar.landed";
-
-function landedBefore(): boolean {
-  try {
-    return window.sessionStorage.getItem(LANDED) === "1";
-  } catch {
-    return false;
-  }
-}
-
-function markLanded(): void {
-  try {
-    window.sessionStorage.setItem(LANDED, "1");
-  } catch {
-    return;
-  }
-}
-
-function Play({ cfg }: { readonly cfg: AppConfig }) {
-  const { boot, retry } = useBoot(cfg);
-  const stats = useHarbourStats(cfg);
-  const [landing, setLanding] = useState(() => duelFromLocation(window.location.search, window.location.hash, window.location.pathname) === null && !landedBefore());
-  const enter = useCallback(() => {
-    markLanded();
-    sound.unlock();
-    setLanding(false);
-  }, []);
-  if (boot.kind === "ready") return <PlayPage cfg={cfg} session={boot.session} stats={stats} landing={landing} onEnter={enter} />;
-  if (boot.kind === "error")
-    return (
-      <Shell title="Could not board" text={boot.message}>
-        {boot.retryable && (
-          <Button variant="brass" onClick={retry}>
-            <Anchor aria-hidden />
-            Try again
-          </Button>
-        )}
-      </Shell>
-    );
-  if (landing)
-    return (
-      <main className="fixed inset-0 bg-[radial-gradient(120%_80%_at_70%_0%,#2a8db6,#0b2230_70%)]">
-        <Landing stats={stats} ready={false} onEnter={enter} />
-      </main>
-    );
-  return (
-    <Shell title="Brinewar" text="Signing you on as a captain. No wallet, no popups.">
-      <Loader2 className="size-5 animate-spin text-brass" aria-label="Loading" />
-    </Shell>
-  );
-}
-
-function Shell({ title, text, children }: { readonly title: string; readonly text: string; readonly children?: React.ReactNode }) {
-  return (
-    <main className="grid h-full place-items-center bg-[radial-gradient(120%_80%_at_50%_0%,#2a8db6,#0b2230_70%)] px-4 text-center">
-      <div className="grid justify-items-center gap-3">
-        <h1 className="m-0 font-display text-5xl font-bold">{title}</h1>
-        <p className="m-0 max-w-sm text-muted">{text}</p>
-        {children}
-      </div>
-    </main>
-  );
-}

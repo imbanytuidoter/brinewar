@@ -5,8 +5,9 @@ import { browserStorage } from "./storage";
 const FADE_MS = 1200;
 
 function makeAudio(src: string): AudioLike {
-  const a = new Audio(src);
-  a.preload = "auto";
+  const a = new Audio();
+  a.preload = "none";
+  a.src = src;
   let ended: (() => void) | null = null;
   a.addEventListener("ended", () => ended?.());
   return {

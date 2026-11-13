@@ -73,7 +73,6 @@ export function Setup(p: SetupProps) {
               </span>
             </p>
           )}
-          <PlacementGrid cells={p.cells} heat={showHeat ? p.heat : null} sprite={look.sprite} pennant={look.pennant} disabled={p.busy} onChange={p.onCells} />
           <div className="grid grid-cols-2 gap-2">
             <Button size="sm" onClick={p.onShuffle} disabled={p.busy} aria-label="Shuffle your fleet">
               <Shuffle aria-hidden />
@@ -84,6 +83,7 @@ export function Setup(p: SetupProps) {
               Heat map
             </Button>
           </div>
+          <PlacementGrid cells={p.cells} heat={showHeat ? p.heat : null} sprite={look.sprite} pennant={look.pennant} disabled={p.busy} onChange={p.onCells} />
           {risk && (
             <p className="m-0 text-[12px] max-sm:hidden">
               <span className={cn("font-semibold", risk.risk === "high" ? "text-hit" : risk.risk === "low" ? "text-ok" : "text-brass")}>{risk.risk === "high" ? "High risk" : risk.risk === "low" ? "Low risk" : "Medium risk"}</span>

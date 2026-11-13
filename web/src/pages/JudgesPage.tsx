@@ -1,6 +1,9 @@
 import { Clapperboard, Anchor, BadgeCheck, Coins, ExternalLink, Map as MapIcon, ShieldCheck, Swords } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { findShowcases } from "@/game/replay";
+import { makeViewer } from "@/lib/chain";
 import { accountLink, networkOf, type AppConfig } from "@/lib/config";
+import type { ConfigView } from "@/lib/contract";
 import { cn } from "@/lib/utils";
 import { PageShell, Panel } from "@/ui/PageShell";
 
@@ -108,7 +111,42 @@ function DemoVideo({ chapters }: { readonly chapters: readonly Chapter[] }) {
   );
 }
 
+function useProvenBattle(cfg: AppConfig): number | null {
+  const [id, setId] = useState<number | null>(null);
+  useEffect(() => {
+    let alive = true;
+    const viewer = makeViewer(cfg.rpcUrl, cfg.contractId);
+    viewer
+      .view<ConfigView>("config")
+      .then((c) => findShowcases(viewer, c.games, 1))
+      .then((found) => {
+        if (alive && found[0]) setId(found[0].id);
+      })
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, [cfg]);
+  return id;
+}
+
+function ProvenBattle({ id }: { readonly id: number }) {
+  return (
+    <a href={`/verify/${id}`} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-ok/50 bg-ok/10 p-4 transition-colors hover:border-ok">
+      <span className="grid gap-1">
+        <span className="inline-flex items-center gap-2 font-display text-xl font-bold">
+          <ShieldCheck className="size-5 text-ok" aria-hidden />
+          Battle #{id}, proven in your browser
+        </span>
+        <span className="text-sm text-muted">Your browser re-checks every answer the Nauarch gave against the board he sealed before the first shot, and every model move against the TEE key in the contract. Takes a few seconds.</span>
+      </span>
+      <span className="text-sm font-semibold text-ok">Open the proof →</span>
+    </a>
+  );
+}
+
 export function JudgesPage({ cfg }: { readonly cfg: AppConfig }) {
+  const proven = useProvenBattle(cfg);
   const chapters = useChapters();
   const contractHref = accountLink(cfg, cfg.contractId);
   return (
@@ -120,6 +158,7 @@ export function JudgesPage({ cfg }: { readonly cfg: AppConfig }) {
             <span className="size-2 rounded-full bg-ok" aria-hidden />
             Live on {networkOf(cfg.contractId)}
           </p>
+          <p className="m-0 font-semibold text-ink">Built for skill-game operators whose players say "the bot cheats": here the house bot proves every move.</p>
           <p className="m-0">
             A naval battle you play from a fresh browser without a wallet. Each shot is a NEAR transaction and each answer carries a Merkle proof. Your opponent, the Nauarch,
             is an AI admiral: every move his model makes is signed inside a TEE on NEAR AI and checked by the contract before it counts.
@@ -135,6 +174,8 @@ export function JudgesPage({ cfg }: { readonly cfg: AppConfig }) {
       }
     >
       {chapters && <DemoVideo chapters={chapters} />}
+
+      {proven !== null && <ProvenBattle id={proven} />}
 
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {DOORS.map(({ href, icon: Icon, title, line }, i) => (
