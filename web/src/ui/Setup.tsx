@@ -49,23 +49,25 @@ export function Setup(p: SetupProps) {
   const entry = p.treasury && /^\d+$/.test(p.treasury.entry) ? BigInt(p.treasury.entry) : null;
   const short = entry !== null && p.gold !== null && p.gold < entry;
   return (
-    <section aria-label="Prepare for battle" className="grid max-h-[calc(100dvh-140px)] w-full animate-rise gap-3 overflow-y-auto rounded-2xl border border-line bg-glass p-3 backdrop-blur-md sm:w-[360px]">
-      {p.onBack && (
-        <button type="button" onClick={p.onBack} className="inline-flex items-center gap-1 justify-self-start text-xs font-semibold text-muted hover:text-ink">
-          <ArrowLeft className="size-3.5" aria-hidden />
-          Back to the chart
-        </button>
-      )}
-      <div role="tablist" aria-label="Preparation" className="grid grid-cols-2 gap-1 rounded-xl bg-black/25 p-1">
-        <TabButton active={tab === "fleet"} onClick={() => setTab("fleet")} icon={<Ship aria-hidden />} label="Fleet" />
-        <TabButton active={tab === "colours"} onClick={() => setTab("colours")} icon={<Palette aria-hidden />} label="Captain" />
+    <section aria-label="Prepare for battle" className="grid max-h-[calc(100dvh-140px)] w-full animate-rise gap-3 overflow-y-auto rounded-2xl border border-line bg-glass p-3 backdrop-blur-md max-sm:max-h-[calc(100dvh-112px)] max-sm:gap-2 max-sm:p-2.5 sm:w-[360px]">
+      <div className="flex items-center gap-2">
+        {p.onBack && (
+          <button type="button" onClick={p.onBack} aria-label="Back to the chart" className="inline-flex h-10 shrink-0 items-center gap-1 rounded-xl px-2 text-xs font-semibold text-muted hover:text-ink">
+            <ArrowLeft className="size-4" aria-hidden />
+            <span className="max-sm:sr-only">Chart</span>
+          </button>
+        )}
+        <div role="tablist" aria-label="Preparation" className="grid flex-1 grid-cols-2 gap-1 rounded-xl bg-black/25 p-1">
+          <TabButton active={tab === "fleet"} onClick={() => setTab("fleet")} icon={<Ship aria-hidden />} label="Fleet" />
+          <TabButton active={tab === "colours"} onClick={() => setTab("colours")} icon={<Palette aria-hidden />} label="Captain" />
+        </div>
       </div>
 
       {tab === "fleet" ? (
         <div role="tabpanel" aria-label="Fleet" className="grid gap-2">
           {seen && showHeat && (
             <p className="m-0 text-[12px] leading-snug text-muted">
-              <span className="font-semibold text-hit">Red</span> is where he searches first, learned from every captain's board.{" "}
+              <span className="font-semibold text-hit">Red</span> is where he searches first<span className="max-sm:hidden">, learned from every captain's board</span>.{" "}
               <span className={cn("font-semibold", seen.exposed === 0 ? "text-ok" : seen.exposed > seen.ships / 3 ? "text-hit" : "text-brass")}>
                 {seen.exposed === 0 ? "None of your ships are there." : `${seen.exposed} of your ${seen.ships} ship cells are there.`}
               </span>
@@ -83,7 +85,7 @@ export function Setup(p: SetupProps) {
             </Button>
           </div>
           {risk && (
-            <p className="m-0 text-[12px]">
+            <p className="m-0 text-[12px] max-sm:hidden">
               <span className={cn("font-semibold", risk.risk === "high" ? "text-hit" : risk.risk === "low" ? "text-ok" : "text-brass")}>{risk.risk === "high" ? "High risk" : risk.risk === "low" ? "Low risk" : "Medium risk"}</span>
               <span className="text-muted"> · {RISK_TEXT[risk.risk]}</span>
             </p>
@@ -122,11 +124,11 @@ export function Setup(p: SetupProps) {
         </div>
       )}
 
-      <div className="sticky bottom-0 -mx-3 -mb-3 grid gap-2 border-t border-line bg-[#0c2431]/95 p-3 backdrop-blur-md">
-        <span className="text-xs font-semibold tracking-[0.12em] text-muted uppercase">{p.mode === "friend" ? "Duel a friend" : "Battle the Nauarch"}</span>
+      <div className="sticky bottom-0 -mx-3 -mb-3 grid gap-2 border-t border-line bg-[#0c2431]/95 p-3 backdrop-blur-md max-sm:-mx-2.5 max-sm:-mb-2.5 max-sm:gap-1.5 max-sm:p-2.5">
+        <span className="text-xs font-semibold tracking-[0.12em] text-muted uppercase max-sm:hidden">{p.mode === "friend" ? "Duel a friend" : "Battle the Nauarch"}</span>
         {p.mode === "friend" ? (
           <Opponent title="A friend" text="You get a link to send. Your friend opens it in any browser, no wallet, places a fleet and the duel starts." stakes="Free · no stakes · XP for both flagships" foot={null} warn={false}>
-            <Button variant="brass" size="sm" onClick={p.onDuel} disabled={p.busy} aria-label="Challenge a friend" className="w-full">
+            <Button variant="brass" size="sm" onClick={p.onDuel} disabled={p.busy} aria-label="Challenge a friend" className="w-full max-sm:h-11 max-sm:text-sm">
               <Swords aria-hidden />
               Create the duel link
             </Button>
@@ -139,14 +141,14 @@ export function Setup(p: SetupProps) {
             foot={short ? "Not enough gold for the entry. Duels with friends are free." : p.gold !== null ? `You hold ${p.gold.toString()} gold` : null}
             warn={short}
           >
-            <Button variant="brass" size="sm" onClick={p.onSail} disabled={p.busy || short} aria-label="Set sail against the Nauarch" className="w-full">
+            <Button variant="brass" size="sm" onClick={p.onSail} disabled={p.busy || short} aria-label="Set sail against the Nauarch" className="w-full max-sm:h-11 max-sm:text-sm">
               <Anchor aria-hidden />
               Set sail
             </Button>
           </Opponent>
         )}
         {p.onMode && (
-          <button type="button" onClick={() => p.onMode?.(p.mode === "friend" ? "nauarch" : "friend")} disabled={p.busy} className="inline-flex items-center justify-center gap-1.5 text-xs font-semibold text-muted hover:text-ink disabled:opacity-50">
+          <button type="button" onClick={() => p.onMode?.(p.mode === "friend" ? "nauarch" : "friend")} disabled={p.busy} className="inline-flex min-h-8 items-center justify-center gap-1.5 text-xs font-semibold text-muted hover:text-ink disabled:opacity-50">
             {p.mode === "friend" ? <Anchor className="size-3.5" aria-hidden /> : <Swords className="size-3.5" aria-hidden />}
             {p.mode === "friend" ? "Fight the Nauarch instead" : "Duel a friend instead, free"}
           </button>
@@ -182,10 +184,10 @@ interface OpponentProps {
 
 function Opponent({ title, text, stakes, foot, warn, children }: OpponentProps) {
   return (
-    <div className="grid content-between gap-2 rounded-xl border border-line bg-black/20 p-2.5">
-      <div className="grid gap-1">
+    <div className="grid content-between gap-2 rounded-xl border border-line bg-black/20 p-2.5 max-sm:gap-1.5 max-sm:border-0 max-sm:bg-transparent max-sm:p-0">
+      <div className="grid gap-1 max-sm:flex max-sm:items-baseline max-sm:justify-between">
         <span className="font-display text-[17px] leading-tight font-bold max-sm:text-[15px]">{title}</span>
-        <span className="text-[11px] leading-snug text-muted">{text}</span>
+        <span className="text-[11px] leading-snug text-muted max-sm:hidden">{text}</span>
         <span className="text-[11px] font-semibold text-brass">{stakes}</span>
         {foot && <span className={cn("text-[10px]", warn ? "text-hit" : "text-muted max-sm:hidden")}>{foot}</span>}
       </div>

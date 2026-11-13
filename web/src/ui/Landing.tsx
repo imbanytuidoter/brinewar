@@ -21,13 +21,13 @@ export function Landing({ stats, ready, onEnter }: LandingProps) {
   const hot = a ? hottest(a.heat, a.boards_counted) : null;
   return (
     <section aria-labelledby="landing-title" className="fixed inset-0 z-[5] overflow-y-auto bg-[linear-gradient(90deg,rgb(11_34_48/0.94)_0%,rgb(11_34_48/0.78)_45%,rgb(11_34_48/0.1)_100%)] max-md:bg-[linear-gradient(180deg,rgb(11_34_48/0.55)_0%,rgb(11_34_48/0.95)_55%)]">
-      <div className="mx-auto flex min-h-full max-w-6xl flex-col justify-center gap-7 px-4 pt-[calc(96px+env(safe-area-inset-top))] pb-[calc(28px+env(safe-area-inset-bottom))] sm:px-8 max-md:justify-end">
+      <div className="mx-auto flex min-h-full max-w-6xl flex-col justify-center gap-7 px-4 pt-[calc(96px+env(safe-area-inset-top))] pb-[calc(28px+env(safe-area-inset-bottom))] sm:px-8 max-md:justify-end max-sm:gap-4 max-sm:pt-[calc(56px+env(safe-area-inset-top))] max-sm:pb-0">
         <div className="grid max-w-[620px] gap-4">
-          <h1 id="landing-title" className="m-0 font-display text-[clamp(38px,6.4vw,72px)] leading-[0.95] font-bold tracking-[0.01em] uppercase">
+          <h1 id="landing-title" className="m-0 font-display text-[clamp(32px,6.4vw,72px)] leading-[0.95] font-bold tracking-[0.01em] uppercase">
             {a && a.boards_counted > 0 ? `The Nauarch has read ${a.boards_counted.toLocaleString("en-US")} fleets. Hide yours.` : "The Nauarch has read every captain's fleet. Hide yours."}
           </h1>
-          <p className="m-0 max-w-[54ch] text-base leading-relaxed text-ink/85">
-            He is an AI admiral on NEAR AI Cloud who learns from every board revealed on chain, and the contract never lets him see yours. Play right here in the browser; each shot is a NEAR transaction and the game covers the gas.
+          <p className="m-0 max-w-[54ch] text-base leading-relaxed text-ink/85 max-sm:text-[15px] max-sm:leading-snug">
+            He is an AI admiral on NEAR AI Cloud who learns from every board revealed on chain, and the contract never lets him see yours.<span className="max-sm:hidden"> Play right here in the browser; each shot is a NEAR transaction and the game covers the gas.</span>
           </p>
         </div>
         <ul aria-label="Live from the chain" className="m-0 flex list-none flex-wrap gap-2 p-0">
@@ -41,8 +41,8 @@ export function Landing({ stats, ready, onEnter }: LandingProps) {
             </li>
           ))}
         </ol>
-        <div className="flex flex-wrap items-center gap-3">
-          <Button variant="brass" size="lg" onClick={onEnter} disabled={!ready} className="min-w-[200px]">
+        <div className="flex flex-wrap items-center gap-3 max-sm:sticky max-sm:bottom-0 max-sm:z-10 max-sm:-mx-4 max-sm:justify-center max-sm:gap-2 max-sm:bg-[linear-gradient(180deg,rgb(11_34_48/0)_0%,rgb(11_34_48/0.96)_35%)] max-sm:px-4 max-sm:pt-6 max-sm:pb-[calc(14px+env(safe-area-inset-bottom))]">
+          <Button variant="brass" size="lg" onClick={onEnter} disabled={!ready} className="min-w-[200px] max-sm:w-full">
             {ready ? <Anchor aria-hidden /> : <Loader2 className="animate-spin" aria-hidden />}
             {ready ? "Take command" : "Signing you on…"}
           </Button>
