@@ -51,13 +51,16 @@ function useChapters(): readonly Chapter[] | null {
   const [chapters, setChapters] = useState<readonly Chapter[] | null>(null);
   useEffect(() => {
     let alive = true;
-    Promise.all([fetch(VIDEO, { method: "HEAD" }), fetch(CHAPTERS)])
-      .then(async ([video, ch]) => {
-        if (!video.ok || !ch.ok || !(video.headers.get("content-type") ?? "").startsWith("video/")) return;
+    fetch(CHAPTERS)
+      .then(async (ch) => {
+        if (!ch.ok) return;
         const raw = (await ch.json()) as unknown;
         if (!Array.isArray(raw)) return;
         const list = raw.filter((c): c is Chapter => typeof c?.at === "number" && typeof c?.title === "string" && typeof c?.line === "string");
-        if (alive && list.length) setChapters(list);
+        if (list.length === 0) return;
+        const video = await fetch(VIDEO, { method: "HEAD" });
+        if (!video.ok || !(video.headers.get("content-type") ?? "").startsWith("video/")) return;
+        if (alive) setChapters(list);
       })
       .catch(() => undefined);
     return () => {

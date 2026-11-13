@@ -73,7 +73,7 @@ export function Setup(p: SetupProps) {
               </span>
             </p>
           )}
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-2 gap-2 max-sm:order-last">
             <Button size="sm" onClick={p.onShuffle} disabled={p.busy} aria-label="Shuffle your fleet">
               <Shuffle aria-hidden />
               Shuffle
