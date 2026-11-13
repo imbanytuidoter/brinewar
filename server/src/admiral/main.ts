@@ -47,12 +47,16 @@ process.on("SIGTERM", stop);
 process.on("SIGINT", stop);
 
 log.info({ contract: config.contract, admiral: config.admiral, model: model !== null }, "the Nauarch takes the helm");
+const SLOW_TICK_MS = 2000;
 while (running) {
+  const started = Date.now();
   try {
     await admiral.tick();
   } catch (err) {
-    log.warn({ err: err instanceof Error ? err.message : String(err) }, "tick failed");
+    log.warn({ err: err instanceof Error ? err.message : String(err), ms: Date.now() - started }, "tick failed");
   }
+  const took = Date.now() - started;
+  if (took > SLOW_TICK_MS) log.warn({ ms: took }, "slow tick");
   await new Promise((r) => setTimeout(r, config.tickMs));
 }
 store.close();
