@@ -59,7 +59,7 @@ export function VerifyPage({ cfg, gameId }: VerifyPageProps) {
             <ArrowLeft className="size-3.5" aria-hidden />
             Back to sea
           </a>
-          <h1 className="m-0 font-display text-4xl leading-none font-bold sm:text-5xl">Battle #{gameId}, proven</h1>
+          <h1 className="m-0 font-display text-4xl leading-none font-bold sm:text-5xl">{load.kind === "missing" ? `No battle #${gameId}` : load.kind === "ok" ? `Battle #${gameId}, proven` : `Battle #${gameId}`}</h1>
           <p className="m-0 max-w-2xl text-muted">
             Nothing here needs trust in our server. Your browser reads the game straight from the contract, recomputes every Merkle proof against the roots the
             contract stored at the start, and re-checks every signature from the NEAR AI model.

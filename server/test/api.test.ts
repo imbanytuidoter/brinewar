@@ -181,7 +181,7 @@ describe("read endpoints", () => {
     expect(ok.json()).toEqual({ idx: 5, cell: 1, salt: "aa", proof: ["bb"], sunk: null });
     t.store.saveSunk(3, [4, 5]);
     expect((await t.app.inject({ url: "/api/game/3/answer/5" })).json().sunk).toEqual([4, 5]);
-    expect((await t.app.inject({ url: "/api/game/3/answer/6" })).statusCode).toBe(404);
+    expect((await t.app.inject({ url: "/api/game/3/answer/6" })).statusCode).toBe(204);
     expect((await t.app.inject({ url: "/api/game/3/answer/100" })).statusCode).toBe(400);
     expect((await t.app.inject({ url: "/api/game/x/answer/5" })).statusCode).toBe(400);
   });
@@ -200,12 +200,12 @@ describe("read endpoints", () => {
     const t = await setup();
     const root = toHex(duelTree.root);
     expect((await t.app.inject({ method: "POST", url: "/api/game/7/answer", payload: duelAnswer(0) })).statusCode).toBe(400);
-    expect((await t.app.inject({ url: `/api/game/7/answer/12?root=${root}` })).statusCode).toBe(404);
+    expect((await t.app.inject({ url: `/api/game/7/answer/12?root=${root}` })).statusCode).toBe(204);
     expect((await t.app.inject({ method: "POST", url: "/api/game/7/answer", payload: { ...duelAnswer(1), idx: 13 } })).statusCode).toBe(409);
     expect((await t.app.inject({ method: "POST", url: "/api/game/7/answer", payload: duelAnswer(1) })).statusCode).toBe(200);
     const got = await t.app.inject({ url: `/api/game/7/answer/12?root=${root}` });
     expect(got.json()).toEqual({ ...duelAnswer(1), sunk: null });
-    expect((await t.app.inject({ url: "/api/game/7/answer/12?root=00" })).statusCode).toBe(404);
+    expect((await t.app.inject({ url: "/api/game/7/answer/12?root=00" })).statusCode).toBe(204);
   });
 
   it("accepts only a straight ship of one to four cells through the answered cell as a sunk claim", () => {

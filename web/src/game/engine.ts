@@ -95,6 +95,7 @@ const FRIENDLY: ReadonlyArray<readonly [RegExp, string]> = [
   [/cannot join your own duel/, "This is your own invite: send it to a friend."],
   [/MethodNameMismatch|method name/i, "This browser's key cannot make that move. Reload the page."],
   [/NotEnoughBalance|LackBalanceForState|not enough balance|allowance/i, "Your ship is low on fuel. Taking on more, then the move is retried."],
+  [/invalid nonce|InvalidNonce/i, "This captain just moved from another tab or device. This tab has caught up; try again."],
   [/timed out|fetch|network/i, "The sea is rough: the network did not answer. Retrying."],
 ];
 

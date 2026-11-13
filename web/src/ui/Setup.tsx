@@ -125,7 +125,7 @@ export function Setup(p: SetupProps) {
       )}
 
       <div className="sticky bottom-0 -mx-3 -mb-3 grid gap-2 border-t border-line bg-[#0c2431]/95 p-3 backdrop-blur-md max-sm:-mx-2.5 max-sm:-mb-2.5 max-sm:gap-1 max-sm:p-2 max-sm:pb-1">
-        <span className="text-xs font-semibold tracking-[0.12em] text-muted uppercase max-sm:hidden">{p.mode === "friend" ? "Duel a friend" : "Battle the Nauarch"}</span>
+        <span className="text-xs font-semibold tracking-[0.12em] text-muted uppercase max-sm:hidden [@media(max-height:900px)]:hidden">{p.mode === "friend" ? "Duel a friend" : "Battle the Nauarch"}</span>
         {p.mode === "friend" ? (
           <Opponent title="A friend" text="You get a link to send. Your friend opens it in any browser, no wallet, places a fleet and the duel starts." stakes="Free · no stakes · XP for both flagships" foot={null} warn={false}>
             <Button variant="brass" size="sm" onClick={p.onDuel} disabled={p.busy} aria-label="Challenge a friend" className="w-full max-sm:h-11 max-sm:text-sm">
@@ -189,7 +189,7 @@ function Opponent({ title, text, stakes, foot, warn, children }: OpponentProps) 
     <div className="grid content-between gap-2 rounded-xl border border-line bg-black/20 p-2.5 max-sm:gap-1.5 max-sm:border-0 max-sm:bg-transparent max-sm:p-0">
       <div className="grid gap-1 max-sm:hidden">
         <span className="font-display text-[17px] leading-tight font-bold max-sm:text-[15px]">{title}</span>
-        <span className="text-[11px] leading-snug text-muted max-sm:hidden">{text}</span>
+        <span className="text-[11px] leading-snug text-muted max-sm:hidden [@media(max-height:900px)]:hidden">{text}</span>
         <span className="text-[11px] font-semibold text-brass">{stakes}</span>
         {foot && <span className={cn("text-[10px]", warn ? "text-hit" : "text-muted max-sm:hidden")}>{foot}</span>}
       </div>

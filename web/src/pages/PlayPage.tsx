@@ -92,6 +92,10 @@ export function PlayPage({ cfg, session, stats, landing, onEnter }: PlayPageProp
   const lock = useLockOn(snap.gameId, theirLast?.n ?? null, theirLast?.index ?? null, !duel, feed.flight?.side === "mine");
   const spyglass = !duel && inBattle && result === null ? (lock !== null ? [lock] : sweep) : null;
   const spyglassOn = lock !== null || watching;
+  const refusal = useCallback(
+    (index: number): string | null => (snap.marks.enemy.has(index) ? `You already fired at ${cellName(index)}.` : clearCells.has(index) ? `No ship can be at ${cellName(index)}: it touches a sunk ship.` : null),
+    [snap.marks.enemy, clearCells],
+  );
   const onFire = useCallback(
     (index: number) => {
       sound.unlock();
@@ -284,7 +288,7 @@ export function PlayPage({ cfg, session, stats, landing, onEnter }: PlayPageProp
             </Button>
           </div>
         )}
-        {inBattle && !result && step !== "lost-board" && step !== "invite" && <FireByName disabled={!canFire} onFire={onFire} />}
+        {inBattle && !result && step !== "lost-board" && step !== "invite" && <FireByName disabled={!canFire} onFire={onFire} refusal={refusal} />}
         {inBattle && !result && step !== "lost-board" && step !== "invite" && (
           <Button size="sm" variant="ghost" onClick={() => void session.resign()} disabled={snap.busy !== null}>
             <Flag aria-hidden />

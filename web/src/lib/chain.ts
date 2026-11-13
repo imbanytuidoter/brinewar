@@ -159,7 +159,7 @@ export function makeCaller(rpcUrl: string, contractId: string, accountId: string
       throwOnFailure: false,
     });
 
-  const fast = async (method: string, args: object): Promise<unknown> => {
+  const fast = async (method: string, args: object, retried = false): Promise<unknown> => {
     const p = await prepare();
     if (!p || Date.now() - p.at > BLOCK_HASH_TTL_MS) {
       prepared = null;
@@ -172,8 +172,8 @@ export function makeCaller(rpcUrl: string, contractId: string, accountId: string
       return await provider.sendTransactionUntil(signedTransaction, "EXECUTED_OPTIMISTIC");
     } catch (err) {
       prepared = null;
-      if (err instanceof Error && STALE_KEY.test(err.message)) return slow(method, args);
-      throw err;
+      if (!(err instanceof Error && STALE_KEY.test(err.message))) throw err;
+      return retried ? slow(method, args) : fast(method, args, true);
     }
   };
 

@@ -20,6 +20,19 @@ import type { Mood } from "@/ui/NauarchPortrait";
 const SeaScene = lazy(() => import("@/scene/SeaScene").then((m) => ({ default: m.SeaScene })));
 
 const SHOWCASES = 6;
+const TRIES = 3;
+const PAUSE_MS = 1500;
+
+async function patiently<T>(work: () => Promise<T>): Promise<T> {
+  for (let i = 1; ; i++) {
+    try {
+      return await work();
+    } catch (err) {
+      if (i >= TRIES) throw err;
+      await new Promise((r) => setTimeout(r, PAUSE_MS * i));
+    }
+  }
+}
 
 type Load = { kind: "loading" } | { kind: "none" } | { kind: "error" } | { kind: "ok"; replay: Replay };
 
@@ -28,7 +41,7 @@ async function loadReplay(cfg: AppConfig, wanted: number | null): Promise<Replay
   const games: GameView[] =
     wanted !== null
       ? [await viewer.view<GameView | null>("get_game", { game_id: wanted })].filter((g): g is GameView => g !== null && isShowcase(g))
-      : await findShowcases(viewer, (await viewer.view<ConfigView>("config")).games, SHOWCASES);
+      : await patiently(async () => findShowcases(viewer, (await viewer.view<ConfigView>("config")).games, SHOWCASES));
   for (const game of [...games].sort((x, y) => x.shots - y.shots)) {
     const id = game.id;
     const [history, ev] = await Promise.all([viewer.view<ShotView[]>("get_history", { game_id: id }), fetchEvidence(cfg.apiUrl, id).catch(() => null)]);

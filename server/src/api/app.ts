@@ -186,7 +186,7 @@ export async function buildApp(o: AppOptions) {
         waiters -= 1;
       }
     }
-    if (!found) return reply.code(404).send({ error: "not answered yet" });
+    if (!found) return reply.code(204).send();
     return found;
   });
 

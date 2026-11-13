@@ -62,7 +62,7 @@ const QUICK_TIMEOUT_MS = 4000;
 export async function fetchQuickAnswer(apiUrl: string, gameId: number, index: number, root: string | null = null, fetchFn: typeof fetch = fetch): Promise<QuickAnswer | null> {
   const query = root ? `?wait=1&root=${encodeURIComponent(root.replace(/^0x/, ""))}` : "?wait=1";
   const res = await fetchFn(`${apiUrl}/api/game/${gameId}/answer/${index}${query}`, { signal: AbortSignal.timeout(QUICK_TIMEOUT_MS) });
-  if (!res.ok) return null;
+  if (!res.ok || res.status === 204) return null;
   const raw = (await res.json()) as unknown;
   if (!isObj(raw) || typeof raw.idx !== "number" || typeof raw.cell !== "number" || typeof raw.salt !== "string" || !Array.isArray(raw.proof) || !raw.proof.every((p) => typeof p === "string")) return null;
   const sunk = Array.isArray(raw.sunk) && raw.sunk.length <= 4 && raw.sunk.every((c) => Number.isInteger(c) && c >= 0 && c < 100) ? (raw.sunk as number[]) : null;
