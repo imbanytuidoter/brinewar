@@ -17,9 +17,28 @@ const TreasuryPage = lazy(() => import("@/pages/TreasuryPage").then((m) => ({ de
 const PlayRoute = lazy(() => import("@/pages/PlayRoute").then((m) => ({ default: m.Play })));
 const VerifyPage = lazy(() => import("@/pages/VerifyPage").then((m) => ({ default: m.VerifyPage })));
 
+const TITLES: Record<string, string> = {
+  admiralty: "Admiralty map",
+  treasury: "Treasury",
+  fleet: "Your fleet",
+  judges: "For judges",
+  captains: "Captains",
+  docs: "How it works",
+};
+
+function titleFor(key: string): string {
+  if (key.startsWith("verify/")) return `Battle #${key.slice(7)}, proven`;
+  if (key.startsWith("replay")) return "Replay";
+  return TITLES[key] ?? "";
+}
+
 export function App() {
   const route = useSyncExternalStore(subscribeRoute, currentRoute, currentRoute);
   useEffect(() => captureLinks(), []);
+  useEffect(() => {
+    const page = titleFor(pageKey(route));
+    document.title = page ? `${page} · Brinewar` : "Brinewar · naval battle on NEAR";
+  }, [route]);
   return (
     <Shipwreck
       key={pageKey(route)}

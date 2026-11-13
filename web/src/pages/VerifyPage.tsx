@@ -9,6 +9,7 @@ import { fetchEvidence } from "@/lib/proofs";
 import { cellName, short } from "@/lib/utils";
 import { MiniBoard } from "@/ui/MiniBoard";
 import { SiteHeader } from "@/ui/SiteHeader";
+import { REASONS } from "@/ui/EndCard";
 
 interface VerifyPageProps {
   readonly cfg: AppConfig;
@@ -131,7 +132,7 @@ function ReportView({ cfg, game: g, revealTx, report, model, names }: ReportView
   <Stat label="Answers proven" value={`${report.proofsOk}/${nauarchAnswers}`} sub={report.proofsBad ? `${report.proofsBad} mismatched` : undefined} />
         )}
         {duel ? <Stat label="Mode" value="Duel" sub="both captains answered with proofs checked by the contract" /> : <Stat label="Signed Nauarch moves" value={`${report.signedOk}/${report.moves.length}`} />}
-        <Stat label="Result" value={g.winner ? `${g.winner === g.a ? names.a : names.b} won` : g.status} sub={g.finish_reason ?? undefined} />
+        <Stat label="Result" value={g.winner ? `${g.winner === g.a ? names.a : names.b} won` : g.status} sub={g.finish_reason ? (REASONS[g.finish_reason] ?? g.finish_reason) : undefined} />
       </section>
 
       <section className="grid gap-4 rounded-2xl border border-line bg-glass p-4 backdrop-blur-md">

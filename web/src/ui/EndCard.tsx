@@ -13,7 +13,7 @@ interface EndCardProps {
   readonly opponent?: string | null;
 }
 
-const REASONS: Record<string, string> = {
+export const REASONS: Record<string, string> = {
   FleetSunk: "fleet sunk",
   Timeout: "out of time",
   Resigned: "colours struck",
