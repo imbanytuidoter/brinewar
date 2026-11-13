@@ -244,10 +244,14 @@ function FleetView({ cfg, session }: { readonly cfg: AppConfig; readonly session
                     className={cn("grid w-full gap-2 rounded-xl border border-line bg-white/5 p-3 text-left transition-colors hover:border-brass", on && "border-brass bg-brass/10", preview === name && "border-ink/60")}
                   >
                     <div
-                      className="relative grid h-24 place-items-center overflow-hidden rounded-lg bg-[url(/sprites/map/water.png)] bg-[length:72px_72px]"
-                      style={glow ? { boxShadow: `inset 0 0 36px ${glow}` } : undefined}
+                      className="relative grid aspect-[40/33] place-items-center overflow-hidden rounded-lg bg-[radial-gradient(circle_at_50%_35%,#2f7fb8,#0e2a3b_78%)]"
+                      style={glow ? { boxShadow: `inset 0 0 32px ${glow}66` } : undefined}
                     >
-                      <SpriteShip vertical={false} length={3} sail={l.sprite} flag={l.pennant} className={cn("h-14 w-auto", !owned && "opacity-55 saturate-50")} />
+                      {skinSource(name) !== null ? (
+                        <img src={`/ships/skin-${name}.png`} alt={`${l.title} skin`} loading="lazy" className={cn("size-full object-contain", !owned && "opacity-80 saturate-75")} />
+                      ) : (
+                        <SpriteShip vertical={false} length={3} sail={l.sprite} flag={l.pennant} className={cn("h-14 w-auto", !owned && "opacity-55 saturate-50")} />
+                      )}
                       <span className="absolute top-1.5 left-1.5 flex gap-0.5" aria-hidden>
                         {[l.hull ?? "#c98a5a", l.sail, l.flag].map((c) => (
                           <span key={c} className="size-3 rounded-full border border-white/40" style={{ background: c }} />
