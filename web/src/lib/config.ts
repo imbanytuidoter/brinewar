@@ -4,6 +4,7 @@ export interface AppConfig {
   readonly contractId: string;
   readonly explorerTxUrl: string;
   readonly explorerAccountUrl: string;
+  readonly repoUrl: string;
 }
 
 const ACCOUNT = /^(?=.{2,64}$)([a-z\d]+[-_])*[a-z\d]+(\.([a-z\d]+[-_])*[a-z\d]+)*$/;
@@ -44,6 +45,7 @@ export function readConfig(env: Record<string, string | undefined>): AppConfig {
     contractId,
     explorerTxUrl: checkUrl("VITE_EXPLORER_TX_URL", env.VITE_EXPLORER_TX_URL, true),
     explorerAccountUrl: checkUrl("VITE_EXPLORER_ACCOUNT_URL", env.VITE_EXPLORER_ACCOUNT_URL, true),
+    repoUrl: checkUrl("VITE_REPO_URL", env.VITE_REPO_URL, true),
   };
 }
 

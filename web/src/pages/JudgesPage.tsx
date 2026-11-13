@@ -172,6 +172,15 @@ export function JudgesPage({ cfg }: { readonly cfg: AppConfig }) {
           ) : (
             <span className="font-mono">{cfg.contractId}</span>
           )}
+          {cfg.repoUrl && (
+            <>
+              {" · "}
+              <a href={cfg.repoUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-brass hover:underline">
+                Source code
+                <ExternalLink className="size-3" aria-hidden />
+              </a>
+            </>
+          )}
         </p>
       </Panel>
 
