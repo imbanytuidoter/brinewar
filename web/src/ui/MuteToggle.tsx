@@ -11,7 +11,9 @@ export function MuteToggle() {
   const id = useId();
   const muted = useSyncExternalStore(subscribe, () => sound.muted, () => true);
   const volume = useSyncExternalStore(subscribe, () => sound.volume, () => 0.8);
-  const musicOn = useSyncExternalStore(subscribeMusic, () => music.on, () => true);
+  const musicId = useId();
+  const musicVolume = useSyncExternalStore(subscribeMusic, () => music.volume, () => 0.5);
+  const musicBlocked = useSyncExternalStore(subscribeMusic, () => music.blocked, () => false);
   const silent = muted || volume === 0;
   const Icon = silent ? VolumeX : volume < 0.5 ? Volume1 : Volume2;
   return (
@@ -24,7 +26,8 @@ export function MuteToggle() {
       </PopoverTrigger>
       <PopoverContent align="end" className="grid w-56 gap-2.5">
         <div className="flex items-center justify-between">
-          <label htmlFor={id} className="text-xs font-semibold text-ink">
+          <label htmlFor={id} className="inline-flex items-center gap-1.5 text-xs font-semibold text-ink">
+            <Volume2 className="size-3.5 text-brass" aria-hidden />
             Volume
           </label>
           <span className="font-mono text-[11px] tabular-nums">{silent ? "off" : `${Math.round(volume * 100)}%`}</span>
@@ -42,13 +45,28 @@ export function MuteToggle() {
           }}
           className="w-full accent-brass"
         />
-        <label className="flex cursor-pointer items-center justify-between gap-2 text-xs font-semibold text-ink">
-          <span className="inline-flex items-center gap-1.5">
+        <div className="flex items-center justify-between">
+          <label htmlFor={musicId} className="inline-flex items-center gap-1.5 text-xs font-semibold text-ink">
             <Music className="size-3.5 text-brass" aria-hidden />
             Music
-          </span>
-          <input type="checkbox" checked={musicOn} onChange={(e) => music.setOn(e.target.checked)} className="size-4 accent-brass" />
-        </label>
+          </label>
+          <span className="font-mono text-[11px] tabular-nums">{musicVolume === 0 ? "off" : `${Math.round(musicVolume * 100)}%`}</span>
+        </div>
+        <input
+          id={musicId}
+          type="range"
+          min={0}
+          max={100}
+          step={5}
+          value={Math.round(musicVolume * 100)}
+          onChange={(e) => {
+            music.setVolume(Number(e.target.value) / 100);
+            if (muted && Number(e.target.value) > 0) sound.setMuted(false);
+            music.unlock();
+          }}
+          className="w-full accent-brass"
+        />
+        {musicBlocked && musicVolume > 0 && !silent && <p className="m-0 text-[11px] leading-snug text-muted">Your browser holds the music until you tap anywhere on the page.</p>}
         <button
           type="button"
           onClick={() => sound.setMuted(!muted)}

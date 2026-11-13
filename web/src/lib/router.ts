@@ -1,0 +1,84 @@
+const NAVIGATED = "brinewar:navigate";
+
+export interface LinkLike {
+  readonly href: string;
+  readonly target: string;
+  readonly download: boolean;
+}
+
+export interface ClickLike {
+  readonly button: number;
+  readonly metaKey: boolean;
+  readonly ctrlKey: boolean;
+  readonly shiftKey: boolean;
+  readonly altKey: boolean;
+  readonly defaultPrevented: boolean;
+}
+
+export interface Here {
+  readonly origin: string;
+  readonly pathname: string;
+  readonly search: string;
+}
+
+export function routeOf(link: LinkLike, click: ClickLike, here: Here): string | null {
+  if (click.defaultPrevented || click.button !== 0) return null;
+  if (click.metaKey || click.ctrlKey || click.shiftKey || click.altKey) return null;
+  if (link.download || (link.target !== "" && link.target !== "_self")) return null;
+  let url: URL;
+  try {
+    url = new URL(link.href, here.origin);
+  } catch {
+    return null;
+  }
+  if (url.origin !== here.origin) return null;
+  const last = url.pathname.split("/").pop() ?? "";
+  if (last.includes(".") || url.pathname.startsWith("/api/")) return null;
+  if (url.pathname === here.pathname && url.search === here.search && url.hash !== "") return null;
+  return `${url.pathname}${url.search}${url.hash}`;
+}
+
+export function currentRoute(): string {
+  return `${window.location.pathname}${window.location.search}`;
+}
+
+export function subscribeRoute(fn: () => void): () => void {
+  window.addEventListener("popstate", fn);
+  window.addEventListener(NAVIGATED, fn);
+  return () => {
+    window.removeEventListener("popstate", fn);
+    window.removeEventListener(NAVIGATED, fn);
+  };
+}
+
+export function navigate(to: string): void {
+  if (to !== `${currentRoute()}${window.location.hash}`) window.history.pushState(null, "", to);
+  window.scrollTo(0, 0);
+  window.dispatchEvent(new Event(NAVIGATED));
+  const id = decodeURIComponent(window.location.hash.slice(1));
+  if (id !== "") reveal(id, performance.now());
+}
+
+const REVEAL_WAIT_MS = 3000;
+
+function reveal(id: string, since: number): void {
+  const el = document.getElementById(id);
+  if (el) {
+    el.scrollIntoView();
+    return;
+  }
+  if (performance.now() - since < REVEAL_WAIT_MS) window.requestAnimationFrame(() => reveal(id, since));
+}
+
+export function captureLinks(): () => void {
+  const onClick = (e: MouseEvent): void => {
+    const el = e.target instanceof Element ? e.target.closest("a[href]") : null;
+    if (!(el instanceof HTMLAnchorElement)) return;
+    const to = routeOf({ href: el.href, target: el.target, download: el.hasAttribute("download") }, e, window.location);
+    if (to === null) return;
+    e.preventDefault();
+    navigate(to);
+  };
+  document.addEventListener("click", onClick);
+  return () => document.removeEventListener("click", onClick);
+}

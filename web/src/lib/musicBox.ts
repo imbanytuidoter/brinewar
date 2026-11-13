@@ -49,14 +49,12 @@ export const music = createMusicBox({
   fadeMs: FADE_MS,
 });
 
+const GESTURES = ["pointerdown", "pointerup", "keydown", "touchend", "click"] as const;
+
 if (typeof window !== "undefined") {
   sound.subscribe(() => music.refresh());
-  const first = (): void => {
-    music.unlock();
-    window.removeEventListener("pointerdown", first);
-    window.removeEventListener("keydown", first);
-  };
-  window.addEventListener("pointerdown", first);
-  window.addEventListener("keydown", first);
+  const retry = (): void => music.unlock();
+  for (const name of GESTURES) window.addEventListener(name, retry, { passive: true, capture: true });
   document.addEventListener("visibilitychange", () => music.pauseAll(document.hidden));
+  music.start();
 }

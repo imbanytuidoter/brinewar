@@ -1,10 +1,12 @@
 import { Anchor, Loader2 } from "lucide-react";
-import { lazy, Suspense, useCallback, useMemo, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { Button } from "@/components/ui/button";
 import { useBoot } from "@/game/useGame";
 import { useHarbourStats } from "@/game/useHarbour";
 import { duelFromLocation } from "@/ui/DuelCards";
 import { Landing } from "@/ui/Landing";
+import "@/lib/musicBox";
+import { captureLinks, currentRoute, subscribeRoute } from "@/lib/router";
 import { sound } from "@/lib/sound";
 import { readConfig, type AppConfig } from "@/lib/config";
 import { PlayPage } from "@/pages/PlayPage";
@@ -19,21 +21,27 @@ const TreasuryPage = lazy(() => import("@/pages/TreasuryPage").then((m) => ({ de
 const VerifyPage = lazy(() => import("@/pages/VerifyPage").then((m) => ({ default: m.VerifyPage })));
 
 export function App() {
+  const route = useSyncExternalStore(subscribeRoute, currentRoute, currentRoute);
+  useEffect(() => captureLinks(), []);
   return (
     <Suspense fallback={<Shell title="Brinewar" text="Raising the charts…" />}>
-      <Routes />
+      <Routes key={route} />
     </Suspense>
   );
 }
 
+function loadConfig(): AppConfig | Error {
+  try {
+    return readConfig(import.meta.env as Record<string, string | undefined>);
+  } catch (err) {
+    return err instanceof Error ? err : new Error("bad configuration");
+  }
+}
+
+const CONFIG = loadConfig();
+
 function Routes() {
-  const cfg = useMemo((): AppConfig | Error => {
-    try {
-      return readConfig(import.meta.env as Record<string, string | undefined>);
-    } catch (err) {
-      return err instanceof Error ? err : new Error("bad configuration");
-    }
-  }, []);
+  const cfg = CONFIG;
   if (cfg instanceof Error) return <Shell title="Harbour closed" text={`Configuration error: ${cfg.message}`} />;
   const verify = /^\/verify\/(\d{1,15})\/?$/.exec(window.location.pathname);
   if (verify) return <VerifyPage cfg={cfg} gameId={Number(verify[1])} />;

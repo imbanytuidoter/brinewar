@@ -17,11 +17,21 @@ export type Boot =
   | { readonly kind: "error"; readonly message: string; readonly retryable: boolean }
   | { readonly kind: "ready"; readonly session: GameSession };
 
+const boarded = new WeakMap<AppConfig, GameSession>();
+
 export function useBoot(cfg: AppConfig): { boot: Boot; retry: () => void } {
-  const [boot, setBoot] = useState<Boot>({ kind: "boarding" });
+  const [boot, setBoot] = useState<Boot>(() => {
+    const known = boarded.get(cfg);
+    return known ? { kind: "ready", session: known } : { kind: "boarding" };
+  });
   const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     let alive = true;
+    const known = boarded.get(cfg);
+    if (known) {
+      setBoot({ kind: "ready", session: known });
+      return;
+    }
     setBoot({ kind: "boarding" });
     const store = browserStorage();
     const viewer = makeViewer(cfg.rpcUrl, cfg.contractId);
@@ -39,6 +49,7 @@ export function useBoot(cfg: AppConfig): { boot: Boot; retry: () => void } {
           refuel: () => refuelGuest(cfg.apiUrl, g.publicKey),
           height: makeHeight(cfg.rpcUrl),
         });
+        boarded.set(cfg, session);
         setBoot({ kind: "ready", session });
       })
       .catch((err: unknown) => {

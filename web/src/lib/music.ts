@@ -20,15 +20,20 @@ interface MusicDeps {
   readonly fadeMs: number;
 }
 
-const MUSIC_KEY = "brinewar.music";
-const THEME_LEVEL = 0.3;
-const STING_LEVEL = 0.75;
+const LEGACY_KEY = "brinewar.music";
+const VOLUME_KEY = "brinewar.music.volume";
+const DEFAULT_VOLUME = 0.5;
+const THEME_PEAK = 0.5;
+const STING_PEAK = 1.4;
 const FADE_STEP_MS = 50;
+const THEMES = ["harbour", "battle"] as const;
 
 export interface MusicBox {
-  readonly on: boolean;
-  setOn(on: boolean): void;
-  play(theme: Theme | null): void;
+  readonly volume: number;
+  readonly blocked: boolean;
+  setVolume(volume: number): void;
+  start(): void;
+  play(theme: Theme): void;
   sting(kind: Sting): void;
   unlock(): void;
   refresh(): void;
@@ -36,16 +41,38 @@ export interface MusicBox {
   subscribe(fn: () => void): () => void;
 }
 
+function readVolume(store: KeyValue | null): number {
+  try {
+    const raw = store?.get(VOLUME_KEY) ?? null;
+    const v = raw === null ? Number.NaN : Number(raw);
+    if (Number.isFinite(v) && v >= 0 && v <= 1) return v;
+    return store?.get(LEGACY_KEY) === "0" ? 0 : DEFAULT_VOLUME;
+  } catch {
+    return DEFAULT_VOLUME;
+  }
+}
+
 export function createMusicBox(d: MusicDeps): MusicBox {
   const tracks = new Map<string, AudioLike>();
   const targets = new Map<AudioLike, number>();
   const listeners = new Set<() => void>();
-  let on = d.store?.get(MUSIC_KEY) !== "0";
-  let want: Theme | null = null;
-  let unlocked = false;
+  let volume = readVolume(d.store);
+  let want: Theme = "harbour";
+  let started = false;
+  let blocked = false;
   let ducked = false;
   let hidden = false;
   let timer: ReturnType<typeof setInterval> | null = null;
+
+  const notify = (): void => {
+    for (const fn of listeners) fn();
+  };
+
+  const setBlocked = (next: boolean): void => {
+    if (blocked === next) return;
+    blocked = next;
+    notify();
+  };
 
   const track = (name: string, loop: boolean): AudioLike => {
     const known = tracks.get(name);
@@ -78,54 +105,60 @@ export function createMusicBox(d: MusicDeps): MusicBox {
     }
   };
 
-  const start = (a: AudioLike): void => {
+  const begin = (a: AudioLike): void => {
     if (!a.paused) return;
     try {
-      void Promise.resolve(a.play()).catch(() => undefined);
+      void Promise.resolve(a.play()).then(
+        () => setBlocked(false),
+        () => setBlocked(true),
+      );
     } catch {
-      return;
+      setBlocked(true);
     }
   };
 
   const apply = (): void => {
-    const level = d.level();
-    const audible = on && unlocked && !hidden && !ducked && level > 0;
-    for (const name of ["harbour", "battle"] as const) {
+    const level = d.level() * volume;
+    const audible = started && !hidden && !ducked && level > 0;
+    for (const name of THEMES) {
       const active = audible && want === name;
       if (!active && !tracks.has(name)) continue;
       const a = track(name, true);
-      targets.set(a, active ? THEME_LEVEL * level : 0);
-      if (active) start(a);
+      targets.set(a, active ? THEME_PEAK * level : 0);
+      if (active) begin(a);
     }
     if (d.fadeMs <= 0) for (const a of targets.keys()) settle(a);
     else if (!timer) timer = setInterval(tick, FADE_STEP_MS);
   };
 
-  const notify = (): void => {
-    for (const fn of listeners) fn();
-  };
-
   return {
-    get on() {
-      return on;
+    get volume() {
+      return volume;
     },
-    setOn(next: boolean) {
-      on = next;
+    get blocked() {
+      return blocked;
+    },
+    setVolume(next: number) {
+      volume = Math.min(1, Math.max(0, next));
       try {
-        d.store?.set(MUSIC_KEY, next ? "1" : "0");
+        d.store?.set(VOLUME_KEY, String(volume));
       } catch {
         void 0;
       }
       apply();
       notify();
     },
-    play(theme: Theme | null) {
+    start() {
+      started = true;
+      apply();
+    },
+    play(theme: Theme) {
       want = theme;
       apply();
     },
     sting(kind: Sting) {
-      const level = d.level();
-      if (!unlocked || level <= 0) return;
+      const level = d.level() * volume;
+      if (!started || blocked || level <= 0) return;
       const s = track(kind, false);
       for (const other of ["victory", "defeat"] as const) {
         const o = tracks.get(other);
@@ -134,18 +167,16 @@ export function createMusicBox(d: MusicDeps): MusicBox {
       ducked = true;
       apply();
       s.currentTime = 0;
-      s.volume = STING_LEVEL * level;
+      s.volume = Math.min(1, STING_PEAK * level);
       targets.delete(s);
       s.onended = () => {
         ducked = false;
         apply();
       };
-      start(s);
+      begin(s);
     },
     unlock() {
-      if (unlocked) return;
-      unlocked = true;
-      apply();
+      if (started && blocked) apply();
     },
     refresh() {
       apply();

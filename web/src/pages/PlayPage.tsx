@@ -145,7 +145,7 @@ export function PlayPage({ cfg, session, stats, landing, onEnter }: PlayPageProp
   useEffect(() => {
     music.play(inBattle && result === null ? "battle" : "harbour");
   }, [inBattle, result]);
-  useEffect(() => () => music.play(null), []);
+  useEffect(() => () => music.play("harbour"), []);
   const heard = useRef(result);
   useEffect(() => {
     if (result === heard.current) return;
