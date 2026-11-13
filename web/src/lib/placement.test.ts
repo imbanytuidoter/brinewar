@@ -44,6 +44,15 @@ describe("placement", () => {
     expect(rotateHull(boxed, hullOf(boxed, 90)!)).toBeNull();
   });
 
+  it("turns a ship around whichever of its cells has room, not only the bow", () => {
+    const crowded = cellsOf([0, 1, 2, 3, 20, 21, 22, 26, 27, 28, 40, 41, 48, 49, 55, 56, 34, 74, 90, 99]);
+    expect(isLegalFleet(crowded)).toBe(true);
+    const pair = hullOf(crowded, 55)!;
+    const turned = rotateHull(crowded, pair);
+    expect(turned).not.toBeNull();
+    expect(hullOf(turned!, on(turned!).find((c) => !on(crowded).includes(c))!)?.horizontal).toBe(false);
+  });
+
   it("nudges by one cell and stops at the edge", () => {
     const single = hullOf(fleet, 66)!;
     expect(on(nudgeHull(fleet, single, 2, 2)!)).toContain(88);

@@ -35,16 +35,17 @@ export function moveHull(cells: readonly number[], hull: Hull, bow: number): num
 }
 
 export function rotateHull(cells: readonly number[], hull: Hull): number[] | null {
-  const bow = hull.cells[0] as number;
   const len = hull.cells.length;
   const turned = !hull.horizontal;
-  const direct = place(cells, hull, body(bow, len, turned));
-  if (direct) return direct;
-  for (let shift = 1; shift < len; shift++) {
-    const back = turned ? bow - shift : bow - shift * SIZE;
-    if (turned && Math.floor(back / SIZE) !== Math.floor(bow / SIZE)) break;
-    const tried = place(cells, hull, body(back, len, turned));
-    if (tried) return tried;
+  const tried = new Set<number>();
+  for (const pivot of hull.cells) {
+    for (let k = 0; k < len; k++) {
+      const bow = turned ? pivot - k : pivot - k * SIZE;
+      if (tried.has(bow) || (turned && Math.floor(bow / SIZE) !== Math.floor(pivot / SIZE))) continue;
+      tried.add(bow);
+      const next = place(cells, hull, body(bow, len, turned));
+      if (next) return next;
+    }
   }
   return null;
 }

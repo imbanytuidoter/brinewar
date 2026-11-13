@@ -85,7 +85,7 @@ export function sections(l: Live): Section[] {
       body: (
         <ol>
           <li>Open the site and press <b>Take command</b>. A guest account, a flagship, {v(l.startGold)} gold and three skins are created for you.</li>
-          <li>Place your ships: drag a ship, or tap it and then open water to move it, tap it again to turn it, or press Shuffle. The red cells are where he will look first, learned from every captain's board: hide in the cold water.</li>
+          <li>Place your ships: drag a ship, or tap it and then open water to move it, press <b>Turn</b> (or tap it again) to turn it, or press Shuffle. The red cells are where he will look first, learned from every captain's board: hide in the cold water.</li>
           <li>Press <b>Set sail</b>, then tap a cell in the fog to fire. A hit lets you fire again.</li>
           <li>When the battle ends, press <b>Verify</b> to re-check every proof and signature in your browser.</li>
           <li>Between battles, <b>Back to the chart</b> opens the sea chart with every live captain, Nauarch patrols and duels with friends.</li>

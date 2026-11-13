@@ -1,3 +1,4 @@
+import { RotateCw } from "lucide-react";
 import { useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 import { heatAlpha } from "@/lib/heat";
 import { bowFor, hullOf, moveHull, nudgeHull, previewBody, rotateHull, type Hull } from "@/lib/placement";
@@ -7,6 +8,7 @@ import { SpriteShip } from "./SpriteShip";
 
 const SIZE = 10;
 const COLS = "ABCDEFGHIJ";
+const TAP_SLOP_PX = 10;
 
 interface PlacementGridProps {
   readonly cells: readonly number[];
@@ -23,6 +25,8 @@ interface Drag {
   readonly grabbed: number;
   readonly over: number;
   readonly moved: boolean;
+  readonly x: number;
+  readonly y: number;
 }
 
 const KEYS: Readonly<Record<string, readonly [number, number]>> = {
@@ -43,7 +47,7 @@ function describe(cells: readonly number[], index: number | null): string | null
   if (!h) return null;
   const at = `${COLS[(h.cells[0] as number) % SIZE]}${Math.floor((h.cells[0] as number) / SIZE) + 1}`;
   const way = h.cells.length === 1 ? "" : h.horizontal ? ", across" : ", down";
-  return `Ship of ${h.cells.length} at ${at}${way}. Tap open water to move it, tap it again to turn it.`;
+  return `Ship of ${h.cells.length} at ${at}${way}. Tap open water to move it, or turn it.`;
 }
 
 export function PlacementGrid({ cells, heat, sprite, pennant, disabled, onChange }: PlacementGridProps) {
@@ -82,7 +86,7 @@ export function PlacementGrid({ cells, heat, sprite, pennant, disabled, onChange
     const h = hullOf(cells, at);
     if (h) {
       e.currentTarget.setPointerCapture(e.pointerId);
-      setDrag({ pointer: e.pointerId, hull: h, grabbed: at, over: at, moved: false });
+      setDrag({ pointer: e.pointerId, hull: h, grabbed: at, over: at, moved: false, x: e.clientX, y: e.clientY });
       return;
     }
     if (hull) commit(moveHull(cells, hull, at), "No room there. Ships need open water around them.");
@@ -91,7 +95,8 @@ export function PlacementGrid({ cells, heat, sprite, pennant, disabled, onChange
   const move = (e: PointerEvent<HTMLDivElement>): void => {
     if (!drag || e.pointerId !== drag.pointer) return;
     const at = cellAt(e.clientX, e.clientY);
-    if (at !== null && at !== drag.over) setDrag({ ...drag, over: at, moved: true });
+    if (!drag.moved && Math.hypot(e.clientX - drag.x, e.clientY - drag.y) < TAP_SLOP_PX) return;
+    if (at !== null && (at !== drag.over || !drag.moved)) setDrag({ ...drag, over: at, moved: true });
   };
 
   const up = (e: PointerEvent<HTMLDivElement>): void => {
@@ -194,9 +199,23 @@ export function PlacementGrid({ cells, heat, sprite, pennant, disabled, onChange
           </div>
         </div>
       </div>
-      <p className="m-0 min-h-[1.2em] text-[11px] text-muted" aria-live="polite">
-        {note ?? "Drag a ship to move it. Tap one to select it."}
-      </p>
+      <div className="flex min-h-[28px] items-center gap-2">
+        <p className="m-0 flex-1 text-[11px] text-muted" aria-live="polite">
+          {note ?? "Drag a ship to move it. Tap one to select it."}
+        </p>
+        {hull && hull.cells.length > 1 && (
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={() => commit(rotateHull(cells, hull), "No room to turn this ship here.")}
+            aria-label="Turn the selected ship"
+            className="inline-flex shrink-0 items-center gap-1 rounded-full border border-brass/70 px-2.5 py-1 text-xs font-semibold text-brass hover:bg-brass/10 disabled:opacity-50"
+          >
+            <RotateCw className="size-3.5" aria-hidden />
+            Turn
+          </button>
+        )}
+      </div>
     </div>
   );
 }
