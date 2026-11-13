@@ -24,7 +24,7 @@ test("two captains duel through an invite link with no wallet", async ({ browser
   await host.goto("/");
   await host.getByRole("button", { name: "Take command" }).click({ timeout: 90_000 });
   await host.getByRole("button", { name: "Duel a friend instead, free" }).click();
-  await host.getByRole("button", { name: "Challenge a friend" }).click({ timeout: 90_000 });
+  await host.getByRole("button", { name: "Create the duel link" }).click({ timeout: 90_000 });
   await expect(host.getByText("Waiting for your friend", { exact: true })).toBeVisible({ timeout: 90_000 });
   const link = (await host.locator("[data-invite]").first().getAttribute("data-invite")) ?? "";
   expect(link).toMatch(/\/duel\/\d+#[A-Za-z0-9_-]{43}$/);

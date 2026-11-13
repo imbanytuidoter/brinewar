@@ -203,7 +203,7 @@ export function PlayPage({ cfg, session, stats, landing, onEnter }: PlayPageProp
       </Suspense>
       )}
 
-      <CalloutBanner callout={feed.callout} />
+      <CalloutBanner callout={result === null ? feed.callout : null} />
       <ResultSplash gameId={snap.gameId} outcome={result} reason={g?.finish_reason ?? null} opponent={duel ? (rival ?? "Your friend") : "The Nauarch"} reducedMotion={reducedMotion} />
 
       {inBattle && step !== "invite" && step !== "lost-board" && (

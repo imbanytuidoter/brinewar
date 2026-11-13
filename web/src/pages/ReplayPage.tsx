@@ -20,6 +20,7 @@ import type { Mood } from "@/ui/NauarchPortrait";
 const SeaScene = lazy(() => import("@/scene/SeaScene").then((m) => ({ default: m.SeaScene })));
 
 const SHOWCASES = 6;
+const REPLAY_LEAD_MS = 1800;
 const TRIES = 3;
 const PAUSE_MS = 1500;
 
@@ -96,6 +97,11 @@ function Theatre({ replay }: { readonly replay: Replay }) {
   const feed = useBattleFeed({ myShips: replay.captainShips, myMarks: marks.mine, enemyMarks: marks.enemy, sunkTheirs: wrecks, heat: null, boards: 0, rival: null });
   const lastNauarch = [...shown].reverse().find((s) => s.by === game.b && replay.lines.has(s.n));
   const spoken = lastNauarch ? replay.lines.get(lastNauarch.n) : undefined;
+
+  useEffect(() => {
+    const t = setTimeout(() => setPlaying(true), REPLAY_LEAD_MS);
+    return () => clearTimeout(t);
+  }, []);
 
   useEffect(() => {
     if (!playing || done) return;
