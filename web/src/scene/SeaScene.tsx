@@ -64,11 +64,12 @@ interface BoardProps {
   readonly hulls?: Hullset;
   readonly wrecks?: readonly (readonly number[])[] | null;
   readonly aiming?: number | null;
+  readonly aimDelayMs?: number;
 }
 
-function Board({ side, ships, marks, look = null, hulls = "brine", wrecks = null, aiming = null }: BoardProps) {
+function Board({ side, ships, marks, look = null, hulls = "brine", wrecks = null, aiming = null, aimDelayMs = 0 }: BoardProps) {
   const { effects } = useRuntime();
-  const landed = useMarkFlights(side, marks, aiming);
+  const landed = useMarkFlights(side, marks, aiming, aimDelayMs);
   useEffect(() => {
     const flagship = ships.reduce<readonly number[] | null>((best, s) => (!best || s.length > best.length ? s : best), null);
     effects.setOrigin(side, flagship);
@@ -131,12 +132,12 @@ function World(props: SeaSceneProps) {
       <Shaker>
         <Sea aiming={props.aiming} />
         <Labels enemy={props.enemyLabel ?? "The Nauarch"} />
-        {props.spyglass && props.spyglass.length > 0 && <Spyglass cells={props.spyglass} reducedMotion={runtime.reduced} />}
+        {props.spyglass && props.spyglass.length > 0 && <Spyglass cells={props.spyglass} locked={props.spyglassLocked ?? false} active={props.spyglassOn ?? true} reducedMotion={runtime.reduced} />}
         <Picker marks={props.enemyMarks} aiming={props.aiming} canFire={props.canFire} onFire={props.onFire} blocked={props.enemyClear ?? NO_CELLS} />
         <Suspense fallback={null}>
           <Effects />
           <Scenery layout={layoutFor(props.layout ?? null)} />
-          <Board side="mine" ships={props.myShips} marks={props.myMarks} look={props.myLook ?? null} hulls={props.myLook?.hulls ?? "brine"} />
+          <Board side="mine" ships={props.myShips} marks={props.myMarks} look={props.myLook ?? null} hulls={props.myLook?.hulls ?? "brine"} aimDelayMs={props.aimDelayMs ?? 0} />
           <Board side="enemy" ships={props.enemyShips ?? NO_SHIPS} marks={props.enemyMarks} hulls={props.enemyHulls ?? "pirate"} wrecks={props.enemyShips === null ? props.enemyWrecks : null} aiming={props.aiming ?? null} />
         </Suspense>
       </Shaker>

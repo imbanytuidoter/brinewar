@@ -18,7 +18,8 @@ import { loadOrCreateKey } from "@/lib/guest";
 import { browserStorage } from "@/lib/storage";
 import { FleetTray } from "@/ui/FleetTray";
 import { lookout } from "@/lib/heat";
-import { clearWater, confirmedSunk, mergeSunk, sunkOwn } from "@/lib/sunk";
+import { useLockOn } from "@/game/useLockOn";
+import { clearWater, confirmedSunk, mergeSunk } from "@/lib/sunk";
 import type { AppConfig } from "@/lib/config";
 import { txLink } from "@/lib/config";
 import { cryptoRng, placeFleet, ships } from "@/lib/fleet";
@@ -37,6 +38,7 @@ import { turnOf, TurnBanner, type Turn } from "@/ui/TurnBanner";
 const SeaScene = lazy(() => import("@/scene/SeaScene").then((m) => ({ default: m.SeaScene })));
 
 const GREETING = "The sea is calm, Captain. It will not stay that way.";
+const AIM_DELAY_MS = 600;
 
 interface PlayPageProps {
   readonly cfg: AppConfig;
@@ -76,7 +78,11 @@ export function PlayPage({ cfg, session, stats, landing, onEnter }: PlayPageProp
   const heat = stats.admiralty && stats.admiralty.boards_counted > 0 ? stats.admiralty.heat : null;
   const lastMine = useMemo(() => [...snap.history].reverse().find((s) => s.by === snap.accountId) ?? null, [snap.history, snap.accountId]);
   const watching = !duel && inBattle && result === null && (step === "thinking" || (step === "wait" && lastMine?.result === "Miss"));
-  const spyglass = useMemo(() => (watching ? lookout(snap.marks.mine, new Set(sunkOwn(myShips, snap.marks.mine).flat()), heat) : null), [watching, snap.marks.mine, myShips, heat]);
+  const theirLast = useMemo(() => [...snap.history].reverse().find((s) => s.by !== snap.accountId) ?? null, [snap.history, snap.accountId]);
+  const lock = useLockOn(snap.gameId, theirLast?.n ?? null, theirLast?.index ?? null, !duel);
+  const sweep = useMemo(() => lookout(snap.marks.mine, heat), [snap.marks.mine, heat]);
+  const spyglass = !duel && inBattle && result === null ? (lock !== null ? [lock] : sweep) : null;
+  const spyglassOn = lock !== null || watching;
   const feed = useBattleFeed({ myShips, myMarks: snap.marks.mine, enemyMarks: snap.marks.enemy, sunkTheirs, heat, boards: stats.admiralty?.boards_counted ?? 0, rival: duel ? (rival ?? "Your friend") : null, gameId: snap.gameId });
   const shotsInAir = feed.flight !== null || feed.settling;
   const onFire = useCallback(
@@ -169,6 +175,9 @@ export function PlayPage({ cfg, session, stats, landing, onEnter }: PlayPageProp
           enemyWrecks={sunkTheirs}
           enemyClear={clearCells}
           spyglass={spyglass}
+          spyglassLocked={lock !== null}
+          spyglassOn={spyglassOn}
+          aimDelayMs={duel ? 0 : AIM_DELAY_MS}
           onLaunch={feed.onLaunch}
           onLand={feed.onLand}
           onQueued={feed.onQueued}

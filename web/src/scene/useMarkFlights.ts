@@ -15,7 +15,7 @@ function isSubset(prev: ReadonlyMap<number, Mark>, next: ReadonlyMap<number, Mar
   return true;
 }
 
-export function useMarkFlights(side: Side, marks: ReadonlyMap<number, Mark>, aiming: number | null = null): ReadonlyMap<number, Mark> {
+export function useMarkFlights(side: Side, marks: ReadonlyMap<number, Mark>, aiming: number | null = null, aimDelayMs = 0): ReadonlyMap<number, Mark> {
   const runtime = useRuntime();
   const { effects } = runtime;
   const seen = useRef<ReadonlyMap<number, Mark> | null>(null);
@@ -95,8 +95,8 @@ export function useMarkFlights(side: Side, marks: ReadonlyMap<number, Mark>, aim
       }
     };
     if (side === "enemy") queue();
-    else timers.push(setTimeout(queue, 0));
-  }, [marks, side, effects, runtime]);
+    else timers.push(setTimeout(queue, runtime.reduced ? 0 : aimDelayMs));
+  }, [marks, side, effects, runtime, aimDelayMs]);
 
   useEffect(() => {
     const timers = pending.current;

@@ -39,6 +39,13 @@ function isSunk(marks: ReadonlyMap<number, Mark>, ship: readonly number[]): bool
   return y0 === y1 ? horizontalEnds : verticalEnds;
 }
 
+export function clusters(hits: ReadonlySet<number>): number[][] {
+  const seen = new Set<number>();
+  const out: number[][] = [];
+  for (const i of [...hits].sort((a, b) => a - b)) if (!seen.has(i)) out.push(cluster(hits, i, seen));
+  return out;
+}
+
 export function confirmedSunk(marks: ReadonlyMap<number, Mark>): number[][] {
   const hits = new Set([...marks].filter(([, m]) => m === "hit").map(([i]) => i));
   const seen = new Set<number>();
