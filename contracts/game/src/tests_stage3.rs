@@ -369,14 +369,14 @@ fn valid_long_game_board_heats_the_map_once_a_day() {
     assert_eq!(map.heat.iter().sum::<u32>(), 20);
     assert_eq!(events("heat_updated").len(), 1);
 
-    let mut m = m.next_game(Board::new(&LEGAL_A, 3), Board::new(&LEGAL_B, 4));
+    let mut m = m.next_game(Board::new(&MIRROR_A, 3), Board::new(&LEGAL_B, 4));
     m.commit_both();
     m.a_sinks_b();
     m.reveal(&player());
     assert_eq!(m.c.admiralty_map().boards_counted, 1);
 
     m.chain.skip(DAY);
-    let mut m = m.next_game(Board::new(&LEGAL_A, 5), Board::new(&LEGAL_B, 6));
+    let mut m = m.next_game(Board::new(&MIRROR_A, 5), Board::new(&LEGAL_B, 6));
     m.commit_both();
     m.a_sinks_b();
     m.reveal(&player());
@@ -677,13 +677,13 @@ fn timeout_win_refunds_but_pays_no_bounty_or_win_xp() {
 fn bounty_is_paid_once_per_day() {
     let m = won_match();
     assert_eq!(gold(&m.c, &player()), 125);
-    let mut m = m.next_game(Board::new(&LEGAL_A, 3), Board::new(&LEGAL_B, 4));
+    let mut m = m.next_game(Board::new(&MIRROR_A, 3), Board::new(&LEGAL_B, 4));
     m.commit_both();
     m.a_sinks_b();
     m.reveal(&player());
     assert_eq!(gold(&m.c, &player()), 125);
     m.chain.skip(DAY);
-    let mut m = m.next_game(Board::new(&LEGAL_A, 5), Board::new(&LEGAL_B, 6));
+    let mut m = m.next_game(Board::new(&MIRROR_A, 5), Board::new(&LEGAL_B, 6));
     m.commit_both();
     m.a_sinks_b();
     m.reveal(&player());
@@ -940,4 +940,95 @@ fn the_request_after_an_answer_matches_the_request_the_contract_checks() {
         m.c.nauarch_request_after(m.id, 1, 0);
     });
     assert!(msg.contains("no shot to answer"), "{msg}");
+}
+
+#[test]
+fn model_cannot_leave_a_wounded_ship_afloat() {
+    let mut m = Match::started();
+    m.fire(&player(), 1);
+    m.answer_truthfully(&nauarch(), 1);
+    m.fire(&nauarch(), 21);
+    m.answer_truthfully(&player(), 21);
+    m.chain.act(&nauarch());
+    let request = m.c.nauarch_request(m.id, MoveKind::Shot);
+    assert!(request.contains("Finish it"), "{request}");
+    assert!(request.contains("B2, C3, B4, A3"), "{request}");
+    m.ai(MoveKind::Shot, r#"{"shot":"J10","line":"Elsewhere."}"#);
+    let history = m.c.get_history(m.id);
+    let last = history.last().unwrap();
+    assert_eq!(last.source, ShotSource::ModelFallback);
+    assert!(
+        [11, 22, 31, 20].contains(&last.index),
+        "fired at {}",
+        last.index
+    );
+}
+
+#[test]
+fn water_around_a_sunk_ship_is_ruled_out() {
+    let mut m = Match::started();
+    m.fire(&player(), 1);
+    m.answer_truthfully(&nauarch(), 1);
+    m.fire(&nauarch(), 40);
+    m.answer_truthfully(&player(), 40);
+    m.fire(&nauarch(), 41);
+    m.answer_truthfully(&player(), 41);
+    m.fire(&nauarch(), 42);
+    m.answer_truthfully(&player(), 42);
+    m.fire(&player(), 3);
+    m.answer_truthfully(&nauarch(), 3);
+    m.chain.act(&nauarch());
+    let request = m.c.nauarch_request(m.id, MoveKind::Shot);
+    assert!(request.contains("Ships you sank: A5, B5."), "{request}");
+    assert!(request.contains("you hunt"), "{request}");
+    m.ai(MoveKind::Shot, r#"{"shot":"A4","line":"Next door?"}"#);
+    let history = m.c.get_history(m.id);
+    let last = history.last().unwrap();
+    assert_eq!(last.source, ShotSource::ModelFallback);
+    assert!(
+        ![30, 31, 32, 50, 51, 52].contains(&last.index),
+        "fired at {}",
+        last.index
+    );
+}
+
+#[test]
+fn hunt_without_a_map_does_not_sweep_a_line() {
+    let mut m = Match::started();
+    m.fire(&player(), 1);
+    m.answer_truthfully(&nauarch(), 1);
+    m.chain.act(&nauarch());
+    let request = m.c.nauarch_request(m.id, MoveKind::Shot);
+    let cells = request
+        .split("your own reckoning: ")
+        .nth(1)
+        .and_then(|r| r.split(".\n").next())
+        .unwrap();
+    let rows: std::collections::BTreeSet<u8> = cells
+        .split(", ")
+        .filter_map(crate::nauarch::parse_cell)
+        .map(|c| c / 10)
+        .collect();
+    assert!(rows.len() >= 3, "{cells}");
+}
+
+#[test]
+fn with_a_map_the_model_hunts_only_the_hot_cells() {
+    let m = won_match();
+    let mut m = m.next_game(Board::new(&MIRROR_A, 3), Board::new(&LEGAL_B, 4));
+    m.commit_both();
+    m.fire(&player(), 95);
+    m.answer_truthfully(&nauarch(), 95);
+    m.chain.act(&nauarch());
+    let request = m.c.nauarch_request(m.id, MoveKind::Shot);
+    assert!(request.contains("hunt from the Admiralty map"), "{request}");
+    m.ai(MoveKind::Shot, r#"{"shot":"J10","line":"A hunch."}"#);
+    let history = m.c.get_history(m.id);
+    let last = history.last().unwrap();
+    assert_eq!(last.source, ShotSource::ModelFallback);
+    assert!(
+        LEGAL_A.contains(&(last.index as usize)),
+        "fired at {}",
+        last.index
+    );
 }

@@ -4,6 +4,7 @@ import * as THREE from "three";
 import { CameraRig } from "./CameraRig";
 import { Effects } from "./Effects";
 import { Fleet } from "./Fleet";
+import { clearWater } from "@/lib/sunk";
 import { REVEAL_END, sunkShips } from "./grid";
 import { Labels } from "./Labels";
 import { preloadModels } from "./models";
@@ -76,6 +77,11 @@ function Board({ side, ships, marks, look = null, hulls = "brine", wrecks = null
   }, [effects, side, look]);
   const sunk = useMemo(() => sunkShips(ships, landed), [ships, landed]);
   const struck = useMemo(() => (wrecks ?? []).filter((w) => w.every((c) => landed.get(c) === "hit")), [wrecks, landed]);
+  const drowned = useMemo(() => (wrecks ? struck : ships.filter((_, i) => sunk[i])), [wrecks, struck, ships, sunk]);
+  useEffect(() => {
+    effects.setClear(side, clearWater(drowned, landed));
+  }, [effects, side, drowned, landed]);
+  useEffect(() => () => effects.setClear(side, NO_CELLS), [effects, side]);
   return (
     <>
       <Fleet side={side} ships={ships} sunk={sunk} look={look} hulls={hulls} />
@@ -104,10 +110,7 @@ function Shaker({ children }: { readonly children: React.ReactNode }) {
 function World(props: SeaSceneProps) {
   const runtime = useRuntime();
   useReveal(props.enemyShips !== null);
-  const { onLaunch, onLand, onQueued, enemyClear } = props;
-  useEffect(() => {
-    runtime.effects.setClear(enemyClear ?? NO_CELLS);
-  }, [runtime, enemyClear]);
+  const { onLaunch, onLand, onQueued } = props;
   useEffect(() => {
     runtime.hooks.launch = onLaunch ?? null;
     runtime.hooks.land = onLand ?? null;

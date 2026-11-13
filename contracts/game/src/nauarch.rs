@@ -11,6 +11,8 @@ pub const FIXED_SEED: u64 = 7;
 pub const MAX_TOKENS: u32 = 80;
 pub const MAX_LINE_CHARS: usize = 140;
 pub const PROMPT_HOT_CELLS: usize = 15;
+pub const HUNT_CHOICES: usize = 6;
+const LONGEST_SHIP: usize = 4;
 
 #[near(serializers = [borsh, json])]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -173,32 +175,186 @@ fn line_ends(hit: u8, hits: &[u8]) -> Vec<u8> {
     out
 }
 
-pub fn deterministic_shot(game: &Game) -> u8 {
+fn cluster_of(start: u8, hits: &[u8], seen: &mut Vec<u8>) -> Vec<u8> {
+    let mut out = Vec::new();
+    let mut stack = vec![start];
+    seen.push(start);
+    while let Some(c) = stack.pop() {
+        out.push(c);
+        for n in neighbours4(c) {
+            if hits.contains(&n) && !seen.contains(&n) {
+                seen.push(n);
+                stack.push(n);
+            }
+        }
+    }
+    out.sort_unstable();
+    out
+}
+
+fn closed_end(game: &Game, x: i16, y: i16) -> bool {
+    let size = BOARD_SIZE as i16;
+    if x < 0 || y < 0 || x >= size || y >= size {
+        return true;
+    }
+    let cell = (y * size + x) as u8;
+    game.shots
+        .iter()
+        .any(|s| s.by == Side::B && s.index == cell && s.result == ShotResult::Miss)
+}
+
+fn is_sunk(game: &Game, ship: &[u8]) -> bool {
+    if ship.len() >= LONGEST_SHIP {
+        return true;
+    }
+    let xs = ship.iter().map(|&c| (c % 10) as i16);
+    let ys = ship.iter().map(|&c| (c / 10) as i16);
+    let (x0, x1) = (xs.clone().min().unwrap_or(0), xs.max().unwrap_or(0));
+    let (y0, y1) = (ys.clone().min().unwrap_or(0), ys.max().unwrap_or(0));
+    let across = closed_end(game, x0 - 1, y0) && closed_end(game, x1 + 1, y0);
+    let down = closed_end(game, x0, y0 - 1) && closed_end(game, x0, y1 + 1);
+    match ship.len() {
+        1 => across && down,
+        _ if y0 == y1 => across,
+        _ => down,
+    }
+}
+
+struct Sight {
+    hits: Vec<u8>,
+    afloat: Vec<Vec<u8>>,
+    sunk: Vec<Vec<u8>>,
+}
+
+fn sight(game: &Game) -> Sight {
     let hits: Vec<u8> = game
         .shots
         .iter()
         .filter(|s| s.by == Side::B && s.result == ShotResult::Hit)
         .map(|s| s.index)
         .collect();
-    let open = |c: u8| !game.has_fired(Side::B, c) && !hits.iter().any(|&h| diagonal_of(h, c));
+    let mut seen = Vec::new();
+    let mut afloat = Vec::new();
+    let mut sunk = Vec::new();
     for &h in hits.iter().rev() {
-        if let Some(c) = line_ends(h, &hits).into_iter().find(|&c| open(c)) {
-            return c;
+        if seen.contains(&h) {
+            continue;
+        }
+        let ship = cluster_of(h, &hits, &mut seen);
+        if is_sunk(game, &ship) {
+            sunk.push(ship);
+        } else {
+            afloat.push(ship);
         }
     }
-    let parity = |c: u8| (c % 10 + c / 10).is_multiple_of(2);
-    let hunt: Vec<u8> = game
+    Sight { hits, afloat, sunk }
+}
+
+fn touches(a: u8, b: u8) -> bool {
+    (a % 10).abs_diff(b % 10) <= 1 && (a / 10).abs_diff(b / 10) <= 1
+}
+
+fn open_cell(game: &Game, view: &Sight, c: u8) -> bool {
+    !game.has_fired(Side::B, c)
+        && !view.hits.iter().any(|&h| diagonal_of(h, c))
+        && !view.sunk.iter().flatten().any(|&s| touches(s, c))
+}
+
+fn scatter(game: &Game, cells: Vec<u8>) -> Vec<u8> {
+    let mut keyed: Vec<([u8; 32], u8)> = cells
+        .into_iter()
+        .map(|c| {
+            let mut seed = game.id.to_le_bytes().to_vec();
+            seed.extend((game.shots.len() as u32).to_le_bytes());
+            seed.push(c);
+            (env::sha256_array(&seed), c)
+        })
+        .collect();
+    keyed.sort_unstable();
+    keyed
+        .into_iter()
+        .map(|(_, c)| c)
+        .take(HUNT_CHOICES)
+        .collect()
+}
+
+pub enum Aim {
+    Finish(Vec<u8>),
+    Chart(Vec<u8>),
+    Hunt(Vec<u8>),
+}
+
+pub fn aim(game: &Game) -> Aim {
+    let view = sight(game);
+    let open = |c: u8| open_cell(game, &view, c);
+    for ship in &view.afloat {
+        let mut finish: Vec<u8> = Vec::new();
+        for &h in ship {
+            for c in line_ends(h, &view.hits) {
+                if open(c) && !finish.contains(&c) {
+                    finish.push(c);
+                }
+            }
+        }
+        if !finish.is_empty() {
+            return Aim::Finish(finish);
+        }
+    }
+    let hot: Vec<u8> = game
         .hot
         .iter()
         .map(|(c, _)| *c)
-        .chain(0..CELLS as u8)
+        .filter(|&c| open(c))
+        .take(HUNT_CHOICES)
         .collect();
-    hunt.iter()
+    if !hot.is_empty() {
+        return Aim::Chart(hot);
+    }
+    let parity = |c: u8| (c % 10 + c / 10).is_multiple_of(2);
+    let even: Vec<u8> = (0..CELLS as u8).filter(|&c| parity(c) && open(c)).collect();
+    if !even.is_empty() {
+        return Aim::Hunt(scatter(game, even));
+    }
+    let any: Vec<u8> = (0..CELLS as u8).filter(|&c| open(c)).collect();
+    if !any.is_empty() {
+        return Aim::Hunt(scatter(game, any));
+    }
+    Aim::Hunt(
+        (0..CELLS as u8)
+            .filter(|&c| !game.has_fired(Side::B, c))
+            .collect(),
+    )
+}
+
+pub fn allowed(game: &Game, cell: u8) -> bool {
+    if game.has_fired(Side::B, cell) {
+        return false;
+    }
+    match aim(game) {
+        Aim::Finish(cells) | Aim::Chart(cells) => cells.contains(&cell),
+        Aim::Hunt(cells) => cells.contains(&cell) || open_cell(game, &sight(game), cell),
+    }
+}
+
+pub fn deterministic_shot(game: &Game) -> u8 {
+    let cells = match aim(game) {
+        Aim::Finish(c) | Aim::Chart(c) | Aim::Hunt(c) => c,
+    };
+    cells
+        .first()
         .copied()
-        .find(|&c| parity(c) && open(c))
-        .or_else(|| hunt.iter().copied().find(|&c| open(c)))
-        .or_else(|| (0..CELLS as u8).find(|&c| !game.has_fired(Side::B, c)))
         .unwrap_or_else(|| env::panic_str("no cell left to fire at"))
+}
+
+fn names(cells: &[u8]) -> String {
+    if cells.is_empty() {
+        return "none yet".into();
+    }
+    cells
+        .iter()
+        .map(|&c| cell_name(c))
+        .collect::<Vec<_>>()
+        .join(", ")
 }
 
 fn shots_summary(game: &Game, by: Side) -> String {
@@ -238,13 +394,26 @@ pub fn prompt(game: &Game, kind: MoveKind) -> String {
             } else {
                 hot.join(", ")
             };
+            let view = sight(game);
+            let sunk: Vec<String> = view.sunk.iter().map(|s| names(s)).collect();
+            let sunk = if sunk.is_empty() {
+                "none yet".to_string()
+            } else {
+                sunk.join("; ")
+            };
+            let (plan, choices) = match aim(game) {
+                Aim::Finish(c) => ("A wounded ship of the captain is still afloat. Finish it: fire at one of these cells only", c),
+                Aim::Chart(c) => ("No wounded ship to finish, so you hunt from the Admiralty map: fire at one of these cells only", c),
+                Aim::Hunt(c) => ("No wounded ship to finish, so you hunt. Best cells by your own reckoning", c),
+            };
             format!(
-                "Battle #{}. Sea battle on a 10x10 grid, columns A-J, rows 1-10. You fire at the captain's hidden fleet: {fleet}.\nYour shots so far: {}.\nYour hits: {} of {SHIP_CELLS} ship cells.\nThe captain's shots at your fleet: {}.\nAdmiralty map, where captains usually hide ships (share of past boards): {hot}.\nDossier: {}\nChoose your next shot at a cell you have not fired at. Reply with JSON only: {{\"shot\":\"<cell such as B7>\",\"line\":\"<one remark in character>\"}}",
+                "Battle #{}. Sea battle on a 10x10 grid, columns A-J, rows 1-10. You fire at the captain's hidden fleet: {fleet}.\nYour shots so far: {}.\nYour hits: {} of {SHIP_CELLS} ship cells.\nShips you sank: {sunk}. The water around a sunk ship is empty.\nThe captain's shots at your fleet: {}.\nAdmiralty map, where captains usually hide ships (share of past boards): {hot}.\nDossier: {}\n{plan}: {}.\nReply with JSON only: {{\"shot\":\"<one of those cells>\",\"line\":\"<one remark in character>\"}}",
                 game.id,
                 shots_summary(game, Side::B),
                 game.hits_on_a,
                 shots_summary(game, Side::A),
                 game.dossier,
+                names(&choices),
             )
         }
         MoveKind::Farewell => {
@@ -460,7 +629,7 @@ impl Brinewar {
                 let chosen = shot
                     .as_deref()
                     .and_then(parse_cell)
-                    .filter(|&c| !game.has_fired(Side::B, c));
+                    .filter(|&c| allowed(game, c));
                 let (index, source) = match chosen {
                     Some(c) => (c, ShotSource::Model),
                     None => (deterministic_shot(game), ShotSource::ModelFallback),

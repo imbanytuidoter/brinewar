@@ -142,6 +142,9 @@ impl Board {
 pub const LEGAL_A: [usize; 20] = [
     0, 1, 2, 3, 20, 21, 22, 26, 27, 28, 40, 41, 44, 45, 48, 49, 60, 62, 64, 66,
 ];
+pub const MIRROR_A: [usize; 20] = [
+    90, 91, 92, 93, 70, 71, 72, 76, 77, 78, 50, 51, 54, 55, 58, 59, 30, 32, 34, 36,
+];
 pub const LEGAL_B: [usize; 20] = [
     0, 10, 20, 30, 2, 12, 22, 4, 14, 24, 6, 16, 8, 18, 52, 62, 90, 92, 94, 99,
 ];
@@ -255,7 +258,8 @@ impl Match {
             return;
         }
         self.fire(&nauarch(), b_shot);
-        self.answer_truthfully(&player(), b_shot);
+        let fired = self.view().pending_index.unwrap_or(b_shot);
+        self.answer_truthfully(&player(), fired);
     }
 
     pub fn a_sinks_b(&mut self) {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildLeaderboard, Snapshots } from "../src/lib/leaderboard.js";
+import { buildLeaderboard, freshCaptain, Snapshots, withCaptain } from "../src/lib/leaderboard.js";
 import { FakeViewer } from "./fakes.js";
 
 const ships: Record<string, object> = {
@@ -61,5 +61,30 @@ describe("leaderboard", () => {
     await new Promise((r) => setTimeout(r, 0));
     expect(await snaps.get()).toBe(2);
     expect(calls).toBe(2);
+  });
+});
+
+describe("fresh captain row", () => {
+  it("replaces a stale snapshot row with the captain's current record and re-ranks", async () => {
+    const board = await buildLeaderboard(viewer(), 10, 2);
+    const live = new FakeViewer((method, args) => {
+      if (method === "get_player") return { ...players["p-a.testnet"], wins: 2, losses: 2, flagship: "ship:1" };
+      if (method === "get_ship") return { ...ships[String(args.token_id)], xp: 500, sunk: 14 };
+      throw new Error(method);
+    });
+    const fresh = await freshCaptain(live, "p-a.testnet");
+    expect(fresh).toMatchObject({ account: "p-a.testnet", wins: 2, xp: 500, sunk: 14 });
+    const merged = withCaptain(board, fresh!);
+    expect(merged.captains.map((c) => c.name)).toEqual(["Anna", "Bo"]);
+    expect(merged.nauarch).toEqual({ wins: 2, losses: 5, battles: 7 });
+  });
+
+  it("ignores a ship that belongs to someone else", async () => {
+    const live = new FakeViewer((method, args) => {
+      if (method === "get_player") return { ...players["p-a.testnet"], flagship: "ship:2" };
+      if (method === "get_ship") return ships[String(args.token_id)] ?? null;
+      throw new Error(method);
+    });
+    expect(await freshCaptain(live, "p-a.testnet")).toBeNull();
   });
 });

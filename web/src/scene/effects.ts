@@ -72,7 +72,7 @@ export class EffectsEngine {
   readonly #buoyGeo = new THREE.TorusGeometry(0.22, 0.05, 8, 24);
   readonly #clearGeo = new THREE.CircleGeometry(0.1, 16);
   readonly #clearMat = new THREE.MeshBasicMaterial({ color: CLEAR_COLOR, transparent: true, opacity: 0.75, depthTest: false });
-  readonly #clear = new Map<number, THREE.Mesh>();
+  readonly #clear: Record<Side, Map<number, THREE.Mesh>> = { mine: new Map(), enemy: new Map() };
   readonly #buoyMat = new THREE.MeshStandardMaterial({ color: BUOY_COLOR, roughness: 0.6, depthTest: false });
   readonly #tmp = new THREE.Vector3();
   #ball: THREE.Object3D | null = null;
@@ -264,21 +264,22 @@ export class EffectsEngine {
     this.#pool.update(dt);
   }
 
-  setClear(cells: ReadonlySet<number>): void {
-    for (const [cell, m] of this.#clear) {
+  setClear(side: Side, cells: ReadonlySet<number>): void {
+    const shown = this.#clear[side];
+    for (const [cell, m] of shown) {
       if (cells.has(cell)) continue;
       this.group.remove(m);
-      this.#clear.delete(cell);
+      shown.delete(cell);
     }
     for (const cell of cells) {
-      if (this.#clear.has(cell)) continue;
-      const c = cellCenter("enemy", cell);
+      if (shown.has(cell)) continue;
+      const c = cellCenter(side, cell);
       const m = new THREE.Mesh(this.#clearGeo, this.#clearMat);
       m.rotation.x = -Math.PI / 2;
       m.renderOrder = 2;
       m.position.set(c.x, 0.12, c.z);
       this.group.add(m);
-      this.#clear.set(cell, m);
+      shown.set(cell, m);
     }
   }
 

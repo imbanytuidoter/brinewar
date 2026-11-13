@@ -17,13 +17,13 @@ export function CaptainsPage({ cfg }: { readonly cfg: AppConfig }) {
   const me = useMemo(() => storedAccount(browserStorage()), []);
   useEffect(() => {
     let alive = true;
-    Promise.all([fetchLeaderboard(cfg.apiUrl), fetchTreasury(cfg.apiUrl).catch(() => null), fetchAdmiralty(cfg.apiUrl).catch(() => null)])
+    Promise.all([fetchLeaderboard(cfg.apiUrl, fetch, me), fetchTreasury(cfg.apiUrl).catch(() => null), fetchAdmiralty(cfg.apiUrl).catch(() => null)])
       .then(([board, t, a]) => alive && setLoad({ kind: "ok", board, treasury: t?.current?.balance ?? null, boards: a?.current?.boards_counted ?? null }))
       .catch(() => alive && setLoad({ kind: "error" }));
     return () => {
       alive = false;
     };
-  }, [cfg]);
+  }, [cfg, me]);
 
   return (
     <PageShell

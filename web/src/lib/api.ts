@@ -104,8 +104,9 @@ export function asLeaderboard(raw: unknown): Leaderboard | null {
   return { captains: captains as CaptainEntry[], nauarch: { wins: n.wins, losses: n.losses, battles: n.battles }, total: raw.total };
 }
 
-export async function fetchLeaderboard(apiUrl: string, fetchFn: typeof fetch = fetch): Promise<Leaderboard> {
-  const board = asLeaderboard(await getJson(`${apiUrl}/api/leaderboard`, fetchFn));
+export async function fetchLeaderboard(apiUrl: string, fetchFn: typeof fetch = fetch, me: string | null = null): Promise<Leaderboard> {
+  const query = me ? `?me=${encodeURIComponent(me)}` : "";
+  const board = asLeaderboard(await getJson(`${apiUrl}/api/leaderboard${query}`, fetchFn));
   if (!board) throw new Error("harbour sent a bad leaderboard");
   return board;
 }

@@ -19,7 +19,7 @@ export function FireByName({ disabled, onFire }: FireByNameProps) {
     setValue("");
   };
   return (
-    <form onSubmit={submit} className="flex items-center gap-1.5 rounded-xl border border-line bg-glass p-1 pl-2.5 backdrop-blur-md">
+    <form onSubmit={submit} aria-label="Fire by cell name" className="sr-only flex items-center gap-1.5 rounded-xl border border-line bg-glass p-1 pl-2.5 backdrop-blur-md focus-within:not-sr-only">
       <label htmlFor={id} className="text-xs text-muted">
         Target
       </label>

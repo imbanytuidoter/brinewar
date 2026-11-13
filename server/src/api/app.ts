@@ -5,7 +5,7 @@ import type { Logger } from "pino";
 import type { AdmiraltyView, GameView, PlayerView, ShotView, TreasuryView } from "../lib/contract.js";
 import { GUEST_GAS_TGAS } from "../lib/contract.js";
 import type { Store } from "../lib/db.js";
-import { buildLeaderboard, Snapshots } from "../lib/leaderboard.js";
+import { buildLeaderboard, freshCaptain, Snapshots, withCaptain, type Leaderboard } from "../lib/leaderboard.js";
 import { registerChat } from "./chat.js";
 import type { Caller, Viewer } from "../lib/near.js";
 
@@ -13,7 +13,9 @@ const HOUR = 3_600_000;
 const DAY = 24 * HOUR;
 const NICKNAME = /^[A-Za-z0-9_-]{3,16}$/;
 const CACHE_MS = 5000;
-const LEADERBOARD_MS = 600_000;
+const LEADERBOARD_MS = 180_000;
+const ACCOUNT_RE = /^[a-z0-9][a-z0-9._-]{1,63}$/;
+const CACHE_CAP = 5000;
 const LEADERBOARD_SEEDS = 50;
 const LEADERBOARD_BATCH = 3;
 
@@ -78,6 +80,7 @@ export async function buildApp(o: AppOptions) {
     const hit = cache.get(key);
     if (hit && now() - hit.at < CACHE_MS) return hit.body;
     const body = await load();
+    if (cache.size >= CACHE_CAP) cache.clear();
     cache.set(key, { at: now(), body });
     return body;
   };
@@ -162,7 +165,17 @@ export async function buildApp(o: AppOptions) {
   });
 
   const leaderboard = new Snapshots(() => buildLeaderboard(o.viewer, LEADERBOARD_SEEDS, LEADERBOARD_BATCH), LEADERBOARD_MS, now, (err) => o.log.warn({ err: err instanceof Error ? err.message : String(err) }, "leaderboard refresh failed, serving the last one"));
-  app.get("/api/leaderboard", { config: { rateLimit: { max: 60, timeWindow: "1 minute" } } }, async () => leaderboard.get());
+  app.get<{ Querystring: { me?: string } }>("/api/leaderboard", { config: { rateLimit: { max: 60, timeWindow: "1 minute" } } }, async (req): Promise<Leaderboard> => {
+    const board = await leaderboard.get();
+    const me = req.query.me;
+    const plain = { captains: board.captains, nauarch: board.nauarch, total: board.total };
+    if (typeof me !== "string" || !ACCOUNT_RE.test(me)) return plain;
+    const fresh = (await cached(`captain:${me}`, () => freshCaptain(o.viewer, me)).catch((err: unknown) => {
+      req.log.warn({ me, err: err instanceof Error ? err.message : String(err) }, "could not read the captain fresh, serving the snapshot row");
+      return null;
+    })) as Awaited<ReturnType<typeof freshCaptain>>;
+    return fresh ? withCaptain(board, fresh) : plain;
+  });
 
   app.get("/api/treasury", async () =>
     cached("treasury", async () => ({
