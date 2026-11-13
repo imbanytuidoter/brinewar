@@ -147,33 +147,270 @@ pub fn guest_account_id(public_key: &PublicKey, parent: &AccountId) -> AccountId
         .unwrap_or_else(|_| env::panic_str("cannot derive guest account id"))
 }
 
+struct ShipStyle {
+    sky: (&'static str, &'static str),
+    sea: (&'static str, &'static str),
+    hull: &'static str,
+    trim: &'static str,
+    sail: &'static str,
+    shade: &'static str,
+    flag: &'static str,
+    masts: usize,
+    ports: usize,
+    rows: usize,
+    lantern: Option<&'static str>,
+    masthead: Option<&'static str>,
+    sparks: Option<&'static str>,
+    banners: bool,
+    night: bool,
+    bolt: bool,
+}
+
+const SHIP_STYLES: [ShipStyle; 5] = [
+    ShipStyle {
+        sky: ("#3d8fd0", "#bfe6ff"),
+        sea: ("#2f9cc4", "#0f5f86"),
+        hull: "#b07a4c",
+        trim: "#e8d2a6",
+        sail: "#f4f7f8",
+        shade: "#c9d6dc",
+        flag: "#3fb6c9",
+        masts: 1,
+        ports: 0,
+        rows: 1,
+        lantern: None,
+        masthead: None,
+        sparks: None,
+        banners: false,
+        night: false,
+        bolt: false,
+    },
+    ShipStyle {
+        sky: ("#0b1630", "#2a3f6e"),
+        sea: ("#173a5c", "#08182b"),
+        hull: "#8a5a3c",
+        trim: "#c9a227",
+        sail: "#2d4673",
+        shade: "#1d2f52",
+        flag: "#ffb347",
+        masts: 2,
+        ports: 3,
+        rows: 1,
+        lantern: Some("#ffb347"),
+        masthead: None,
+        sparks: None,
+        banners: false,
+        night: true,
+        bolt: false,
+    },
+    ShipStyle {
+        sky: ("#3c5a9c", "#ffcf8a"),
+        sea: ("#3e8fa0", "#164a6a"),
+        hull: "#e9bf4f",
+        trim: "#fff1b8",
+        sail: "#fff4d8",
+        shade: "#e6d3a8",
+        flag: "#b3123f",
+        masts: 2,
+        ports: 4,
+        rows: 1,
+        lantern: None,
+        masthead: None,
+        sparks: Some("#ffe08a"),
+        banners: true,
+        night: false,
+        bolt: false,
+    },
+    ShipStyle {
+        sky: ("#1c2a38", "#4e6474"),
+        sea: ("#2a4c5c", "#0e2230"),
+        hull: "#6f8592",
+        trim: "#b9cad4",
+        sail: "#3e5566",
+        shade: "#2b3c49",
+        flag: "#7fe0d0",
+        masts: 3,
+        ports: 5,
+        rows: 1,
+        lantern: None,
+        masthead: Some("#7ff6e6"),
+        sparks: Some("#c6fbff"),
+        banners: false,
+        night: false,
+        bolt: true,
+    },
+    ShipStyle {
+        sky: ("#2a1846", "#f0a060"),
+        sea: ("#5a3a5a", "#1a1a38"),
+        hull: "#7a3e2a",
+        trim: "#ffcf5a",
+        sail: "#9b1636",
+        shade: "#6e0f27",
+        flag: "#ffcf5a",
+        masts: 3,
+        ports: 6,
+        rows: 2,
+        lantern: Some("#ffd36b"),
+        masthead: Some("#ffd36b"),
+        sparks: Some("#ffd36b"),
+        banners: true,
+        night: false,
+        bolt: false,
+    },
+];
+
+const SPARK_SPOTS: [(u32, u32); 9] = [
+    (96, 62),
+    (132, 40),
+    (176, 54),
+    (214, 36),
+    (246, 70),
+    (118, 92),
+    (232, 98),
+    (72, 84),
+    (268, 50),
+];
+const STAR_SPOTS: [(u32, u32); 10] = [
+    (30, 22),
+    (64, 40),
+    (96, 16),
+    (150, 28),
+    (188, 12),
+    (226, 34),
+    (262, 18),
+    (294, 42),
+    (120, 50),
+    (300, 12),
+];
+
+fn glow(x: u32, y: u32, r: u32, color: &str, class: &str) -> String {
+    format!(
+        r##"<circle class="{class}" cx="{x}" cy="{y}" r="{r}" fill="url(#g{}{class})"/><circle cx="{x}" cy="{y}" r="{}" fill="{color}"/>"##,
+        &color[1..],
+        r / 5
+    )
+}
+
 fn ship_svg_markup(rank: usize, frozen: bool) -> String {
-    let palette = ["#7aa6c2", "#5b8fb0", "#c9a227", "#b5532f", "#e8d8a8"];
-    let sail = palette[rank];
-    let masts: String = (0..=rank.min(3))
-        .map(|m| {
-            let x = 70 + m * 40;
-            let h = 70 + (m % 2) * 14;
+    let st = &SHIP_STYLES[rank.min(SHIP_STYLES.len() - 1)];
+    let mut defs = format!(
+        r##"<linearGradient id="sky{rank}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="{}"/><stop offset="1" stop-color="{}"/></linearGradient><linearGradient id="sea{rank}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="{}"/><stop offset="1" stop-color="{}"/></linearGradient>"##,
+        st.sky.0, st.sky.1, st.sea.0, st.sea.1
+    );
+    for (c, class) in [(st.lantern, "lantern"), (st.masthead, "masthead")] {
+        if let Some(c) = c {
+            defs.push_str(&format!(r##"<radialGradient id="g{}{class}"><stop offset="0" stop-color="{c}" stop-opacity="0.9"/><stop offset="1" stop-color="{c}" stop-opacity="0"/></radialGradient>"##, &c[1..]));
+        }
+    }
+    let mut sky = format!(r##"<rect width="320" height="200" fill="url(#sky{rank})"/>"##);
+    if st.night {
+        for (x, y) in STAR_SPOTS {
+            sky.push_str(&format!(
+                r##"<circle cx="{x}" cy="{y}" r="1.2" fill="#fff" opacity="0.8"/>"##
+            ));
+        }
+        sky.push_str(r##"<circle cx="272" cy="34" r="12" fill="#f4ecc8"/><circle cx="278" cy="30" r="11" fill="#0b1630"/>"##);
+    }
+    if st.bolt {
+        sky.push_str(r##"<path class="bolt" d="M262 8 L248 40 L258 40 L242 76 L270 34 L259 34 L272 8 Z" fill="#e8fbff" opacity="0.85"/>"##);
+    }
+    let sea = format!(
+        r##"<rect y="140" width="320" height="60" fill="url(#sea{rank})"/><path d="M0 150 Q40 144 80 150 T160 150 T240 150 T320 150" stroke="#ffffff" stroke-opacity="0.25" fill="none"/><path d="M0 172 Q50 166 100 172 T200 172 T300 172" stroke="#ffffff" stroke-opacity="0.15" fill="none"/>"##
+    );
+    let slots: &[u32] = match st.masts {
+        1 => &[160],
+        2 => &[128, 196],
+        _ => &[104, 160, 216],
+    };
+    let mut rig = String::new();
+    for (i, &x) in slots.iter().enumerate() {
+        let top = if st.masts == 3 && i == 1 { 22 } else { 34 };
+        rig.push_str(&format!(
+            r##"<line x1="{x}" y1="{top}" x2="{x}" y2="128" stroke="#3a2618" stroke-width="3"/>"##
+        ));
+        for (y1, y2, w) in [(top + 12, top + 42, 28), (top + 48, top + 84, 34)] {
+            rig.push_str(&format!(
+                r##"<path d="M{} {y1} Q{x} {} {} {y1} L{} {y2} Q{x} {} {} {y2} Z" fill="{}" stroke="{}" stroke-width="1"/>"##,
+                x - w, y1 - 5, x + w, x + w - 3, y2 + 7, x - w + 3, st.sail, st.shade
+            ));
+        }
+        if st.banners {
+            rig.push_str(&format!(
+                r##"<path class="banner" d="M{x} {top} L{} {} L{} {} L{} {} Z" fill="{}"/>"##,
+                x + 30,
+                top + 4,
+                x + 22,
+                top + 8,
+                x + 30,
+                top + 12,
+                st.flag
+            ));
+        } else {
+            rig.push_str(&format!(
+                r##"<path d="M{x} {top} L{} {} L{x} {} Z" fill="{}"/>"##,
+                x + 16,
+                top + 5,
+                top + 10,
+                st.flag
+            ));
+        }
+        if let Some(c) = st.masthead {
+            rig.push_str(&glow(x, top - 2, 16, c, "masthead"));
+        }
+    }
+    rig.push_str(
+        r##"<line x1="276" y1="126" x2="306" y2="104" stroke="#3a2618" stroke-width="2.5"/>"##,
+    );
+    let fore = slots[slots.len() - 1] + 40;
+    rig.push_str(&format!(
+        r##"<path d="M{fore} 74 L302 106 L{fore} 118 Z" fill="{}" stroke="{}" stroke-width="1"/>"##,
+        st.sail, st.shade
+    ));
+    let mut hull = format!(
+        r##"<path d="M40 124 H280 Q276 146 254 162 H76 Q52 150 40 124 Z" fill="{}"/><path d="M40 124 H280 L278 131 H43 Z" fill="{}"/><path d="M76 162 H254" stroke="#000" stroke-opacity="0.25" stroke-width="2"/>"##,
+        st.hull, st.trim
+    );
+    for row in 0..st.rows {
+        let y = 140 + row as u32 * 11;
+        for k in 0..st.ports {
+            let x = if st.ports == 1 {
+                160
+            } else {
+                88 + (k as u32 * 144) / (st.ports as u32 - 1)
+            };
+            hull.push_str(&format!(r##"<rect class="port" x="{}" y="{}" width="8" height="6" rx="1" fill="#1a1208" stroke="{}" stroke-width="1"/>"##, x - 4, y - 3, st.trim));
+        }
+    }
+    let mut light = String::new();
+    if let Some(c) = st.lantern {
+        light.push_str(&glow(272, 116, 18, c, "lantern"));
+        light.push_str(&glow(48, 114, 18, c, "lantern"));
+    }
+    if let Some(c) = st.sparks {
+        for (x, y) in SPARK_SPOTS {
+            light.push_str(&format!(
+                r##"<circle cx="{x}" cy="{y}" r="1.8" fill="{c}" opacity="0.85"/>"##
+            ));
+        }
+    }
+    let pips: String = (0..=rank)
+        .map(|i| {
             format!(
-                r##"<line x1="{x}" y1="{top}" x2="{x}" y2="130" stroke="#2b2b2b" stroke-width="3"/><path d="M{x} {top} L{x} {bot} L{sx} {bot} Z" fill="{sail}"/>"##,
-                top = 130 - h,
-                bot = 125,
-                sx = x + 30
+                r##"<path class="pip" d="M{} 12 L{} 17 L{} 22 L{} 17 Z" fill="#ffcf5a"/>"##,
+                16 + i * 12,
+                21 + i * 12,
+                16 + i * 12,
+                11 + i * 12
             )
         })
         .collect();
-    let flag = if rank == RANKS.len() - 1 {
-        r##"<path d="M70 52 L95 58 L70 64 Z" fill="#c0392b"/>"##
-    } else {
-        ""
-    };
     let frost = if frozen {
-        r##"<rect width="320" height="200" fill="#ffffff" opacity="0.35"/>"##
+        r##"<rect class="frost" width="320" height="200" fill="#ffffff" opacity="0.35"/>"##
     } else {
         ""
     };
     format!(
-        r##"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 200"><rect width="320" height="200" fill="#0e2a3b"/><path d="M0 150 Q40 140 80 150 T160 150 T240 150 T320 150 V200 H0 Z" fill="#14435e"/>{masts}{flag}<path d="M40 130 H280 L250 160 H70 Z" fill="#4a2f1d"/>{frost}</svg>"##
+        r##"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 200"><defs>{defs}</defs>{sky}{sea}{rig}{hull}{light}{pips}{frost}</svg>"##
     )
 }
 
@@ -503,6 +740,41 @@ mod tests {
         assert_eq!(rank_of(99), 0);
         assert_eq!(rank_of(100), 1);
         assert_eq!(rank_of(1500), 4);
+    }
+
+    #[test]
+    fn each_rank_draws_its_own_flagship() {
+        let svgs: Vec<String> = (0..RANKS.len())
+            .map(|r| ship_svg_markup(r, false))
+            .collect();
+        for (i, a) in svgs.iter().enumerate() {
+            for b in svgs.iter().skip(i + 1) {
+                assert_ne!(a, b);
+            }
+        }
+        let ports = |svg: &str| svg.matches("class=\"port\"").count();
+        for r in 1..RANKS.len() {
+            assert!(
+                ports(&svgs[r]) > ports(&svgs[r - 1]),
+                "rank {r} should carry more guns"
+            );
+        }
+        assert!(svgs[1].contains("class=\"lantern\""));
+        assert!(svgs[3].contains("class=\"bolt\""));
+        assert!(svgs[4].contains("class=\"lantern\"") && svgs[4].contains("class=\"banner\""));
+        for (r, svg) in svgs.iter().enumerate() {
+            assert_eq!(svg.matches("class=\"pip\"").count(), r + 1);
+        }
+        assert!(ship_svg_markup(2, true).contains("class=\"frost\""));
+        for svg in &svgs {
+            for part in svg.split("url(#").skip(1) {
+                let id = part.split(')').next().unwrap_or_default();
+                assert!(
+                    svg.contains(&format!("id=\"{id}\"")),
+                    "missing gradient {id}"
+                );
+            }
+        }
     }
 
     #[test]
