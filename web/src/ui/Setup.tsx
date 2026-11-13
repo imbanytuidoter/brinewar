@@ -2,7 +2,7 @@ import { Anchor, ArrowLeft, Check, Flame, Palette, Ship, Shuffle, Swords } from 
 import { useId, useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import type { TreasuryView } from "@/lib/contract";
-import { fleetHeat, type Risk } from "@/lib/heat";
+import { exposure, fleetHeat, type Risk } from "@/lib/heat";
 import { skinLook, skinSource } from "@/lib/skins";
 import { cn } from "@/lib/utils";
 import { PlacementGrid } from "./PlacementGrid";
@@ -35,15 +35,17 @@ interface SetupProps {
   readonly onDuel: () => void;
   readonly onBack?: () => void;
   readonly mode: "nauarch" | "friend";
+  readonly onMode?: (mode: "nauarch" | "friend") => void;
 }
 
 type Tab = "fleet" | "colours";
 
 export function Setup(p: SetupProps) {
   const [tab, setTab] = useState<Tab>("fleet");
-  const [showHeat, setShowHeat] = useState(false);
+  const [showHeat, setShowHeat] = useState(true);
   const look = skinLook(p.skin ?? DEFAULT_SKIN);
   const risk = p.heat ? fleetHeat(p.cells, p.heat) : null;
+  const seen = p.heat ? exposure(p.cells, p.heat) : null;
   const entry = p.treasury && /^\d+$/.test(p.treasury.entry) ? BigInt(p.treasury.entry) : null;
   const short = entry !== null && p.gold !== null && p.gold < entry;
   return (
@@ -72,6 +74,15 @@ export function Setup(p: SetupProps) {
               Heat map
             </Button>
           </div>
+          {seen && (
+            <p className="m-0 text-[12px] text-muted">
+              He learned from every captain's board and searches the {seen.looked} reddest cells first.{" "}
+              <span className={cn("font-semibold", seen.exposed === 0 ? "text-ok" : seen.exposed > seen.ships / 3 ? "text-hit" : "text-brass")}>
+                {seen.exposed === 0 ? "None of your ships are there." : `${seen.exposed} of your ${seen.ships} ship cells are there.`}
+              </span>{" "}
+              Drag ships into cold water to outwit him.
+            </p>
+          )}
           {risk && (
             <p className="m-0 text-[12px]">
               <span className={cn("font-semibold", risk.risk === "high" ? "text-hit" : risk.risk === "low" ? "text-ok" : "text-brass")}>{risk.risk === "high" ? "High risk" : risk.risk === "low" ? "Low risk" : "Medium risk"}</span>
@@ -134,6 +145,12 @@ export function Setup(p: SetupProps) {
               Set sail
             </Button>
           </Opponent>
+        )}
+        {p.onMode && (
+          <button type="button" onClick={() => p.onMode?.(p.mode === "friend" ? "nauarch" : "friend")} disabled={p.busy} className="inline-flex items-center justify-center gap-1.5 text-xs font-semibold text-muted hover:text-ink disabled:opacity-50">
+            {p.mode === "friend" ? <Anchor className="size-3.5" aria-hidden /> : <Swords className="size-3.5" aria-hidden />}
+            {p.mode === "friend" ? "Fight the Nauarch instead" : "Duel a friend instead, free"}
+          </button>
         )}
       </div>
     </section>

@@ -224,6 +224,7 @@ export function PlayPage({ cfg, session, stats, landing, onEnter }: PlayPageProp
           <Setup
             onBack={() => setView("chart")}
             mode={mode}
+            onMode={setMode}
             cells={draft}
             onCells={setDraft}
             onShuffle={shuffle}
@@ -270,7 +271,16 @@ export function PlayPage({ cfg, session, stats, landing, onEnter }: PlayPageProp
           </div>
         </div>
       )}
-      {showLanding && <Landing stats={stats} ready onEnter={onEnter} />}
+      {showLanding && (
+        <Landing
+          stats={stats}
+          ready
+          onEnter={() => {
+            toSetup("nauarch");
+            onEnter();
+          }}
+        />
+      )}
     </main>
   );
 }

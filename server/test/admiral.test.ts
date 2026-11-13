@@ -118,22 +118,26 @@ describe("admiral", () => {
     expect(shots).toHaveLength(1);
   });
 
-  it("answers a miss and fires the signed model move in the same transaction", async () => {
+  it("answers a miss at once and sends the model move it prepared meanwhile", async () => {
     const model = new FakeModel({ model: "m", reply: () => '{"shot":"J10","line":"Aye."}' });
     const t = setup({ model });
     await t.settle();
     const water = placeFleet(seededRng(3)).findIndex((c) => c === 0);
     t.set({ status: "Playing", root_b: t.store.board(0)?.root as string, turn: ADM, pending_index: water, shots: 1 });
     await t.settle();
+    const methods = t.caller.calls.map((c) => c.method);
     const answer = t.caller.calls.find((c) => c.method === "answer");
     expect(answer?.args.cell).toBe(0);
-    expect(model.requests).toContain('{"model":"m","after":1}');
-    expect((answer?.args.then_ai as { signature_hex: string }).signature_hex).toMatch(/^[0-9a-f]{128}$/);
-    expect(t.caller.calls.some((c) => c.method === "submit_ai_move")).toBe(false);
-    expect(t.store.aiMoves(0)[0]?.tx).toBe("tx-answer");
+    expect(answer?.args.then_ai).toBeUndefined();
+    expect(answer?.args.then_fallback).toBeUndefined();
+    expect(model.requests).toEqual(['{"model":"m","after":1}']);
+    const sub = t.caller.calls.find((c) => c.method === "submit_ai_move");
+    expect(sub?.args.signature_hex).toMatch(/^[0-9a-f]{128}$/);
+    expect(methods.indexOf("submit_ai_move")).toBeGreaterThan(methods.indexOf("answer"));
+    expect(t.store.aiMoves(0)[0]?.source).toBe("model");
   });
 
-  it("keeps the proof and does not resend when the RPC times out on a combined answer", async () => {
+  it("keeps the proof and does not resend when the RPC times out on an answer", async () => {
     const t = setup({ timeoutOn: (m) => m === "answer" });
     await t.settle();
     const water = placeFleet(seededRng(3)).findIndex((c) => c === 0);

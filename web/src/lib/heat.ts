@@ -37,3 +37,24 @@ export function heatAlpha(heat: readonly number[], index: number): number {
   if (max <= 0) return 0;
   return (heat[index] ?? 0) / max;
 }
+
+export const FIRST_LOOK = 30;
+
+export interface Exposure {
+  readonly looked: number;
+  readonly exposed: number;
+  readonly ships: number;
+}
+
+export function exposure(cells: readonly number[], heat: readonly number[], firstLook = FIRST_LOOK): Exposure | null {
+  const ranked = heat
+    .map((h, i) => ({ h, i }))
+    .filter((c) => c.h > 0)
+    .sort((a, b) => b.h - a.h || a.i - b.i)
+    .slice(0, firstLook)
+    .map((c) => c.i);
+  if (ranked.length === 0) return null;
+  const first = new Set(ranked);
+  const ships = cells.flatMap((c, i) => (c === 1 ? [i] : []));
+  return { looked: ranked.length, exposed: ships.filter((i) => first.has(i)).length, ships: ships.length };
+}

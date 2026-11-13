@@ -212,27 +212,10 @@ export class Admiral {
       if (await this.#answer(g, index)) await this.#followUp(g, index);
       return;
     }
-    let signed: SignedMove | null = null;
-    if (this.#o.model) {
-      try {
-        signed = await this.#signed(g, "Shot", index);
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        this.#o.store.saveAiMove({ gameId: g.id, kind: "Shot", source: "model", error: errorCode(message) });
-        this.#o.log.warn({ game: g.id, err: message }, "model move failed, answering with the contract's shot");
-      }
-    }
-    const args = answerArgs(board, g.id, index);
-    const follow = signed ? { then_ai: { response_body: signed.response, signature_hex: signed.signature } } : { then_fallback: true };
-    const r = await this.#send(g.id, "answer", { ...args, ...follow });
-    const unknown = !r.ok && isTimeout(r.error);
-    if (!r.ok && !unknown) {
-      if (await this.#answer(g, index)) await this.#followUp(g, index);
-      return;
-    }
-    this.#o.store.saveAnswer(g.id, { idx: index, cell: args.cell, salt: args.salt, proof: args.proof, tx: r.tx });
-    if (signed) this.#o.store.saveAiMove({ gameId: g.id, kind: "Shot", source: "model", chatId: signed.chatId, request: signed.request, response: signed.response, signature: signed.signature, signedText: signed.text, error: null, tx: r.tx });
-    else this.#o.store.saveAiMove({ gameId: g.id, kind: "Shot", source: "deterministic", error: null, tx: r.tx });
+    const ready = this.#o.model ? this.#signed(g, "Shot", index) : null;
+    ready?.catch(() => undefined);
+    if (!(await this.#answer(g, index))) return;
+    await this.#move({ ...g, pending_index: null, turn: this.#o.caller.accountId }, ready);
   }
 
   #announceSunk(gameId: number, board: Board, index: number): void {
@@ -283,10 +266,10 @@ export class Admiral {
     return withTimeout(work, budget, "model reply");
   }
 
-  async #move(g: GameView): Promise<void> {
+  async #move(g: GameView, ready: Promise<SignedMove> | null = null): Promise<void> {
     if (this.#o.model) {
       try {
-        const s = await this.#signed(g, "Shot");
+        const s = await (ready ?? this.#signed(g, "Shot"));
         const r = await this.#send(g.id, "submit_ai_move", { game_id: g.id, kind: "Shot", response_body: s.response, signature_hex: s.signature });
         this.#o.store.saveAiMove({ gameId: g.id, kind: "Shot", source: "model", chatId: s.chatId, request: s.request, response: s.response, signature: s.signature, signedText: s.text, error: r.error ? errorCode(r.error) : null, tx: r.tx });
         if (r.ok) return;

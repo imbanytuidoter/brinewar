@@ -85,10 +85,10 @@ export function sections(l: Live): Section[] {
       body: (
         <ol>
           <li>Open the site and press <b>Take command</b>. A guest account, a flagship, {v(l.startGold)} gold and three skins are created for you.</li>
-          <li>Sail across the sea chart. Meet a Nauarch patrol and press <b>Engage</b>, or press <b>Prepare for battle</b>.</li>
-          <li>Place your ships: drag a ship, or tap it and then open water to move it, tap it again to turn it, or press Shuffle. Turn on the heat map to see where he will look first.</li>
+          <li>Place your ships: drag a ship, or tap it and then open water to move it, tap it again to turn it, or press Shuffle. The red cells are where he will look first, learned from every captain's board: hide in the cold water.</li>
           <li>Press <b>Set sail</b>, then tap a cell in the fog to fire. A hit lets you fire again.</li>
           <li>When the battle ends, press <b>Verify</b> to re-check every proof and signature in your browser.</li>
+          <li>Between battles, <b>Back to the chart</b> opens the sea chart with every live captain, Nauarch patrols and duels with friends.</li>
         </ol>
       ),
     },
@@ -212,7 +212,7 @@ export function sections(l: Live): Section[] {
       short: "Duels",
       body: (
         <ul>
-          <li>Press <b>Invite a friend</b> on the chart. You get a link with a secret in the part after <code>#</code>. Browsers never send that part to a web server; the contract stores only its hash until your friend presents the secret to join.</li>
+          <li>Press <b>Duel a friend instead</b> when you place your fleet, or <b>Invite a friend</b> on the chart. You get a link with a secret in the part after <code>#</code>. Browsers never send that part to a web server; the contract stores only its hash until your friend presents the secret to join.</li>
           <li>Your friend opens it in any browser, also without a wallet, places a fleet and accepts. Same proofs and turn rule, with a move deadline of about a minute.</li>
           <li>During the duel you can chat. Each message is signed with your guest key, and only the two captains can read or write it.</li>
           <li>No gold changes hands. Both flagships earn XP when the duel is played out with at least {v(l.minHeatShots)} answered shots per side.</li>
@@ -281,6 +281,7 @@ export function sections(l: Live): Section[] {
           <p><b>Can I see his board?</b> Not until the end. His root is on chain from the start, and when the battle ends his fleet rises from that root on screen.</p>
           <p><b>I closed the tab mid-battle.</b> Open the site again or press <b>Back to battle</b> on any page; the battle resumes where it was.</p>
           <p><b>Does the Nauarch learn?</b> Yes, from statistics, not by retraining the model. Every board the contract verifies after a finished battle is added to the Admiralty map, and he hunts the hottest cells of that map first. The more captains play, the sharper his first shots get.</p>
+          <p><b>Why a language model, if the contract lists his cells?</b> Statistics make him strong; the model makes him a character. He reads your record and the battle so far and answers in one line, and he picks among equally good cells so his next shot cannot be read from the code. Every reply is signed in a TEE and checked by the contract, so the voice cannot lie about the game.</p>
           <p><b>Why is a move slow sometimes?</b> Each shot and answer is a transaction; a block takes about 0.6 s, and the Nauarch also waits for the model.</p>
         </>
       ),
