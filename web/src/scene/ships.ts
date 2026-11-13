@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { seaHeight, seaTilt, type Wave } from "./gerstner";
 import { BOARD_ORIGIN, cellCenter, isHorizontal, revealRise, shipCenter, type Point2 } from "./grid";
-import type { LightSpot, Rig, ShipLook, ShipParts, Side } from "./types";
+import type { LightSpot, Rig, ShipFinish, ShipLights, ShipLook, ShipParts, Side } from "./types";
 
 const SAIL = /sail|flag/;
 const FLAG = /flag/;
@@ -108,10 +108,56 @@ function glowMap(): THREE.Texture {
   return glowTexture;
 }
 
-interface Lamp {
+export interface Lamp {
   readonly sprite: THREE.Sprite;
   readonly mat: THREE.SpriteMaterial;
   readonly phase: number;
+}
+
+export function glowSprite(color: string): { readonly sprite: THREE.Sprite; readonly mat: THREE.SpriteMaterial } {
+  const mat = new THREE.SpriteMaterial({ map: glowMap(), color, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false });
+  return { sprite: new THREE.Sprite(mat), mat };
+}
+
+export function placeLamps(model: THREE.Object3D, box: THREE.Box3, size: THREE.Vector3, alongZ: boolean, scale: number, n: number, lights: ShipLights): Lamp[] {
+  const c = box.getCenter(new THREE.Vector3());
+  const long = alongZ ? size.z : size.x;
+  const deck = box.min.y + size.y * 0.32;
+  const top = box.max.y * 0.94;
+  const at = (along: number, y: number): THREE.Vector3 => (alongZ ? new THREE.Vector3(c.x, y, c.z + along) : new THREE.Vector3(c.x + along, y, c.z));
+  const spots: THREE.Vector3[] = [];
+  for (const spot of lights.at as readonly LightSpot[]) {
+    if (spot === "lanterns") spots.push(at(long * 0.46, deck), at(-long * 0.46, deck));
+    else if (n >= 3) spots.push(at(-long * 0.16, top), at(long * 0.14, top));
+    else spots.push(at(0, top));
+  }
+  return spots.map((p, i) => {
+    const { sprite, mat } = glowSprite(lights.color);
+    sprite.position.copy(p);
+    sprite.scale.setScalar(LIGHT_WORLD_SIZE / scale);
+    sprite.renderOrder = 4;
+    model.add(sprite);
+    return { sprite, mat, phase: i * 1.3 + Math.random() };
+  });
+}
+
+export function lampBeat(t: number, phase: number, flicker: boolean): number {
+  return flicker ? 0.55 + 0.45 * Math.abs(Math.sin(t * 7.3 + phase) * Math.sin(t * 3.1 + phase * 2)) : 0.82 + 0.18 * Math.sin(t * 2.4 + phase);
+}
+
+export function applyFinish(hulls: readonly THREE.MeshStandardMaterial[], sails: readonly THREE.MeshStandardMaterial[], finish: ShipFinish | null, base: Map<THREE.MeshStandardMaterial, { metal: number; rough: number }>): void {
+  for (const m of hulls) {
+    if (!base.has(m)) base.set(m, { metal: m.metalness, rough: m.roughness });
+    const b = base.get(m) as { metal: number; rough: number };
+    m.metalness = finish ? finish.metal : b.metal;
+    m.roughness = finish ? finish.rough : b.rough;
+    m.emissive.set(finish ? finish.glow : "#000000");
+    m.emissiveIntensity = finish ? finish.glowPower : 1;
+  }
+  for (const m of sails) {
+    m.emissive.set(finish?.sailGlow ? finish.glow : "#000000");
+    m.emissiveIntensity = finish?.sailGlow ?? 1;
+  }
 }
 
 interface Hull3 {
@@ -247,19 +293,7 @@ export class ShipActor {
   }
 
   #applyFinish(look: ShipLook | null): void {
-    const f = look?.finish ?? null;
-    for (const m of this.#hullMats) {
-      if (!this.#finishBase.has(m)) this.#finishBase.set(m, { metal: m.metalness, rough: m.roughness });
-      const base = this.#finishBase.get(m) as { metal: number; rough: number };
-      m.metalness = f ? f.metal : base.metal;
-      m.roughness = f ? f.rough : base.rough;
-      m.emissive.set(f ? f.glow : "#000000");
-      m.emissiveIntensity = f ? f.glowPower : 1;
-    }
-    for (const m of this.#sailMats) {
-      m.emissive.set(f?.sailGlow ? f.glow : "#000000");
-      m.emissiveIntensity = f?.sailGlow ?? 1;
-    }
+    applyFinish(this.#hullMats, this.#sailMats, look?.finish ?? null, this.#finishBase);
   }
 
   #placeLamps(look: ShipLook | null): void {
@@ -272,27 +306,7 @@ export class ShipActor {
     const h = this.#hull3;
     if (!lights || !h) return;
     this.#flicker = lights.flicker ?? false;
-    const c = h.box.getCenter(new THREE.Vector3());
-    const long = h.alongZ ? h.size.z : h.size.x;
-    const deck = h.box.min.y + h.size.y * 0.32;
-    const top = h.box.max.y * 0.94;
-    const at = (along: number, y: number): THREE.Vector3 => (h.alongZ ? new THREE.Vector3(c.x, y, c.z + along) : new THREE.Vector3(c.x + along, y, c.z));
-    const spots: THREE.Vector3[] = [];
-    const n = this.cells.length;
-    for (const spot of lights.at as readonly LightSpot[]) {
-      if (spot === "lanterns") spots.push(at(long * 0.46, deck), at(-long * 0.46, deck));
-      else if (n >= 3) spots.push(at(-long * 0.16, top), at(long * 0.14, top));
-      else spots.push(at(0, top));
-    }
-    for (const [i, p] of spots.entries()) {
-      const mat = new THREE.SpriteMaterial({ map: glowMap(), color: lights.color, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false });
-      const sprite = new THREE.Sprite(mat);
-      sprite.position.copy(p);
-      sprite.scale.setScalar(LIGHT_WORLD_SIZE / h.scale);
-      sprite.renderOrder = 4;
-      h.model.add(sprite);
-      this.#lamps.push({ sprite, mat, phase: i * 1.3 + Math.random() });
-    }
+    this.#lamps = placeLamps(h.model, h.box, h.size, h.alongZ, h.scale, this.cells.length, lights);
   }
 
   get gone(): boolean {
@@ -315,8 +329,7 @@ export class ShipActor {
     this.#foam.visible = this.sink < 0.25;
     for (const l of this.#lamps) {
       l.sprite.visible = this.sink < 0.25;
-      const beat = this.#flicker ? 0.55 + 0.45 * Math.abs(Math.sin(f.t * 7.3 + l.phase) * Math.sin(f.t * 3.1 + l.phase * 2)) : 0.82 + 0.18 * Math.sin(f.t * 2.4 + l.phase);
-      l.mat.opacity = f.reduced ? 0.9 : beat;
+      l.mat.opacity = f.reduced ? 0.9 : lampBeat(f.t, l.phase, this.#flicker);
     }
     const aura = this.#aura;
     if (aura && f.glint && !f.reduced && this.root.visible && this.sink < 0.25 && Math.random() < aura.rate * f.dt * this.cells.length) {

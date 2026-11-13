@@ -1,7 +1,7 @@
 import { Check, Loader2, Lock, Pencil, Snowflake } from "lucide-react";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
-import { rankProgress } from "@/game/economy";
+import { RANKS, rankProgress } from "@/game/economy";
 import type { GameSession } from "@/game/session";
 import { useBoot, useReducedMotion, useSession } from "@/game/useGame";
 import { makeViewer } from "@/lib/chain";
@@ -61,6 +61,8 @@ interface Skins {
   readonly owned: readonly string[];
 }
 
+const rankIndex = (name: string): number => RANKS.findIndex(([r]) => r === name);
+
 function FleetView({ cfg, session }: { readonly cfg: AppConfig; readonly session: GameSession }) {
   const snap = useSession(session);
   const reducedMotion = useReducedMotion();
@@ -69,6 +71,7 @@ function FleetView({ cfg, session }: { readonly cfg: AppConfig; readonly session
   const [svg, setSvg] = useState<string | null>(null);
   const [skins, setSkins] = useState<Skins | null>(null);
   const [equipped, setEquipped] = useState<string | null>(null);
+  const [preview, setPreview] = useState<string | null>(null);
   const captain = snap.captain;
   const flagship = captain?.player.flagship ?? null;
 
@@ -112,14 +115,27 @@ function FleetView({ cfg, session }: { readonly cfg: AppConfig; readonly session
   }
   const ship = captain.ship;
   const progress = rankProgress(ship?.xp ?? 0);
-  const look = skinLook(equipped ?? DEFAULT_SKIN);
+  const look = skinLook(preview ?? equipped ?? DEFAULT_SKIN);
+  const previewSource = preview ? skinSource(preview) : null;
+  const viewRank = preview && previewSource && previewSource !== "starter" && rankIndex(previewSource) > rankIndex(progress.rank) ? previewSource : progress.rank;
   return (
     <>
       <Panel className="sm:grid-cols-[minmax(0,1.1fr)_1fr] sm:items-center">
         <div className="relative aspect-[8/5] overflow-hidden rounded-xl border border-line bg-[radial-gradient(circle_at_50%_30%,#3d8fd0,#0e2a3b_75%)]">
           <Suspense fallback={null}>
-            <FlagshipViewer rank={progress.rank} look={look} reducedMotion={reducedMotion} />
+            <FlagshipViewer rank={viewRank} look={look} reducedMotion={reducedMotion} />
           </Suspense>
+          {preview && (
+            <div className="absolute inset-x-2 top-2 flex flex-wrap items-center justify-between gap-2">
+              <span className="rounded-full bg-black/55 px-2.5 py-1 text-[11px] font-semibold text-ink backdrop-blur-sm">
+                Preview · {look.title}
+                {previewSource && previewSource !== "starter" ? ` · reach ${previewSource} to own it` : ""}
+              </span>
+              <button type="button" onClick={() => setPreview(null)} className="rounded-full border border-line bg-black/55 px-2.5 py-1 text-[11px] font-semibold backdrop-blur-sm hover:border-brass">
+                Back to my ship
+              </button>
+            </div>
+          )}
           {svg && (
             <figure className="absolute right-2 bottom-2 m-0 grid w-16 gap-0.5 sm:w-24 rounded-md border border-line bg-black/40 p-1 backdrop-blur-sm">
               <img src={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`} alt={`On-chain image of ${flagship}`} className="block w-full rounded-sm" />
@@ -184,7 +200,7 @@ function FleetView({ cfg, session }: { readonly cfg: AppConfig; readonly session
       <Panel>
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h2 className="m-0 font-display text-2xl font-bold">Skins</h2>
-          <p className="m-0 text-xs text-muted">Every captain starts with three skins; each new rank mints one more on NEAR. Tap one to equip it: sails, flag and hull change here and in battle.</p>
+          <p className="m-0 text-xs text-muted">Every captain starts with three skins; each new rank mints a grander one on NEAR. Tap one you own to equip it, or a locked one to preview it on your flagship.</p>
         </div>
         {!skins ? (
           <Loader2 className="size-4 animate-spin text-muted" aria-label="Loading skins" />
@@ -195,18 +211,30 @@ function FleetView({ cfg, session }: { readonly cfg: AppConfig; readonly session
               const owned = skins.owned.includes(name);
               const on = (equipped ?? DEFAULT_SKIN) === name && owned;
               const source = skinSource(name);
+              const glow = l.lights?.color ?? l.aura?.color ?? null;
               return (
                 <li key={name}>
                   <button
                     type="button"
-                    disabled={!owned}
-                    onClick={() => equip(name)}
+                    onClick={() => {
+                      if (owned) {
+                        equip(name);
+                        setPreview(null);
+                      } else setPreview(name);
+                    }}
                     aria-pressed={on}
-                    className={cn("grid w-full gap-2 rounded-xl border border-line bg-white/5 p-3 text-left transition-colors hover:border-brass disabled:cursor-not-allowed", on && "border-brass bg-brass/10")}
+                    className={cn("grid w-full gap-2 rounded-xl border border-line bg-white/5 p-3 text-left transition-colors hover:border-brass", on && "border-brass bg-brass/10", preview === name && "border-ink/60")}
                   >
-                    <div className="relative grid h-24 place-items-center overflow-hidden rounded-lg bg-[url(/sprites/map/water.png)] bg-[length:72px_72px]">
+                    <div
+                      className="relative grid h-24 place-items-center overflow-hidden rounded-lg bg-[url(/sprites/map/water.png)] bg-[length:72px_72px]"
+                      style={glow ? { boxShadow: `inset 0 0 36px ${glow}` } : undefined}
+                    >
                       <SpriteShip vertical={false} length={3} sail={l.sprite} flag={l.pennant} className={cn("h-14 w-auto", !owned && "opacity-55 saturate-50")} />
-                      <span className="absolute top-1.5 left-1.5 size-3 rounded-full border border-white/40" style={{ background: l.hull ?? "#c98a5a" }} title="hull tone" aria-hidden />
+                      <span className="absolute top-1.5 left-1.5 flex gap-0.5" aria-hidden>
+                        {[l.hull ?? "#c98a5a", l.sail, l.flag].map((c) => (
+                          <span key={c} className="size-3 rounded-full border border-white/40" style={{ background: c }} />
+                        ))}
+                      </span>
                       {!owned && <Lock className="absolute top-1.5 right-1.5 size-4 text-ink/80" aria-hidden />}
                     </div>
                     <span className="flex items-center justify-between gap-2 text-xs font-semibold">
@@ -217,9 +245,18 @@ function FleetView({ cfg, session }: { readonly cfg: AppConfig; readonly session
                           Equipped
                         </span>
                       ) : (
-                        <span className="font-normal text-muted">{owned ? "Tap to equip" : source && source !== "starter" ? `Reach ${source}` : "Not owned"}</span>
+                        <span className="font-normal text-muted">{owned ? "Tap to equip" : source && source !== "starter" ? `Reach ${source} · preview` : "Not owned"}</span>
                       )}
                     </span>
+                    {l.perks && l.perks.length > 0 && (
+                      <span className="flex flex-wrap gap-1">
+                        {l.perks.map((p) => (
+                          <span key={p} className="rounded-full border border-line px-1.5 py-0.5 text-[10px] text-muted">
+                            {p}
+                          </span>
+                        ))}
+                      </span>
+                    )}
                   </button>
                 </li>
               );

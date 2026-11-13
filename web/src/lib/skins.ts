@@ -6,14 +6,16 @@ export interface SkinLook extends ShipLook {
   readonly title: string;
   readonly sprite: number;
   readonly pennant: number;
+  readonly perks?: readonly string[];
 }
 
 const LOOKS: Readonly<Record<string, SkinLook>> = {
   brine: { title: "Brine", sail: "#e8f3f2", flag: "#3fb6c9", trail: "#cfe9ee", sprite: 1, pennant: 5 },
-  coral: { title: "Coral", rig: "pennants", sail: "#f2a58e", flag: "#ff6a3d", hull: "#ffc2ae", trail: "#ff9a7a", sprite: 3, pennant: 3 },
-  ghost: { title: "Ghost", rig: "ghost", sail: "#c9d6dc", flag: "#f4f7f8", hull: "#9fb0b8", trail: "#e6f2f7", sprite: 2, pennant: 2 },
+  coral: { title: "Coral", perks: ["Pennants"], rig: "pennants", sail: "#f2a58e", flag: "#ff6a3d", hull: "#ffc2ae", trail: "#ff9a7a", sprite: 3, pennant: 3 },
+  ghost: { title: "Ghost", perks: ["Spectral glow"], rig: "ghost", sail: "#c9d6dc", flag: "#f4f7f8", hull: "#9fb0b8", trail: "#e6f2f7", sprite: 2, pennant: 2 },
   "night-watch": {
     title: "Night watch",
+    perks: ["Pirate hull", "Cannons", "Lanterns"],
     hulls: "pirate",
     rig: "cannons",
     sail: "#2d4673",
@@ -26,6 +28,7 @@ const LOOKS: Readonly<Record<string, SkinLook>> = {
   },
   gilded: {
     title: "Gilded",
+    perks: ["Gold finish", "Banners", "Gold glints"],
     rig: "banners",
     sail: "#fff4d8",
     flag: "#b3123f",
@@ -38,6 +41,7 @@ const LOOKS: Readonly<Record<string, SkinLook>> = {
   },
   storm: {
     title: "Storm",
+    perks: ["Steel finish", "Cannons", "St Elmo's fire"],
     rig: "cannons",
     sail: "#3e5566",
     flag: "#7fe0d0",
@@ -51,6 +55,7 @@ const LOOKS: Readonly<Record<string, SkinLook>> = {
   },
   admiral: {
     title: "Admiral",
+    perks: ["Full fit", "Lanterns", "Masthead lights", "Gold glow"],
     rig: "warship",
     sail: "#9b1636",
     flag: "#ffcf5a",

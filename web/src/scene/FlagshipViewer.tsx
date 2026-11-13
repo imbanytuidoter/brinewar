@@ -3,7 +3,7 @@ import { Canvas, useFrame } from "@react-three/fiber";
 import { Suspense, useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { useShipParts } from "./models";
-import { haunt, RIG_FLAG, rigUp } from "./ships";
+import { applyFinish, glowSprite, haunt, lampBeat, placeLamps, RIG_FLAG, rigUp, type Lamp } from "./ships";
 import type { ShipLook } from "./types";
 
 export const MODEL_FOR_RANK: Readonly<Record<string, string>> = {
@@ -17,6 +17,9 @@ const SAIL = /sail/;
 const FLAG = /flag/;
 const DEFAULT_FLAG = "#3fb6c9";
 const SPIN = 0.25;
+const AURA_SPARKS = 16;
+const SPARK_LIFE = 1.6;
+const SPARK_SIZE = 0.16;
 
 export interface FlagshipViewerProps {
   readonly rank: string;
@@ -32,7 +35,7 @@ function Ship({ rank, look, reducedMotion }: FlagshipViewerProps) {
   const parts = useShipParts();
   const rig = look?.rig ?? "plain";
   const group = useRef<THREE.Group>(null);
-  const { model, sails, flags, hulls, sailBase, hullBase } = useMemo(() => {
+  const { model, sails, flags, hulls, sailBase, hullBase, frame } = useMemo(() => {
     const m = scene.clone(true);
     const s: THREE.MeshStandardMaterial[] = [];
     const f: THREE.MeshStandardMaterial[] = [];
@@ -65,14 +68,30 @@ function Ship({ rank, look, reducedMotion }: FlagshipViewerProps) {
     m.scale.setScalar(scale);
     const c = box.getCenter(new THREE.Vector3());
     m.position.set(-c.x * scale, -box.min.y * scale - 0.25, -c.z * scale);
-    return { model: m, sails: s, flags: f, hulls: h, sailBase: base, hullBase: hullTone };
+    return { model: m, sails: s, flags: f, hulls: h, sailBase: base, hullBase: hullTone, frame: { box, size, alongZ: size.z >= size.x, scale } };
   }, [scene, parts, rig, rank]);
+  const finishBase = useMemo(() => new Map<THREE.MeshStandardMaterial, { metal: number; rough: number }>(), [hulls]);
+  const lamps = useRef<Lamp[]>([]);
+  const sparks = useMemo(() => Array.from({ length: AURA_SPARKS }, (_, i) => ({ ...glowSprite("#ffffff"), age: (i / AURA_SPARKS) * SPARK_LIFE, x: 0, y: 0, z: 0 })), []);
+  const sparkGroup = useMemo(() => {
+    const g = new THREE.Group();
+    for (const sp of sparks) g.add(sp.sprite);
+    return g;
+  }, [sparks]);
+  useEffect(() => () => sparks.forEach((sp) => sp.mat.dispose()), [sparks]);
 
   useEffect(() => {
     for (const m of sails) m.color.copy(look ? new THREE.Color(look.sail) : sailBase);
     for (const m of flags) m.color.set(look ? look.flag : DEFAULT_FLAG);
     for (const m of hulls) m.color.copy(look?.hull ? new THREE.Color(look.hull) : hullBase);
-  }, [sails, flags, hulls, sailBase, hullBase, look]);
+    applyFinish(hulls, sails, look?.finish ?? null, finishBase);
+    for (const l of lamps.current) {
+      l.sprite.removeFromParent();
+      l.mat.dispose();
+    }
+    lamps.current = look?.lights ? placeLamps(model, frame.box, frame.size, frame.alongZ, frame.scale * 0.55, RANK_LENGTH[rank] ?? 2, look.lights) : [];
+    for (const sp of sparks) sp.mat.color.set(look?.aura?.color ?? "#ffffff");
+  }, [sails, flags, hulls, sailBase, hullBase, look, model, frame, rank, finishBase, sparks]);
 
   useEffect(
     () => () => {
@@ -85,9 +104,26 @@ function Ship({ rank, look, reducedMotion }: FlagshipViewerProps) {
 
   useFrame(({ clock }, dt) => {
     const g = group.current;
+    const t = clock.elapsedTime;
+    for (const l of lamps.current) l.mat.opacity = reducedMotion ? 0.9 : lampBeat(t, l.phase, look?.lights?.flicker ?? false);
+    const aura = look?.aura;
+    for (const sp of sparks) {
+      sp.sprite.visible = Boolean(aura) && !reducedMotion;
+      if (!aura || reducedMotion) continue;
+      sp.age += dt;
+      if (sp.age > SPARK_LIFE) {
+        sp.age = 0;
+        sp.x = (Math.random() - 0.5) * 2.2;
+        sp.y = 0.2 + Math.random() * 0.8;
+        sp.z = (Math.random() - 0.5) * 0.9;
+      }
+      const k = sp.age / SPARK_LIFE;
+      sp.sprite.position.set(sp.x, sp.y + k * 1.1, sp.z);
+      sp.sprite.scale.setScalar(SPARK_SIZE * (1 - k * 0.5));
+      sp.mat.opacity = Math.sin(k * Math.PI) * 0.95;
+    }
     if (!g || reducedMotion) return;
     g.rotation.y += dt * SPIN;
-    const t = clock.elapsedTime;
     g.position.y = Math.sin(t * 1.3) * 0.06;
     g.rotation.z = Math.sin(t * 0.9) * 0.04;
   });
@@ -95,6 +131,7 @@ function Ship({ rank, look, reducedMotion }: FlagshipViewerProps) {
   return (
     <group ref={group} rotation-y={-0.6}>
       <primitive object={model} />
+      <primitive object={sparkGroup} />
     </group>
   );
 }
