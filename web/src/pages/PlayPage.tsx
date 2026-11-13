@@ -59,10 +59,11 @@ export function PlayPage({ cfg, session, stats, landing, onEnter }: PlayPageProp
   const result = g ? outcome(g, snap.accountId) : null;
   const duel = g?.mode === "PvP";
   const rival = duel ? (snap.opponentName ?? (g && opponentOf(g, snap.accountId) !== snap.accountId ? "Your friend" : null)) : null;
-  const enemyLabel = duel ? (rival ?? "Your friend") : "The Nauarch";
   const theyRevealed = g ? (sideOf(g, snap.accountId) === "a" ? g.revealed_b : g.revealed_a) : false;
   const [joinRef, setJoinRef] = useState<DuelInviteRef | null>(() => duelFromLocation(window.location.search, window.location.hash, window.location.pathname));
   const joinId = joinRef?.gameId ?? null;
+  const [joinHost, setJoinHost] = useState<string | null>(null);
+  const enemyLabel = duel ? (rival ?? "Your friend") : !inBattle && joinId !== null ? (joinHost ?? "Your friend") : "The Nauarch";
   const line = snap.lines.at(-1) ?? null;
   const lastHis = g && !duel ? snap.history.filter((s) => s.by === g.b).at(-1) : undefined;
   const note = lastHis?.source === "Deterministic" ? "Quick shot by the contract's own rule: the model took too long to answer." : lastHis?.source === "ModelFallback" ? "The model's cell was invalid, so the contract chose this shot." : null;
@@ -189,7 +190,7 @@ export function PlayPage({ cfg, session, stats, landing, onEnter }: PlayPageProp
         </div>
       )}
 
-      <div className={cn("fixed bottom-[calc(16px+env(safe-area-inset-bottom))] left-[max(16px,env(safe-area-inset-left))] z-10 max-sm:bottom-[calc(140px+env(safe-area-inset-bottom))]", (showLanding || onChart || step === "invite") && "hidden", duel && result && "max-sm:hidden")}>
+      <div className={cn("fixed bottom-[calc(16px+env(safe-area-inset-bottom))] left-[max(16px,env(safe-area-inset-left))] z-10 max-sm:bottom-[calc(140px+env(safe-area-inset-bottom))]", (showLanding || onChart || step === "invite" || (!inBattle && joinId !== null)) && "hidden", duel && result && "max-sm:hidden")}>
         {duel && snap.gameId !== null && step !== "lost-board" ? (
           <DuelChat apiUrl={cfg.apiUrl} gameId={snap.gameId} me={snap.accountId} secretKey={chatKey} rival={rival ?? "Your friend"} />
         ) : (
@@ -203,9 +204,6 @@ export function PlayPage({ cfg, session, stats, landing, onEnter }: PlayPageProp
             {snap.offline && <WifiOff className="size-3.5 shrink-0 text-hit" aria-hidden />}
             {snap.offline ? "Lost contact with the chain. Retrying…" : snap.error}
           </p>
-        )}
-        {!inBattle && joinId !== null && (
-          <JoinDuel cfg={cfg} gameId={joinId} me={snap.accountId} busy={snap.busy !== null} onShuffle={shuffle} onAccept={accept} onDecline={forgetInvite} />
         )}
         {onChart && encounter && <EncounterCard encounter={encounter} stats={stats} busy={snap.busy !== null} onBattle={toSetup} onClose={() => setEncounter(null)} />}
         {onChart && (
@@ -263,6 +261,13 @@ export function PlayPage({ cfg, session, stats, landing, onEnter }: PlayPageProp
           </Button>
         )}
       </div>
+      {!inBattle && joinId !== null && (
+        <div className="pointer-events-none fixed inset-0 z-20 grid items-center justify-items-center px-4 max-sm:items-end max-sm:pb-[calc(20px+env(safe-area-inset-bottom))]">
+          <div className="pointer-events-auto">
+            <JoinDuel cfg={cfg} gameId={joinId} me={snap.accountId} busy={snap.busy !== null} onShuffle={shuffle} onAccept={accept} onDecline={forgetInvite} onHost={setJoinHost} />
+          </div>
+        </div>
+      )}
       {showLanding && <Landing stats={stats} ready onEnter={onEnter} />}
     </main>
   );

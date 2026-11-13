@@ -98,11 +98,12 @@ interface JoinProps {
   readonly onShuffle: () => void;
   readonly onAccept: () => void;
   readonly onDecline: () => void;
+  readonly onHost?: (name: string) => void;
 }
 
 type Invite = { kind: "loading" } | { kind: "open"; host: string } | { kind: "closed"; why: string };
 
-export function JoinDuel({ cfg, gameId, me, busy, onShuffle, onAccept, onDecline }: JoinProps) {
+export function JoinDuel({ cfg, gameId, me, busy, onShuffle, onAccept, onDecline, onHost }: JoinProps) {
   const viewer = useMemo(() => makeViewer(cfg.rpcUrl, cfg.contractId), [cfg]);
   const [invite, setInvite] = useState<Invite>({ kind: "loading" });
   useEffect(() => {
@@ -115,14 +116,18 @@ export function JoinDuel({ cfg, gameId, me, busy, onShuffle, onAccept, onDecline
       const host = await viewer.view<PlayerView | null>("get_player", { account_id: g.a });
       return { kind: "open", host: host?.display_name ?? "A captain" } as const;
     })()
-      .then((v) => alive && setInvite(v))
+      .then((v) => {
+        if (!alive) return;
+        setInvite(v);
+        if (v.kind === "open") onHost?.(v.host);
+      })
       .catch(() => alive && setInvite({ kind: "closed", why: "Could not read the duel from the chain. Try again in a moment." }));
     return () => {
       alive = false;
     };
-  }, [viewer, gameId, me]);
+  }, [viewer, gameId, me, onHost]);
   return (
-    <div className="grid w-full animate-rise gap-2 rounded-2xl border border-line bg-glass p-3 backdrop-blur-md sm:w-[340px]">
+    <div role="dialog" aria-label="Duel invite" className="grid w-[min(440px,calc(100vw-32px))] animate-rise gap-3 rounded-2xl border border-brass/40 bg-deep/85 p-5 text-center shadow-[0_24px_60px_rgb(0_0_0/0.45)] backdrop-blur-md">
       {invite.kind === "loading" && <p className="m-0 text-sm text-muted">Reading the invite…</p>}
       {invite.kind === "closed" && (
         <>
@@ -132,8 +137,8 @@ export function JoinDuel({ cfg, gameId, me, busy, onShuffle, onAccept, onDecline
       )}
       {invite.kind === "open" && (
         <>
-          <p className="m-0 font-display text-xl leading-tight font-bold">{invite.host} challenges you</p>
-          <p className="m-0 text-xs text-muted">A friendly duel: no gold at stake, XP for both. Your fleet is the one with white sails; shuffle until you like it.</p>
+          <p className="m-0 font-display text-[clamp(26px,5vw,36px)] leading-tight font-bold uppercase">{invite.host} challenges you</p>
+          <p className="m-0 text-sm text-muted">A friendly duel: no gold at stake, XP for both. Your fleet has the white sails; shuffle until you like it.</p>
           <div className="grid grid-cols-[auto_1fr] gap-2">
             <Button onClick={onShuffle} disabled={busy} aria-label="Shuffle your fleet">
               <Shuffle aria-hidden />
