@@ -102,7 +102,7 @@ export interface QuickAnswer {
 
 export const BLOCK_MS = 587;
 const QUICK_POLL_MS = 250;
-const QUICK_TRIES = 32;
+const QUICK_TRIES = 48;
 
 export function provenResult(a: QuickAnswer, index: number, root: string | null): "Hit" | "Miss" | null {
   if (!root || a.idx !== index || (a.cell !== 0 && a.cell !== 1)) return null;
@@ -381,6 +381,7 @@ export class GameSession {
     const d = this.#deferred;
     const board = this.#snap.board;
     const together = d !== null && board !== null && d.gameId === g.id && g.pending_index === d.index;
+    if (g.mode === "VsNauarch") void this.#peek(g.id, index, g.root_b);
     const r = await (together
       ? this.#send("Firing", "answer", { ...answerArgs(board, g.id, d.index), then_fire: index })
       : this.#send("Firing", "fire", { game_id: g.id, index })
@@ -388,7 +389,6 @@ export class GameSession {
       this.#firing = false;
     });
     if (r.ok) this.#chainHistory = Math.max(this.#chainHistory, g.shots + 1);
-    if (r.ok && g.mode === "VsNauarch") void this.#peek(g.id, index, g.root_b);
     if (r.ok && together) {
       this.#given.add(`answer:${g.id}:${d.index}`);
       this.#deferred = null;
