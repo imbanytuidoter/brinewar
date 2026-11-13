@@ -16,19 +16,21 @@ interface SpyglassProps {
 export function Spyglass({ cells, reducedMotion }: SpyglassProps) {
   const group = useRef<THREE.Group>(null);
   const started = useRef<number | null>(null);
-  const ring = useMemo(() => new THREE.RingGeometry(0.34, 0.46, 40), []);
-  const lens = useMemo(() => new THREE.CircleGeometry(0.34, 40), []);
+  const ring = useMemo(() => new THREE.RingGeometry(0.3, 0.5, 48), []);
+  const lens = useMemo(() => new THREE.CircleGeometry(0.3, 48), []);
   const ringMat = useMemo(() => new THREE.MeshBasicMaterial({ color: COLOR, transparent: true, opacity: 0.9, depthTest: false }), []);
-  const lensMat = useMemo(() => new THREE.MeshBasicMaterial({ color: COLOR, transparent: true, opacity: 0.18, depthTest: false }), []);
+  const hair = useMemo(() => new THREE.PlaneGeometry(0.9, 0.05), []);
+  const lensMat = useMemo(() => new THREE.MeshBasicMaterial({ color: COLOR, transparent: true, opacity: 0.3, depthTest: false }), []);
 
   useEffect(
     () => () => {
       ring.dispose();
       lens.dispose();
+      hair.dispose();
       ringMat.dispose();
       lensMat.dispose();
     },
-    [ring, lens, ringMat, lensMat],
+    [ring, lens, hair, ringMat, lensMat],
   );
 
   useEffect(() => {
@@ -57,6 +59,8 @@ export function Spyglass({ cells, reducedMotion }: SpyglassProps) {
     <group ref={group} renderOrder={3}>
       <mesh geometry={ring} material={ringMat} rotation-x={-Math.PI / 2} renderOrder={3} />
       <mesh geometry={lens} material={lensMat} rotation-x={-Math.PI / 2} renderOrder={3} />
+      <mesh geometry={hair} material={ringMat} rotation-x={-Math.PI / 2} renderOrder={3} />
+      <mesh geometry={hair} material={ringMat} rotation={[-Math.PI / 2, 0, Math.PI / 2]} renderOrder={3} />
     </group>
   );
 }
