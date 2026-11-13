@@ -1,4 +1,4 @@
-import { Account, actions, FailoverRpcProvider, JsonRpcProvider, KeyPairSigner, teraToGas, type KeyPairString, type Provider } from "near-api-js";
+import { Account, actions, baseDecode, createTransaction, FailoverRpcProvider, JsonRpcProvider, KeyPairSigner, teraToGas, type KeyPairString, type Provider } from "near-api-js";
 
 export const PLAYER_GAS_TGAS = 10;
 export const PLAYER_REVEAL_GAS_TGAS = 30;
@@ -8,6 +8,8 @@ export function playerGas(method: string): number {
 }
 const VIEW_TIMEOUT_MS = 15_000;
 const CALL_TIMEOUT_MS = 60_000;
+const BLOCK_HASH_TTL_MS = 10 * 60_000;
+const STALE_KEY = /nonce|expired|InvalidTransaction|InvalidAccessKey/i;
 
 export function withTimeout<T>(promise: Promise<T>, ms: number, what: string): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -116,26 +118,67 @@ export function makeViewer(rpcUrl: string, contractId: string): Viewer {
   };
 }
 
+interface Prepared {
+  nonce: bigint;
+  blockHash: Uint8Array;
+  at: number;
+}
+
 export function makeCaller(rpcUrl: string, contractId: string, accountId: string, secretKey: string): Caller {
   const provider = writeRpc(rpcUrl);
-  const account = new Account(accountId, provider, KeyPairSigner.fromSecretKey(secretKey as KeyPairString));
+  const signer = KeyPairSigner.fromSecretKey(secretKey as KeyPairString);
+  const account = new Account(accountId, provider, signer);
+  let prepared: Promise<Prepared | null> | null = null;
   let queue: Promise<unknown> = Promise.resolve();
+
+  const prepare = (): Promise<Prepared | null> => {
+    prepared ??= (async () => {
+      const publicKey = await signer.getPublicKey();
+      const [key, block] = await Promise.all([
+        withTimeout(provider.viewAccessKey({ accountId, publicKey }), VIEW_TIMEOUT_MS, "access key"),
+        withTimeout(provider.viewBlock({ finality: "final" }), VIEW_TIMEOUT_MS, "block"),
+      ]);
+      return { nonce: BigInt(key.nonce), blockHash: baseDecode(block.header.hash), at: Date.now() };
+    })().catch(() => {
+      prepared = null;
+      return null;
+    });
+    return prepared;
+  };
+  void prepare();
+
+  const slow = (method: string, args: object) =>
+    account.signAndSendTransaction({
+      receiverId: contractId,
+      actions: [actions.functionCall(method, { ...args }, teraToGas(playerGas(method)), 0n)],
+      waitUntil: "EXECUTED_OPTIMISTIC",
+      throwOnFailure: false,
+    });
+
+  const fast = async (method: string, args: object): Promise<unknown> => {
+    const p = await prepare();
+    if (!p || Date.now() - p.at > BLOCK_HASH_TTL_MS) {
+      prepared = null;
+      return slow(method, args);
+    }
+    p.nonce += 1n;
+    const tx = createTransaction(accountId, await signer.getPublicKey(), contractId, p.nonce, [actions.functionCall(method, { ...args }, teraToGas(playerGas(method)), 0n)], p.blockHash);
+    const { signedTransaction } = await signer.signTransaction(tx);
+    try {
+      return await provider.sendTransactionUntil(signedTransaction, "EXECUTED_OPTIMISTIC");
+    } catch (err) {
+      prepared = null;
+      if (err instanceof Error && STALE_KEY.test(err.message)) return slow(method, args);
+      throw err;
+    }
+  };
+
   return {
     accountId,
     call(method: string, args: object): Promise<CallResult> {
       const run = async (): Promise<CallResult> => {
         try {
-          const resp = await withTimeout(
-            account.signAndSendTransaction({
-              receiverId: contractId,
-              actions: [actions.functionCall(method, { ...args }, teraToGas(playerGas(method)), 0n)],
-              waitUntil: "EXECUTED_OPTIMISTIC",
-              throwOnFailure: false,
-            }),
-            CALL_TIMEOUT_MS,
-            method,
-          );
-          return resultFromResponse(resp);
+          return resultFromResponse(await withTimeout(fast(method, args), CALL_TIMEOUT_MS, method));
         } catch (err) {
           return { txHash: null, ok: false, error: err instanceof Error ? err.message : String(err) };
         }
