@@ -53,6 +53,15 @@ export function urls(env: Env, key: string, fallback: string): string {
   return list.map((u) => url({ [key]: u }, key, fallback)).join(",");
 }
 
+const TESTNET_SPARES = ["https://rpc.testnet.near.org", "https://test.rpc.fastnear.com"];
+
+export function rpcUrls(env: Env): string {
+  const listed = urls(env, "NEAR_RPC_URL", "https://rpc.testnet.fastnear.com").split(",");
+  const testnet = (optional(env, "GAME_CONTRACT") ?? "").endsWith(".testnet");
+  const spares = testnet ? TESTNET_SPARES.filter((u) => !listed.includes(u)) : [];
+  return [...listed, ...spares].join(",");
+}
+
 export interface AdmiralConfig {
   rpcUrl: string;
   contract: string;
@@ -69,7 +78,7 @@ export interface AdmiralConfig {
 
 export function admiralConfig(env: Env): AdmiralConfig {
   return {
-    rpcUrl: urls(env, "NEAR_RPC_URL", "https://rpc.testnet.fastnear.com"),
+    rpcUrl: rpcUrls(env),
     contract: accountId(env, "GAME_CONTRACT"),
     admiral: accountId(env, "ADMIRAL_ACCOUNT"),
     admiralKeys: required(env, "ADMIRAL_KEY").split(",").map((k) => secretKey({ ADMIRAL_KEY: k.trim() }, "ADMIRAL_KEY")),
@@ -107,7 +116,7 @@ export function nearAmount(env: Env, key: string, fallback: string): bigint {
 
 export function apiConfig(env: Env): ApiConfig {
   return {
-    rpcUrl: urls(env, "NEAR_RPC_URL", "https://rpc.testnet.fastnear.com"),
+    rpcUrl: rpcUrls(env),
     contract: accountId(env, "GAME_CONTRACT"),
     sponsor: accountId(env, "SPONSOR_ACCOUNT"),
     sponsorKey: secretKey(env, "SPONSOR_KEY"),
