@@ -3,15 +3,13 @@ import { useEffect, useRef, useState } from "react";
 export const LOCK_MS = 1700;
 
 export function useLockOn(gameId: number | null, shotN: number | null, cell: number | null, enabled: boolean): number | null {
-  const seen = useRef<string | null>(null);
+  const seen = useRef<{ readonly gameId: number | null; readonly shotN: number | null } | null>(null);
   const [lock, setLock] = useState<number | null>(null);
   useEffect(() => {
-    const key = gameId === null || shotN === null ? null : `${gameId}:${shotN}`;
-    const first = seen.current === null;
-    if (key === null || key === seen.current) return;
-    seen.current = key;
-    if (first || !enabled || cell === null) return;
-    setLock(cell);
+    const before = seen.current;
+    seen.current = { gameId, shotN };
+    if (before === null || before.gameId !== gameId || shotN === null || shotN === before.shotN) return;
+    if (enabled && cell !== null) setLock(cell);
   }, [gameId, shotN, cell, enabled]);
   useEffect(() => {
     if (lock === null) return;
