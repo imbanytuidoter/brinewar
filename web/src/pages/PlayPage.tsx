@@ -9,6 +9,7 @@ import { useBattleFeed, type CalloutTone } from "@/game/useBattleFeed";
 import type { Mood } from "@/ui/NauarchPortrait";
 import { useSkins, type HarbourStats } from "@/game/useHarbour";
 import { music } from "@/lib/musicBox";
+import { useSkinArt } from "@/lib/skinArt";
 import { sound } from "@/lib/sound";
 import { CalloutBanner } from "@/ui/CalloutBanner";
 import { EncounterCard, type BattleMode } from "@/world/EncounterCard";
@@ -54,6 +55,7 @@ export function PlayPage({ cfg, session, stats, landing, onEnter }: PlayPageProp
   const reducedMotion = useReducedMotion();
   const skins = useSkins(cfg, snap.accountId);
   const myLook = skins.look;
+  const myArt = useSkinArt(myLook);
   const [draft, setDraft] = useState<number[]>(() => placeFleet(cryptoRng()));
   const inBattle = snap.gameId !== null;
   const cells = inBattle ? snap.board?.cells ?? null : draft;
@@ -161,7 +163,7 @@ export function PlayPage({ cfg, session, stats, landing, onEnter }: PlayPageProp
 
   return (
     <main className="fixed inset-0">
-      {onChart && <WorldMap captains={captains} mySail={myLook?.sprite ?? 1} myFlag={myLook?.pennant ?? 5} reducedMotion={reducedMotion} paused={snap.busy !== null} onEncounter={setEncounter} />}
+      {onChart && <WorldMap captains={captains} mySail={myLook?.sprite ?? 1} myFlag={myLook?.pennant ?? 5} myArt={myArt} reducedMotion={reducedMotion} paused={snap.busy !== null} onEncounter={setEncounter} />}
       {!onChart && (
       <Suspense fallback={<div className="grid h-full place-items-center bg-gradient-to-b from-[#8fd3ff] to-[#2a8db6] font-semibold text-deep">Raising the fleets…</div>}>
         <SeaScene

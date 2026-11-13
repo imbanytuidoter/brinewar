@@ -1,3 +1,4 @@
+import type { SkinArt } from "@/lib/skinArt";
 import { cn } from "@/lib/utils";
 
 const SEG = 100;
@@ -20,6 +21,7 @@ interface SpriteShipProps {
   readonly flag?: number;
   readonly state?: ShipState;
   readonly hits?: readonly boolean[];
+  readonly art?: SkinArt | null;
   readonly className?: string;
 }
 
@@ -50,10 +52,22 @@ function Hull({ len, href }: { readonly len: number; readonly href: string }) {
   );
 }
 
-export function SpriteShip({ length, vertical = true, sail = 1, flag = 5, state = "intact", hits = [], className }: SpriteShipProps) {
+function hullOf(state: ShipState, art: SkinArt | null): string {
+  if (state === "sunk") return "/sprites/hull-wreck.png";
+  if (state === "damaged") return art?.hullDamaged ?? "/sprites/hull-dmg.png";
+  return art?.hull ?? "/sprites/hull.png";
+}
+
+function sailOf(state: ShipState, sail: number, art: SkinArt | null): string {
+  if (state === "sunk") return "/sprites/sail-wreck.png";
+  if (art) return state === "damaged" ? art.sailDamaged : art.sail;
+  return `/sprites/sail-${sail}${state === "damaged" ? "-dmg" : ""}.png`;
+}
+
+export function SpriteShip({ length, vertical = true, sail = 1, flag = 5, state = "intact", hits = [], art = null, className }: SpriteShipProps) {
   const len = Math.max(1, Math.min(4, length));
-  const hull = state === "sunk" ? "/sprites/hull-wreck.png" : state === "damaged" ? "/sprites/hull-dmg.png" : "/sprites/hull.png";
-  const sailHref = state === "sunk" ? "/sprites/sail-wreck.png" : `/sprites/sail-${sail}${state === "damaged" ? "-dmg" : ""}.png`;
+  const hull = hullOf(state, art);
+  const sailHref = sailOf(state, sail, art);
   const masts = len === 1 ? [SEG / 2] : Array.from({ length: len - 1 }, (_, i) => (i + 1) * SEG);
   const scale = len === 1 ? 0.62 : 1;
   const body = (
@@ -62,7 +76,7 @@ export function SpriteShip({ length, vertical = true, sail = 1, flag = 5, state 
       {masts.map((y) => (
         <image key={y} href={sailHref} x={(SEG - SAIL_W * scale) / 2} y={y - (SAIL_H * scale) / 2} width={SAIL_W * scale} height={SAIL_H * scale} />
       ))}
-      {state !== "sunk" && <image href={`/sprites/flag-${flag}.png`} x={(SEG - FLAG_W) / 2} y={len === 1 ? 2 : 14} width={FLAG_W} height={FLAG_H * (len === 1 ? 0.6 : 1)} />}
+      {state !== "sunk" && <image href={art?.flag ?? `/sprites/flag-${flag}.png`} x={(SEG - FLAG_W) / 2} y={len === 1 ? 2 : 14} width={FLAG_W} height={FLAG_H * (len === 1 ? 0.6 : 1)} />}
       {hits.map((hit, i) => (hit && state !== "sunk" ? <image key={i} href={`/sprites/fire${(i % 2) + 1}.png`} x={SEG / 2 - 14} y={i * SEG + SEG / 2 - 22} width={28} height={36} /> : null))}
     </g>
   );

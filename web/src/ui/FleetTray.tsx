@@ -4,6 +4,7 @@ import { FLEET } from "@/lib/fleet";
 import { cn } from "@/lib/utils";
 import type { SkinLook } from "@/lib/skins";
 import type { Mark } from "@/scene/types";
+import { useSkinArt } from "@/lib/skinArt";
 import { SpriteShip } from "./SpriteShip";
 
 const GLYPH = 24;
@@ -30,6 +31,7 @@ export function theirTray(sunk: readonly (readonly number[])[]): { readonly leng
 }
 
 export function FleetTray({ myShips, myMarks, sunkTheirs, enemyLabel, look, enemyMarks }: FleetTrayProps) {
+  const art = useSkinArt(look);
   const mine = [...myShips].sort((a, b) => b.length - a.length);
   const theirs = theirTray(sunkTheirs);
   const hits = enemyMarks ? [...enemyMarks.values()].filter((m) => m === "hit").length : sunkTheirs.reduce((s, c) => s + c.length, 0);
@@ -42,7 +44,7 @@ export function FleetTray({ myShips, myMarks, sunkTheirs, enemyLabel, look, enem
           return (
             <span key={ship[0]} title={`${shipName(ship.length)}${lost ? ", sunk" : ""}`} className="relative" style={{ width: ship.length * GLYPH }}>
               {lost && <Cross />}
-              <SpriteShip vertical={false} length={ship.length} hits={hits} state={lost ? "sunk" : hits.some(Boolean) ? "damaged" : "intact"} sail={look?.sprite ?? 1} flag={look?.pennant ?? 5} className="h-[24px] w-full" />
+              <SpriteShip vertical={false} length={ship.length} hits={hits} state={lost ? "sunk" : hits.some(Boolean) ? "damaged" : "intact"} sail={look?.sprite ?? 1} flag={look?.pennant ?? 5} art={art} className="h-[24px] w-full" />
             </span>
           );
         })}

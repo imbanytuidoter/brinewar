@@ -1,3 +1,4 @@
+import type { SkinArt } from "@/lib/skinArt";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CaptainEntry } from "@/lib/api";
 import { sound } from "@/lib/sound";
@@ -26,6 +27,7 @@ interface WorldMapProps {
   readonly captains: readonly RankedCaptain[];
   readonly mySail: number;
   readonly myFlag: number;
+  readonly myArt?: SkinArt | null;
   readonly reducedMotion: boolean;
   readonly paused: boolean;
   readonly onEncounter: (e: Encounter | null) => void;
@@ -83,7 +85,22 @@ function drawSprite(c: CanvasRenderingContext2D, im: HTMLImageElement | undefine
   c.drawImage(im, x - w / 2, y - h / 2, w, h);
 }
 
-function drawShip(c: CanvasRenderingContext2D, img: Images, at: Vec, heading: number, sail: number, flag: number, wreck = false, t = 0, seed = 0): void {
+interface Rigging {
+  readonly hull?: HTMLImageElement;
+  readonly sail?: HTMLImageElement;
+  readonly flag?: HTMLImageElement;
+}
+
+function artImages(art: SkinArt): Rigging {
+  const make = (src: string): HTMLImageElement => {
+    const im = new Image();
+    im.src = src;
+    return im;
+  };
+  return { hull: make(art.hull), sail: make(art.sail), flag: make(art.flag) };
+}
+
+function drawShip(c: CanvasRenderingContext2D, img: Images, at: Vec, heading: number, sail: number, flag: number, wreck = false, t = 0, seed = 0, rig: Rigging = {}): void {
   c.save();
   c.translate(at.x, at.y);
   c.rotate(heading - Math.PI / 2 + Math.sin(t * 1.4 + seed) * 0.045);
@@ -92,12 +109,12 @@ function drawShip(c: CanvasRenderingContext2D, img: Images, at: Vec, heading: nu
   c.shadowColor = "rgba(10,40,60,0.35)";
   c.shadowBlur = 8;
   c.shadowOffsetY = 4;
-  drawSprite(c, wreck ? img["hull-wreck"] : img.hull, 0, 0, SHIP_W, SHIP_LEN);
+  drawSprite(c, wreck ? img["hull-wreck"] : (rig.hull ?? img.hull), 0, 0, SHIP_W, SHIP_LEN);
   c.shadowColor = "transparent";
-  const sailImg = wreck ? img["sail-wreck"] : img[`sail-${sail}`];
+  const sailImg = wreck ? img["sail-wreck"] : (rig.sail ?? img[`sail-${sail}`]);
   drawSprite(c, sailImg, 0, -9, 40, 28);
   drawSprite(c, sailImg, 0, 12, 34, 24);
-  if (!wreck) drawSprite(c, img[`flag-${flag}`], 0, -26, 4, 13);
+  if (!wreck) drawSprite(c, rig.flag ?? img[`flag-${flag}`], 0, -26, 4, 13);
   c.restore();
 }
 
@@ -171,9 +188,10 @@ function drawMini(canvas: HTMLCanvasElement | null, fleet: readonly (Vec & { rea
   c.fill();
 }
 
-export function WorldMap({ captains, mySail, myFlag, reducedMotion, paused, onEncounter }: WorldMapProps) {
+export function WorldMap({ captains, mySail, myFlag, myArt = null, reducedMotion, paused, onEncounter }: WorldMapProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const img = useMemo(loadImages, []);
+  const myRig = useMemo(() => (myArt ? artImages(myArt) : {}), [myArt]);
   const helm = useRef<Helm>({ pos: savedStart(), heading: -Math.PI / 2, target: null });
   const wake = useRef<Wake[]>([]);
   const view = useRef({ scale: 1, cx: 0, cy: 0, w: 0, h: 0 });
@@ -311,7 +329,7 @@ export function WorldMap({ captains, mySail, myFlag, reducedMotion, paused, onEn
         ctx.stroke();
       }
       if (helm.current.target && !reducedMotion) drawWakeV(ctx, helm.current.pos, helm.current.heading, live);
-      drawShip(ctx, img, helm.current.pos, helm.current.heading, mySail, myFlag, false, live, 0.5);
+      drawShip(ctx, img, helm.current.pos, helm.current.heading, mySail, myFlag, false, live, 0.5, myRig);
       if (!reducedMotion) {
         drawGulls(ctx, ISLANDS, live, seen);
         drawClouds(ctx, WORLD_W, WORLD_H, live, seen);
@@ -343,7 +361,7 @@ export function WorldMap({ captains, mySail, myFlag, reducedMotion, paused, onEn
       cancelAnimationFrame(raf);
       ro.disconnect();
     };
-  }, [img, mySail, myFlag, reducedMotion]);
+  }, [img, mySail, myFlag, myRig, reducedMotion]);
 
   const sail = useCallback(
     (e: React.PointerEvent<HTMLCanvasElement>) => {
