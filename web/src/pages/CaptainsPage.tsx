@@ -67,7 +67,7 @@ function Board({ board, treasury, boards, me }: { readonly board: Leaderboard; r
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <Stat label="Battles" value={n(nauarch.battles)} />
             <Stat label="He won" value={n(nauarch.wins)} sub={winRate !== null ? `${winRate}% of battles` : undefined} />
-            <Stat label="Captains won" value={n(nauarch.losses)} sub="each paid a bounty" />
+            <Stat label="Captains won" value={n(nauarch.losses)} sub="bounty only for sinking his fleet" />
             <Stat label="Treasury" value={treasury ? n(treasury) : "·"} sub={boards !== null ? `${n(boards)} boards studied` : "gold"} />
           </div>
         </div>

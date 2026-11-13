@@ -1,3 +1,4 @@
+import { bindLineage } from "../lib/lineage.js";
 import pino from "pino";
 import { admiralConfig } from "../lib/config.js";
 import { Store } from "../lib/db.js";
@@ -48,6 +49,7 @@ const stop = (): void => {
 process.on("SIGTERM", stop);
 process.on("SIGINT", stop);
 
+await bindLineage(store, new NearViewer(reads, config.contract, 15_000), config.contract);
 log.info({ contract: config.contract, admiral: config.admiral, model: model !== null }, "the Nauarch takes the helm");
 const SLOW_TICK_MS = 2000;
 const IDLE_TICK_MS = 1000;

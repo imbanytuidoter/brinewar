@@ -67,6 +67,9 @@ export function skinArt(look: SkinLook): Promise<SkinArt | null> {
   if (known) return known;
   const made = paint(look, sail, flag, hull).catch(() => null);
   cache.set(key, made);
+  void made.then((a) => {
+    if (a === null && cache.get(key) === made) cache.delete(key);
+  });
   return made;
 }
 

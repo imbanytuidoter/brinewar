@@ -103,6 +103,11 @@ export class Store {
     return rows.map((r) => JSON.parse(r.cells) as number[]);
   }
 
+  answer(gameId: number, idx: number): AnswerRow | undefined {
+    const r = this.db.prepare("SELECT idx, cell, salt, proof, tx FROM answers WHERE game_id = ? AND idx = ? LIMIT 1").get(gameId, idx) as (Omit<AnswerRow, "proof"> & { proof: string }) | undefined;
+    return r ? { ...r, proof: JSON.parse(r.proof) as string[] } : undefined;
+  }
+
   answers(gameId: number): AnswerRow[] {
     const rows = this.db.prepare("SELECT idx, cell, salt, proof, tx FROM answers WHERE game_id = ? ORDER BY at").all(gameId) as Array<Omit<AnswerRow, "proof"> & { proof: string }>;
     return rows.map((r) => ({ ...r, proof: JSON.parse(r.proof) as string[] }));

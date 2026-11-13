@@ -27,12 +27,12 @@ export function Landing({ stats, ready, onEnter }: LandingProps) {
             {a && a.boards_counted > 0 ? `The Nauarch has read ${a.boards_counted.toLocaleString("en-US")} fleets. Hide yours.` : "The Nauarch has read every captain's fleet. Hide yours."}
           </h1>
           <p className="m-0 max-w-[54ch] text-base leading-relaxed text-ink/85 max-sm:text-[15px] max-sm:leading-snug">
-            He is an AI admiral on NEAR AI Cloud who learns from every board revealed on chain, and the contract never lets him see yours.<span className="max-sm:hidden"> Play right here in the browser; each shot is a NEAR transaction and the game covers the gas.</span>
+            He is an AI admiral on NEAR AI Cloud who learns from the boards the contract verifies after each battle, and the contract never lets him see yours.<span className="max-sm:hidden"> Play right here in the browser; each shot is a NEAR transaction and the game covers the gas.</span>
           </p>
         </div>
         <ul aria-label="Live from the chain" className="m-0 flex list-none flex-wrap gap-2 p-0">
           {stats.treasury && <Chip value={Number(stats.treasury.balance).toLocaleString("en-US")} label="gold in his treasury" />}
-          {hot && <Chip value={cellName(hot.cell)} label={`his first guess · ${Math.round(hot.share * 100)}% of fleets sat there`} />}
+          {hot && <Chip value={cellName(hot.cell)} label={`hottest cell on his map · ${Math.round(hot.share * 100)}% of fleets sat there`} />}
         </ul>
         <ol className="m-0 grid max-w-[600px] list-none gap-2 p-0 max-sm:order-last">
           {STEPS.map(([title, text]) => (

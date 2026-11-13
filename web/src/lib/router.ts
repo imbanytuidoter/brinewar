@@ -55,11 +55,28 @@ export function navigate(to: string): void {
   if (to !== `${currentRoute()}${window.location.hash}`) window.history.pushState(null, "", to);
   window.scrollTo(0, 0);
   window.dispatchEvent(new Event(NAVIGATED));
-  const id = decodeURIComponent(window.location.hash.slice(1));
+  const raw = window.location.hash.slice(1);
+  let id = raw;
+  try {
+    id = decodeURIComponent(raw);
+  } catch {
+    id = raw;
+  }
   if (id !== "") reveal(id, performance.now());
+  else window.requestAnimationFrame(() => focusHeading(performance.now()));
 }
 
 const REVEAL_WAIT_MS = 3000;
+
+function focusHeading(since: number): void {
+  const h = document.querySelector("main h1, h1");
+  if (h instanceof HTMLElement) {
+    if (!h.hasAttribute("tabindex")) h.setAttribute("tabindex", "-1");
+    h.focus({ preventScroll: true });
+    return;
+  }
+  if (performance.now() - since < REVEAL_WAIT_MS) window.requestAnimationFrame(() => focusHeading(since));
+}
 
 function reveal(id: string, since: number): void {
   const el = document.getElementById(id);

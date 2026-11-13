@@ -136,8 +136,8 @@ export function sections(l: Live): Section[] {
             <li><b>Model:</b> <code>{v(l.model)}</code> on NEAR AI Cloud, inside a TEE. Its signing key is stored in the contract.</li>
             <li><b>Request:</b> the contract itself builds the request body with <code>nauarch_request</code>: the history of shots, the captain's record against him, the hottest cells of the Admiralty map. Temperature is 0 and the seed is fixed, so the same public state gives the same request byte for byte.</li>
             <li><b>Signature:</b> the enclave signs the request and the response. <code>submit_ai_move</code> checks the ed25519 signature against the stored key and that the request matches the current game. A stale or altered move is refused.</li>
-            <li><b>How he aims:</b> the contract works out which cells make sense and lists them in the request; the model picks one of them and adds his line. A wounded ship comes first: he fires only along it until it sinks. With no wounded ship he hunts the hottest open cells of the Admiralty map, and when those run out, cells spread across the board. He never fires next to a sunk ship or diagonally from a hit, where no ship can be. Your answers say only hit or miss, so he works out a sinking himself: a ship is sunk when misses close both ends, or when it is as long as the longest ship you still have afloat. The cells he chooses from are public (<code>nauarch_aim</code>), and the spyglass sweeps exactly those.</li>
-            <li><b>Fallback:</b> if the model is late (over a few seconds) or names a cell outside that list, the contract fires the first cell of the list instead, labelled as such. The battle never stalls on the model.</li>
+            <li><b>How he aims:</b> the contract works out which cells make sense and lists them in the request; the model picks one of them and adds his line (in the open hunt the contract also accepts any other open cell where a ship can still be). A wounded ship comes first: he fires only along it until it sinks. With no wounded ship he hunts the hottest open cells of the Admiralty map, and when those run out, cells spread across the board. He never fires next to a sunk ship or diagonally from a hit, where no ship can be. Your answers say only hit or miss, so he works out a sinking himself: a ship is sunk when misses or the board edge close both ends, or when it is as long as the longest ship you still have afloat. The cells he chooses from are public (<code>nauarch_aim</code>), and the spyglass sweeps exactly those.</li>
+            <li><b>Fallback:</b> if the model is late (over a few seconds) or names a cell the contract does not allow, the contract fires the first cell of the list instead, labelled as such. The battle never stalls on the model.</li>
             <li><b>His voice:</b> one line of at most 140 characters, limited to game facts. Each line shows <i>signed ✓</i> once your browser has checked it.</li>
           </ul>
         </>
@@ -214,7 +214,7 @@ export function sections(l: Live): Section[] {
         <ul>
           <li>Press <b>Duel a friend instead</b> when you place your fleet, or <b>Invite a friend</b> on the chart. You get a link with a secret in the part after <code>#</code>. Browsers never send that part to a web server; the contract stores only its hash until your friend presents the secret to join.</li>
           <li>Your friend opens it in any browser, also without a wallet, places a fleet and accepts. Same proofs and turn rule, with a move deadline of about a minute.</li>
-          <li>During the duel you can chat. Each message is signed with your guest key, and only the two captains can read or write it.</li>
+          <li>During the duel you can chat. Each message is signed with your guest key, and only the two captains can read or write it. Chat is kept on our server, not on chain.</li>
           <li>No gold changes hands. Both flagships earn XP when the duel is played out with at least {v(l.minHeatShots)} answered shots per side.</li>
         </ul>
       ),
@@ -226,7 +226,7 @@ export function sections(l: Live): Section[] {
       body: (
         <ul>
           <li>Your browser creates a key pair and asks the harbour for a guest account <code>p-…​.{l.contract}</code>. The sponsor account asks the game contract, which creates the account, funds it and adds your key.</li>
-          <li>The key is a function-call key: it can only call game methods on the game contract (new battle, commit, fire, answer, reveal, resign, claim a timeout, set a nickname). It cannot transfer NEAR or tokens.</li>
+          <li>The key is a function-call key: it can only call game methods on the game contract (new battle, open or join a duel, commit, fire, answer, reveal, resign, claim a timeout, set a nickname). It cannot transfer NEAR or tokens.</li>
           <li>Gas is paid from your guest account's balance, which the harbour tops up; the key itself can spend at most 0.25 NEAR. You never see a gas prompt.</li>
           <li>Clearing your browser storage loses the key, and with it the guest account.</li>
         </ul>
@@ -281,7 +281,7 @@ export function sections(l: Live): Section[] {
           <p><b>Can I see his board?</b> Not until the end. His root is on chain from the start, and when the battle ends his fleet rises from that root on screen.</p>
           <p><b>I closed the tab mid-battle.</b> Open the site again or press <b>Back to battle</b> on any page; the battle resumes where it was.</p>
           <p><b>Does the Nauarch learn?</b> Yes, from statistics, not by retraining the model. Every board the contract verifies after a finished battle is added to the Admiralty map, and he hunts the hottest cells of that map first. The more captains play, the sharper his first shots get.</p>
-          <p><b>Why a language model, if the contract lists his cells?</b> Statistics make him strong; the model makes him a character. He reads your record and the battle so far and answers in one line, and he picks among equally good cells so his next shot cannot be read from the code. Every reply is signed in a TEE and checked by the contract, so the voice cannot lie about the game.</p>
+          <p><b>Why a language model, if the contract lists his cells?</b> Statistics make him strong; the model makes him a character. He reads your record and the battle so far and answers in one line, and he picks among equally good cells so his next shot cannot be read from the code. Every reply is signed in a TEE and checked by the contract, so our server cannot put words in his mouth.</p>
           <p><b>Why is a move slow sometimes?</b> Each shot and answer is a transaction; a block takes about 0.6 s, and the Nauarch also waits for the model.</p>
         </>
       ),

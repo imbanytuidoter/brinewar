@@ -5,6 +5,7 @@ import { useBoot } from "@/game/useGame";
 import { useHarbourStats } from "@/game/useHarbour";
 import { duelFromLocation } from "@/ui/DuelCards";
 import { Landing } from "@/ui/Landing";
+import { Shipwreck } from "@/ui/Shipwreck";
 import "@/lib/musicBox";
 import { captureLinks, currentRoute, subscribeRoute } from "@/lib/router";
 import { sound } from "@/lib/sound";
@@ -24,9 +25,21 @@ export function App() {
   const route = useSyncExternalStore(subscribeRoute, currentRoute, currentRoute);
   useEffect(() => captureLinks(), []);
   return (
-    <Suspense fallback={<Shell title="Brinewar" text="Raising the charts…" />}>
-      <Routes key={route} />
-    </Suspense>
+    <Shipwreck
+      key={route}
+      fallback={(reload) => (
+        <Shell title="Lost at sea" text="This page hit a reef. Your battle is kept on chain, so a reload brings you back to it.">
+          <Button variant="brass" onClick={reload}>
+            <Anchor aria-hidden />
+            Reload
+          </Button>
+        </Shell>
+      )}
+    >
+      <Suspense fallback={<Shell title="Brinewar" text="Raising the charts…" />}>
+        <Routes />
+      </Suspense>
+    </Shipwreck>
   );
 }
 

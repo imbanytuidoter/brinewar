@@ -18,6 +18,32 @@ export type Boot =
   | { readonly kind: "ready"; readonly session: GameSession };
 
 const boarded = new WeakMap<AppConfig, GameSession>();
+const boarding = new WeakMap<AppConfig, Promise<GameSession>>();
+
+function board(cfg: AppConfig): Promise<GameSession> {
+  const known = boarding.get(cfg);
+  if (known) return known;
+  const store = browserStorage();
+  const viewer = makeViewer(cfg.rpcUrl, cfg.contractId);
+  const made = ensureGuest(store, cfg.apiUrl, cfg.contractId, viewer).then((g) => {
+    const session = new GameSession({
+      accountId: g.accountId,
+      viewer,
+      caller: makeCaller(cfg.rpcUrl, cfg.contractId, g.accountId, g.secretKey),
+      store,
+      evidence: (id) => fetchEvidence(cfg.apiUrl, id),
+      quickAnswer: (id, index, root) => fetchQuickAnswer(cfg.apiUrl, id, index, root),
+      shareAnswer: (id, answer) => shareAnswer(cfg.apiUrl, id, answer),
+      refuel: () => refuelGuest(cfg.apiUrl, g.publicKey),
+      height: makeHeight(cfg.rpcUrl),
+    });
+    boarded.set(cfg, session);
+    return session;
+  });
+  boarding.set(cfg, made);
+  made.catch(() => boarding.delete(cfg));
+  return made;
+}
 
 export function useBoot(cfg: AppConfig): { boot: Boot; retry: () => void } {
   const [boot, setBoot] = useState<Boot>(() => {
@@ -33,23 +59,9 @@ export function useBoot(cfg: AppConfig): { boot: Boot; retry: () => void } {
       return;
     }
     setBoot({ kind: "boarding" });
-    const store = browserStorage();
-    const viewer = makeViewer(cfg.rpcUrl, cfg.contractId);
-    ensureGuest(store, cfg.apiUrl, cfg.contractId, viewer)
-      .then((g) => {
+    board(cfg)
+      .then((session) => {
         if (!alive) return;
-        const session = new GameSession({
-          accountId: g.accountId,
-          viewer,
-          caller: makeCaller(cfg.rpcUrl, cfg.contractId, g.accountId, g.secretKey),
-          store,
-          evidence: (id) => fetchEvidence(cfg.apiUrl, id),
-          quickAnswer: (id, index, root) => fetchQuickAnswer(cfg.apiUrl, id, index, root),
-          shareAnswer: (id, answer) => shareAnswer(cfg.apiUrl, id, answer),
-          refuel: () => refuelGuest(cfg.apiUrl, g.publicKey),
-          height: makeHeight(cfg.rpcUrl),
-        });
-        boarded.set(cfg, session);
         setBoot({ kind: "ready", session });
       })
       .catch((err: unknown) => {

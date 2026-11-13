@@ -20,6 +20,7 @@ const CACHE_CAP = 5000;
 const HEX64 = /^[0-9a-f]{64}$/i;
 const ANSWER_WAIT_MS = 2500;
 const ANSWER_POLL_MS = 40;
+const MAX_ANSWER_WAITERS = 200;
 const LEADERBOARD_SEEDS = 50;
 const LEADERBOARD_BATCH = 3;
 
@@ -159,6 +160,7 @@ export async function buildApp(o: AppOptions) {
     return reply.code(out.status).send(out.body);
   });
 
+  let waiters = 0;
   const duelAnswers = new Map<string, { idx: number; cell: number; salt: string; proof: string[]; sunk: number[] | null }>();
   app.get<{ Querystring: { root?: string; wait?: string } }>("/api/game/:id/answer/:index", { config: { rateLimit: { max: 400, timeWindow: "1 minute" } } }, async (req, reply) => {
     const { id, index } = req.params as { id: string; index: string };
@@ -167,15 +169,22 @@ export async function buildApp(o: AppOptions) {
     const gameId = Number(id);
     const root = typeof req.query.root === "string" ? req.query.root.toLowerCase() : "";
     const find = (): object | null => {
-      const row = o.store.answers(gameId).find((a) => a.idx === idx);
+      const row = o.store.answer(gameId, idx);
       if (row) return { idx: row.idx, cell: row.cell, salt: row.salt, proof: row.proof, sunk: row.cell === 1 ? (o.store.sunk(gameId).find((ship) => ship.includes(idx)) ?? null) : null };
       return HEX64.test(root) ? (duelAnswers.get(`${id}:${root}:${idx}`) ?? null) : null;
     };
-    const until = Date.now() + (req.query.wait === "1" ? (o.answerWaitMs ?? ANSWER_WAIT_MS) : 0);
     let found = find();
-    while (!found && Date.now() < until && !req.raw.destroyed) {
-      await new Promise((r) => setTimeout(r, ANSWER_POLL_MS));
-      found = find();
+    if (!found && req.query.wait === "1" && waiters < MAX_ANSWER_WAITERS) {
+      waiters += 1;
+      const until = Date.now() + (o.answerWaitMs ?? ANSWER_WAIT_MS);
+      try {
+        while (!found && Date.now() < until && !req.raw.destroyed) {
+          await new Promise((r) => setTimeout(r, ANSWER_POLL_MS));
+          found = find();
+        }
+      } finally {
+        waiters -= 1;
+      }
     }
     if (!found) return reply.code(404).send({ error: "not answered yet" });
     return found;

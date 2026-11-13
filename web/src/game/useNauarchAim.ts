@@ -22,5 +22,5 @@ export function useNauarchAim(session: GameSession, gameId: number | null, their
       alive = false;
     };
   }, [session, gameId, key]);
-  return offer && offer.key === key ? offer.cells : null;
+  return offer && offer.key.startsWith(`${gameId}:`) ? offer.cells : null;
 }

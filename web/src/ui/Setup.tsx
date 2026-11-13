@@ -79,7 +79,7 @@ export function Setup(p: SetupProps) {
               <Shuffle aria-hidden />
               Shuffle
             </Button>
-            <Button size="sm" onClick={() => setShowHeat((v) => !v)} disabled={!p.heat} aria-pressed={showHeat} aria-label="Show where he hunts" className={cn(showHeat && "border-hit")}>
+            <Button size="sm" onClick={() => setShowHeat((v) => !v)} disabled={!p.heat} aria-pressed={showHeat} aria-label="Heat map: where he hunts" className={cn(showHeat && "border-hit")}>
               <Flame aria-hidden className={cn(showHeat && "text-hit")} />
               Heat map
             </Button>

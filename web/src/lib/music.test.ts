@@ -13,8 +13,14 @@ class FakeAudio implements AudioLike {
     readonly src: string,
     readonly allowed: () => boolean,
   ) {}
+  failWith: string | null = null;
   play(): Promise<void> {
     this.plays += 1;
+    if (this.failWith) {
+      const err = new Error(this.failWith);
+      err.name = this.failWith;
+      return Promise.reject(err);
+    }
     if (!this.allowed()) return Promise.reject(new Error("NotAllowedError"));
     this.paused = false;
     return Promise.resolve();
@@ -29,19 +35,20 @@ function memory(seed: Record<string, string> = {}): KeyValue {
   return { get: (k) => data.get(k) ?? null, set: (k, v) => void data.set(k, v), remove: (k) => void data.delete(k) };
 }
 
-function box(opts: { allowed?: boolean; store?: KeyValue | null } = {}) {
+function box(opts: { allowed?: boolean; store?: KeyValue | null; fadeMs?: number; broken?: string } = {}) {
   const made: FakeAudio[] = [];
   let volume = 0.8;
   let allowed = opts.allowed ?? true;
   const m = createMusicBox({
     make: (src) => {
       const a = new FakeAudio(src, () => allowed);
+      if (opts.broken && src.includes(opts.broken)) a.failWith = "NotSupportedError";
       made.push(a);
       return a;
     },
     level: () => volume,
     store: opts.store ?? null,
-    fadeMs: 0,
+    fadeMs: opts.fadeMs ?? 0,
   });
   const el = (name: string) => made.find((a) => a.src.includes(name));
   return { m, made, el, allow: () => (allowed = true), setVolume: (v: number) => { volume = v; m.refresh(); } };
@@ -110,5 +117,21 @@ describe("music", () => {
     expect(el("harbour")?.volume).toBe(0);
     sting?.onended?.();
     expect(el("harbour")?.volume).toBeGreaterThan(0);
+  });
+
+  it("brings the theme back when a sting cannot play", async () => {
+    const { m, el } = box({ broken: "victory" });
+    m.start();
+    m.sting("victory");
+    await settle();
+    expect(el("harbour")?.volume).toBeGreaterThan(0);
+    expect(m.blocked).toBe(false);
+  });
+
+  it("goes quiet at once when the tab is hidden, without waiting for a fade", () => {
+    const { m, el } = box({ fadeMs: 1200 });
+    m.start();
+    m.pauseAll(true);
+    expect(el("harbour")?.paused).toBe(true);
   });
 });

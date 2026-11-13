@@ -105,15 +105,17 @@ export function createMusicBox(d: MusicDeps): MusicBox {
     }
   };
 
-  const begin = (a: AudioLike): void => {
+  const begin = (a: AudioLike, onFail: (() => void) | null = null): void => {
     if (!a.paused) return;
+    const failed = (err: unknown): void => {
+      if (err instanceof Error && err.name === "AbortError") return;
+      if (onFail) onFail();
+      else setBlocked(true);
+    };
     try {
-      void Promise.resolve(a.play()).then(
-        () => setBlocked(false),
-        () => setBlocked(true),
-      );
-    } catch {
-      setBlocked(true);
+      void Promise.resolve(a.play()).then(() => setBlocked(false), failed);
+    } catch (err) {
+      failed(err);
     }
   };
 
@@ -169,11 +171,12 @@ export function createMusicBox(d: MusicDeps): MusicBox {
       s.currentTime = 0;
       s.volume = Math.min(1, STING_PEAK * level);
       targets.delete(s);
-      s.onended = () => {
+      const lift = (): void => {
         ducked = false;
         apply();
       };
-      begin(s);
+      s.onended = lift;
+      begin(s, lift);
     },
     unlock() {
       if (started && blocked) apply();
@@ -184,6 +187,7 @@ export function createMusicBox(d: MusicDeps): MusicBox {
     pauseAll(next: boolean) {
       hidden = next;
       apply();
+      if (hidden) for (const a of targets.keys()) settle(a);
     },
     subscribe(fn: () => void) {
       listeners.add(fn);
