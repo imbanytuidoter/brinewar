@@ -137,7 +137,7 @@ function World(props: SeaSceneProps) {
       <Sky mood={mood} />
       <hemisphereLight args={[mood.hemiSky, mood.hemiGround, mood.hemi]} />
       <directionalLight color={mood.sun} intensity={mood.sunPower} position={[...mood.sunAt]} />
-      <CameraRig reduced={runtime.reduced} />
+      <CameraRig reduced={runtime.reduced} focus={props.focus ?? null} />
       <Shaker>
         <Sea aiming={props.aiming} />
         <Gulls isles={layout.isles} reduced={runtime.reduced} />

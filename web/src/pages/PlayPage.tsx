@@ -137,6 +137,8 @@ export function PlayPage({ cfg, session, stats, landing, onEnter }: PlayPageProp
   }, []);
 
   const canFire = (step === "fire" || snap.canQueue) && snap.busy === null && !shotsInAir;
+  const theirTurn = duel ? step === "wait" || step === "answer" : spyglassOn;
+  const focus = inBattle && result === null ? (theirTurn ? "mine" : "enemy") : null;
   const planned = inBattle && !result ? turnOf({ step: snap.canQueue ? "fire" : step, busy: snap.busy, aiming: snap.marks.aiming, incoming: g?.pending_index ?? null, rival, phase: g?.status ?? null }) : null;
   const turn = planned && (step === "fire" || snap.canQueue) && shotsInAir ? inFlightTurn(feed.flight, rival) : planned;
   const showLanding = landing && !inBattle && joinId === null;
@@ -188,6 +190,7 @@ export function PlayPage({ cfg, session, stats, landing, onEnter }: PlayPageProp
           spyglass={spyglass}
           spyglassLocked={lock !== null}
           spyglassOn={spyglassOn}
+          focus={focus}
           aimDelayMs={duel ? 0 : AIM_DELAY_MS}
           onLaunch={feed.onLaunch}
           onLand={feed.onLand}

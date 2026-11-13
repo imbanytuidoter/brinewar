@@ -65,6 +65,7 @@ export interface SeaSceneProps {
   readonly spyglass?: readonly number[] | null;
   readonly spyglassLocked?: boolean;
   readonly spyglassOn?: boolean;
+  readonly focus?: "mine" | "enemy" | null;
   readonly aimDelayMs?: number;
   readonly onLaunch?: (side: Side, cell: number, hit: boolean) => void;
   readonly onLand?: (side: Side, cell: number, hit: boolean) => void;
