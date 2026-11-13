@@ -14,8 +14,8 @@ const INTRO_PULL = 0.35;
 const FOCUS_SECONDS = 0.9;
 const FOCUS_OFFSET = new THREE.Vector3(-13, 20, 0);
 const BOARD_CENTRE: Readonly<Record<CameraFocus, THREE.Vector3>> = {
-  mine: new THREE.Vector3(-6, 0, 0),
-  enemy: new THREE.Vector3(6, 0, 0),
+  mine: new THREE.Vector3(-7.2, 0, 0),
+  enemy: new THREE.Vector3(4.8, 0, 0),
 };
 
 export type CameraFocus = "mine" | "enemy";
