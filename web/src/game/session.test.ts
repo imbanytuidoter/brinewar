@@ -235,6 +235,18 @@ describe("GameSession", () => {
     expect(chain.history.at(-2)).toMatchObject({ index: WATER, result: "Miss" });
   });
 
+  it("ignores a lagging read that does not yet show a shot the chain accepted", async () => {
+    const { chain, session } = setup();
+    await session.start(placeFleet(seededRng(7)));
+    expect(await session.fire(5)).toBe(true);
+    const fresh = session.snapshot.history.length;
+    chain.history.pop();
+    (chain.game as GameView).shots -= 1;
+    (chain.game as GameView).turn = ME;
+    await session.tick();
+    expect(session.snapshot.history.length).toBe(fresh);
+  });
+
   it("answers on its own when the captain waits too long to fire", async () => {
     let t = 0;
     const chain = new FakeContract();

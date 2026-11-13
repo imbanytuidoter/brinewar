@@ -365,6 +365,7 @@ export class GameSession {
     ).finally(() => {
       this.#firing = false;
     });
+    if (r.ok) this.#chainHistory = Math.max(this.#chainHistory, g.shots + 1);
     if (r.ok && together) {
       this.#given.add(`answer:${g.id}:${d.index}`);
       this.#deferred = null;
