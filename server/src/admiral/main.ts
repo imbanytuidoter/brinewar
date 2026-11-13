@@ -1,4 +1,4 @@
-import { bindLineage } from "../lib/lineage.js";
+import { bindLineageSoon } from "../lib/lineage.js";
 import pino from "pino";
 import { admiralConfig } from "../lib/config.js";
 import { Store } from "../lib/db.js";
@@ -49,7 +49,7 @@ const stop = (): void => {
 process.on("SIGTERM", stop);
 process.on("SIGINT", stop);
 
-await bindLineage(store, new NearViewer(reads, config.contract, 15_000), config.contract);
+await bindLineageSoon(store, new NearViewer(reads, config.contract, 15_000), config.contract, log);
 log.info({ contract: config.contract, admiral: config.admiral, model: model !== null }, "the Nauarch takes the helm");
 const SLOW_TICK_MS = 2000;
 const IDLE_TICK_MS = 1000;
@@ -60,6 +60,7 @@ while (running) {
   try {
     active = await admiral.tick();
   } catch (err) {
+    active = false;
     log.warn({ err: err instanceof Error ? err.message : String(err), ms: Date.now() - started }, "tick failed");
   }
   const took = Date.now() - started;

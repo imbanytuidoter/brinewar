@@ -28,3 +28,19 @@ describe("database lineage", () => {
     await expect(bindLineage(store, chainWithFirstGameAt(6), "brinewar.testnet")).rejects.toBeInstanceOf(LineageError);
   });
 });
+
+describe("database lineage at startup", () => {
+  it("keeps the service up when the chain cannot be read, and still refuses a foreign database", async () => {
+    const { bindLineageSoon } = await import("../src/lib/lineage.js");
+    const store = new Store(join(mkdtempSync(join(tmpdir(), "bw-")), "db.sqlite"));
+    const warnings: string[] = [];
+    const log = { warn: (_o: object, msg: string) => void warnings.push(msg) };
+    const down = new FakeViewer(() => {
+      throw new Error("rpc down");
+    });
+    await expect(bindLineageSoon(store, down, "brinewar.testnet", log, 0)).resolves.toBe(false);
+    expect(warnings.length).toBeGreaterThan(0);
+    await bindLineage(store, chainWithFirstGameAt(100), "brinewar.testnet");
+    await expect(bindLineageSoon(store, chainWithFirstGameAt(900), "brinewar.testnet", log, 0)).rejects.toBeInstanceOf(LineageError);
+  });
+});

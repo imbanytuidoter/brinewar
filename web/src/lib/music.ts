@@ -108,9 +108,8 @@ export function createMusicBox(d: MusicDeps): MusicBox {
   const begin = (a: AudioLike, onFail: (() => void) | null = null): void => {
     if (!a.paused) return;
     const failed = (err: unknown): void => {
-      if (err instanceof Error && err.name === "AbortError") return;
       if (onFail) onFail();
-      else setBlocked(true);
+      else if (!(err instanceof Error && err.name === "AbortError")) setBlocked(true);
     };
     try {
       void Promise.resolve(a.play()).then(() => setBlocked(false), failed);

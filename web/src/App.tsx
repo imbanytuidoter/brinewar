@@ -7,7 +7,7 @@ import { duelFromLocation } from "@/ui/DuelCards";
 import { Landing } from "@/ui/Landing";
 import { Shipwreck } from "@/ui/Shipwreck";
 import "@/lib/musicBox";
-import { captureLinks, currentRoute, subscribeRoute } from "@/lib/router";
+import { captureLinks, currentRoute, pageKey, subscribeRoute } from "@/lib/router";
 import { sound } from "@/lib/sound";
 import { readConfig, type AppConfig } from "@/lib/config";
 import { PlayPage } from "@/pages/PlayPage";
@@ -26,7 +26,7 @@ export function App() {
   useEffect(() => captureLinks(), []);
   return (
     <Shipwreck
-      key={route}
+      key={pageKey(route)}
       fallback={(reload) => (
         <Shell title="Lost at sea" text="This page hit a reef. Your battle is kept on chain, so a reload brings you back to it.">
           <Button variant="brass" onClick={reload}>

@@ -1,4 +1,4 @@
-import { bindLineage } from "../lib/lineage.js";
+import { bindLineageSoon } from "../lib/lineage.js";
 import pino from "pino";
 import { apiConfig } from "../lib/config.js";
 import { Store } from "../lib/db.js";
@@ -12,7 +12,7 @@ const rpc = provider(config.rpcUrl);
 const reads = readProvider(config.rpcUrl);
 const store = new Store(config.dbPath);
 const viewer = new NearViewer(reads, config.contract, 15_000);
-await bindLineage(store, viewer, config.contract);
+await bindLineageSoon(store, viewer, config.contract, log);
 const sponsor = new NearCaller(config.sponsor, rpc, config.sponsorKey, config.contract, 60_000);
 const balanceOf = async (accountId: string): Promise<bigint> => BigInt((await reads.viewAccount({ accountId, blockQuery: { finality: "optimistic" } })).amount);
 const LIVE_MS = 4000;

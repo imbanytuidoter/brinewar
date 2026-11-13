@@ -87,12 +87,14 @@ export class Admiral {
       this.#o.viewer.view<GameView[]>("games_since", { from_id: start, limit: PAGE }),
     ]);
     let lowestOpen: number | null = null;
+    let watching = false;
     for (let from = start; from < config.games; from += PAGE) {
       const games = from === start ? firstPage : await this.#o.viewer.view<GameView[]>("games_since", { from_id: from, limit: PAGE });
       for (const g of games) {
         const action = this.#decide(g, height);
         if (action.kind === "done") this.#forget(g);
         if (action.kind !== "done" && lowestOpen === null) lowestOpen = g.id;
+        if (g.mode === "VsNauarch" && g.status === "Playing") watching = true;
         if (action.kind === "done" || action.kind === "wait" || this.#busy.has(g.id)) continue;
         const state = stateOf(g);
         if (this.#acted.get(g.id)?.has(state)) continue;
@@ -111,7 +113,7 @@ export class Admiral {
       }
     }
     this.#cursor = lowestOpen ?? config.games;
-    return lowestOpen !== null || this.#busy.size > 0;
+    return watching || this.#busy.size > 0;
   }
 
   #forget(g: GameView): void {

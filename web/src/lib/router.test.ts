@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { routeOf } from "./router";
+import { pageKey, routeOf } from "./router";
 
 const here = { origin: "https://brinewar.example", pathname: "/fleet", search: "" };
 const click = { button: 0, metaKey: false, ctrlKey: false, shiftKey: false, altKey: false, defaultPrevented: false };
@@ -24,5 +24,15 @@ describe("router", () => {
 
   it("lets the browser jump to an anchor on the same page", () => {
     expect(routeOf(link("/fleet#skins"), click, here)).toBeNull();
+  });
+
+  it("keys pages by what they show, so a new duel invite opens fresh but plain play stays mounted", () => {
+    expect(pageKey("/duel/12")).not.toBe(pageKey("/duel/13"));
+    expect(pageKey("/?duel=4")).not.toBe(pageKey("/"));
+    expect(pageKey("/")).toBe("play");
+    expect(pageKey("/?from=x")).toBe("play");
+    expect(pageKey("/fleet")).toBe("fleet");
+    expect(pageKey("/verify/12")).toBe("verify/12");
+    expect(pageKey("/replay/3")).toBe("replay/3");
   });
 });
