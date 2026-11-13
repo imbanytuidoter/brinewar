@@ -166,6 +166,17 @@ describe("read endpoints", () => {
     expect(ok.json().nauarch).toMatchObject({ root: "bb", reveal: null, answers: [{ idx: 5 }] });
   });
 
+  it("hands out the Nauarch's answer to a fired cell as soon as he has it, and nothing else", async () => {
+    const t = await setup();
+    t.store.saveAnswer(3, { idx: 5, cell: 1, salt: "aa", proof: ["bb"], tx: null });
+    const ok = await t.app.inject({ url: "/api/game/3/answer/5" });
+    expect(ok.statusCode).toBe(200);
+    expect(ok.json()).toEqual({ idx: 5, cell: 1, salt: "aa", proof: ["bb"] });
+    expect((await t.app.inject({ url: "/api/game/3/answer/6" })).statusCode).toBe(404);
+    expect((await t.app.inject({ url: "/api/game/3/answer/100" })).statusCode).toBe(400);
+    expect((await t.app.inject({ url: "/api/game/x/answer/5" })).statusCode).toBe(400);
+  });
+
   it("samples treasury and map only when they change", async () => {
     const t = await setup();
     expect(await sample(t.viewer, t.store, async () => 100)).toEqual({ treasury: true, admiralty: true });

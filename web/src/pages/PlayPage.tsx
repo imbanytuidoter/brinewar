@@ -17,7 +17,8 @@ import { layoutForBattle, randomLayout } from "@/scene/layoutChoice";
 import { loadOrCreateKey } from "@/lib/guest";
 import { browserStorage } from "@/lib/storage";
 import { FleetTray } from "@/ui/FleetTray";
-import { clearWater, confirmedSunk, mergeSunk } from "@/lib/sunk";
+import { lookout } from "@/lib/heat";
+import { clearWater, confirmedSunk, mergeSunk, sunkOwn } from "@/lib/sunk";
 import type { AppConfig } from "@/lib/config";
 import { txLink } from "@/lib/config";
 import { cryptoRng, placeFleet, ships } from "@/lib/fleet";
@@ -73,6 +74,9 @@ export function PlayPage({ cfg, session, stats, landing, onEnter }: PlayPageProp
   const sunkTheirs = useMemo(() => mergeSunk(confirmedSunk(snap.marks.enemy), snap.announcedSunk), [snap.marks.enemy, snap.announcedSunk]);
   const clearCells = useMemo(() => clearWater(sunkTheirs, snap.marks.enemy), [sunkTheirs, snap.marks.enemy]);
   const heat = stats.admiralty && stats.admiralty.boards_counted > 0 ? stats.admiralty.heat : null;
+  const lastMine = useMemo(() => [...snap.history].reverse().find((s) => s.by === snap.accountId) ?? null, [snap.history, snap.accountId]);
+  const watching = !duel && inBattle && result === null && (step === "thinking" || (step === "wait" && lastMine?.result === "Miss"));
+  const spyglass = useMemo(() => (watching ? lookout(snap.marks.mine, new Set(sunkOwn(myShips, snap.marks.mine).flat()), heat) : null), [watching, snap.marks.mine, myShips, heat]);
   const feed = useBattleFeed({ myShips, myMarks: snap.marks.mine, enemyMarks: snap.marks.enemy, sunkTheirs, heat, boards: stats.admiralty?.boards_counted ?? 0, rival: duel ? (rival ?? "Your friend") : null, gameId: snap.gameId });
   const shotsInAir = feed.flight !== null || feed.settling;
   const onFire = useCallback(
@@ -164,6 +168,7 @@ export function PlayPage({ cfg, session, stats, landing, onEnter }: PlayPageProp
           layout={layout}
           enemyWrecks={sunkTheirs}
           enemyClear={clearCells}
+          spyglass={spyglass}
           onLaunch={feed.onLaunch}
           onLand={feed.onLand}
           onQueued={feed.onQueued}
@@ -196,7 +201,7 @@ export function PlayPage({ cfg, session, stats, landing, onEnter }: PlayPageProp
         {duel && snap.gameId !== null && step !== "lost-board" ? (
           <DuelChat apiUrl={cfg.apiUrl} gameId={snap.gameId} me={snap.accountId} secretKey={chatKey} rival={rival ?? "Your friend"} />
         ) : (
-          <NauarchBubble mood={moodOf(feed.last)} line={line} thinking={step === "thinking"} fallback={GREETING} txHref={txHref} note={note} opponent={duel ? (rival ?? "Your friend") : null} inviting={step === "invite"} />
+          <NauarchBubble mood={moodOf(feed.last)} line={line} thinking={watching} fallback={GREETING} txHref={txHref} note={note} opponent={duel ? (rival ?? "Your friend") : null} inviting={step === "invite"} />
         )}
       </div>
 

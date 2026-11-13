@@ -3,7 +3,7 @@ import type { Caller, CallResult, Viewer } from "@/lib/chain";
 import type { GameView, PlayerView, ShipStatsView, ShotView } from "@/lib/contract";
 import { isLegalFleet, ships } from "@/lib/fleet";
 import { boardKey } from "@/lib/guest";
-import { buildTree, fromHex, sha256, toHex } from "@/lib/merkle";
+import { buildTree, fromHex, rootFromProof, sha256, toHex } from "@/lib/merkle";
 import { bindMoves, loadModelKeys, modelOfRequest } from "@/lib/nauarch";
 import type { NauarchEvidence } from "@/lib/proofs";
 import type { KeyValue } from "@/lib/storage";
@@ -87,12 +87,33 @@ export interface SessionDeps {
   readonly caller: Caller;
   readonly store: KeyValue;
   readonly evidence: (gameId: number) => Promise<NauarchEvidence | null>;
+  readonly quickAnswer?: (gameId: number, index: number) => Promise<QuickAnswer | null>;
   readonly refuel?: () => Promise<boolean>;
   readonly height?: () => Promise<number>;
   readonly now?: () => number;
 }
 
+export interface QuickAnswer {
+  readonly idx: number;
+  readonly cell: number;
+  readonly salt: string;
+  readonly proof: readonly string[];
+}
+
 export const BLOCK_MS = 587;
+const QUICK_POLL_MS = 250;
+const QUICK_TRIES = 32;
+
+export function provenResult(a: QuickAnswer, index: number, root: string | null): "Hit" | "Miss" | null {
+  if (!root || a.idx !== index || (a.cell !== 0 && a.cell !== 1)) return null;
+  try {
+    const computed = toHex(rootFromProof(index, a.cell, fromHex(a.salt), a.proof.map(fromHex)));
+    if (computed !== root.replace(/^0x/, "").toLowerCase()) return null;
+  } catch {
+    return null;
+  }
+  return a.cell === 1 ? "Hit" : "Miss";
+}
 const SUNK_RETRIES = 2;
 
 export function inviteKey(accountId: string, gameId: number): string {
@@ -136,6 +157,7 @@ export class GameSession {
   #hitsSeen = 0;
   #hitRetries = 0;
   #chainHistory = 0;
+  readonly #quick = new Map<string, "Hit" | "Miss">();
   #firing = false;
   #deferred: { key: string; gameId: number; index: number; since: number } | null = null;
 
@@ -366,6 +388,7 @@ export class GameSession {
       this.#firing = false;
     });
     if (r.ok) this.#chainHistory = Math.max(this.#chainHistory, g.shots + 1);
+    if (r.ok && g.mode === "VsNauarch") void this.#peek(g.id, index, g.root_b);
     if (r.ok && together) {
       this.#given.add(`answer:${g.id}:${d.index}`);
       this.#deferred = null;
@@ -373,6 +396,34 @@ export class GameSession {
     if (!r.ok && this.#snap.history === history) this.#set(before);
     await this.tick();
     return r.ok;
+  }
+
+  #withQuick(gameId: number, history: readonly ShotView[]): ShotView[] {
+    const me = this.#d.accountId;
+    return history.map((s) => {
+      const known = s.by === me && s.result === "Pending" ? this.#quick.get(`${gameId}:${s.index}`) : undefined;
+      return known ? { ...s, result: known } : s;
+    });
+  }
+
+  async #peek(gameId: number, index: number, root: string | null): Promise<void> {
+    const ask = this.#d.quickAnswer;
+    if (!ask) return;
+    for (let i = 0; i < QUICK_TRIES; i++) {
+      if (this.#snap.gameId !== gameId) return;
+      const shot = this.#snap.history.find((s) => s.by === this.#d.accountId && s.index === index);
+      if (shot && shot.result !== "Pending") return;
+      const answer = await ask(gameId, index).catch(() => null);
+      const result = answer ? provenResult(answer, index, root) : null;
+      if (result) {
+        this.#quick.set(`${gameId}:${index}`, result);
+        if (this.#snap.gameId !== gameId) return;
+        const history = this.#withQuick(gameId, this.#snap.history);
+        this.#set({ history, marks: marksFrom(history, this.#d.accountId) });
+        return;
+      }
+      await new Promise((r) => setTimeout(r, QUICK_POLL_MS));
+    }
   }
 
   async resign(): Promise<void> {
@@ -436,7 +487,8 @@ export class GameSession {
     const invite = step.kind === "invite" ? (this.#snap.invite ?? this.#d.store.get(inviteKey(me, id))) : null;
     if (game.status === "Finished") clearBattle(this.#d.store, me);
     else saveBattle(this.#d.store, me, game, history);
-    this.#set({ game, history: shown, marks: marksFrom(shown, me), step, board, invite, deadlineAt: await this.#deadline(game, step) });
+    const seen = this.#withQuick(id, shown);
+    this.#set({ game, history: seen, marks: marksFrom(seen, me), step, board, invite, deadlineAt: await this.#deadline(game, step) });
     const acted = await this.#act(game, step, board);
     await this.#claimIfLate(game, step);
     if (game.mode === "VsNauarch") await this.#refreshEvidence(game, history).catch(() => undefined);

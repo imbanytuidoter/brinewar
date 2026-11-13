@@ -1,3 +1,4 @@
+import type { QuickAnswer } from "@/game/session";
 import type { AnswerRow, ProofsView, PublicMove } from "./contract";
 
 const PROOFS_TIMEOUT_MS = 6000;
@@ -54,4 +55,14 @@ export async function fetchEvidence(apiUrl: string, gameId: number, fetchFn: typ
   const res = await fetchFn(`${apiUrl}/api/game/${gameId}/proofs`, { signal: AbortSignal.timeout(PROOFS_TIMEOUT_MS) });
   if (!res.ok) return null;
   return parseEvidence(await res.json(), gameId);
+}
+
+const QUICK_TIMEOUT_MS = 2500;
+
+export async function fetchQuickAnswer(apiUrl: string, gameId: number, index: number, fetchFn: typeof fetch = fetch): Promise<QuickAnswer | null> {
+  const res = await fetchFn(`${apiUrl}/api/game/${gameId}/answer/${index}`, { signal: AbortSignal.timeout(QUICK_TIMEOUT_MS) });
+  if (!res.ok) return null;
+  const raw = (await res.json()) as unknown;
+  if (!isObj(raw) || typeof raw.idx !== "number" || typeof raw.cell !== "number" || typeof raw.salt !== "string" || !Array.isArray(raw.proof) || !raw.proof.every((p) => typeof p === "string")) return null;
+  return { idx: raw.idx, cell: raw.cell, salt: raw.salt, proof: raw.proof as string[] };
 }

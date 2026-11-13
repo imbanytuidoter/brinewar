@@ -58,3 +58,27 @@ export function exposure(cells: readonly number[], heat: readonly number[], firs
   const ships = cells.flatMap((c, i) => (c === 1 ? [i] : []));
   return { looked: ranked.length, exposed: ships.filter((i) => first.has(i)).length, ships: ships.length };
 }
+
+const LOOKOUT = 8;
+const SPREAD = 37;
+
+function around(cell: number): number[] {
+  const x = cell % 10;
+  return [cell - 10, x < 9 ? cell + 1 : -1, cell + 10, x > 0 ? cell - 1 : -1].filter((c) => c >= 0 && c < 100);
+}
+
+export function lookout(fired: ReadonlyMap<number, "hit" | "miss">, sunk: ReadonlySet<number>, heat: readonly number[] | null): number[] {
+  const open = (c: number): boolean => !fired.has(c);
+  const wounded = [...fired].filter(([c, m]) => m === "hit" && !sunk.has(c)).flatMap(([c]) => around(c).filter(open));
+  if (wounded.length > 0) return [...new Set(wounded)].slice(0, LOOKOUT);
+  if (heat && heat.some((h) => h > 0))
+    return heat
+      .map((h, i) => ({ h, i }))
+      .filter((c) => c.h > 0 && open(c.i))
+      .sort((a, b) => b.h - a.h || a.i - b.i)
+      .slice(0, LOOKOUT)
+      .map((c) => c.i);
+  return Array.from({ length: 100 }, (_, i) => (i * SPREAD) % 100)
+    .filter(open)
+    .slice(0, LOOKOUT);
+}

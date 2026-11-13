@@ -5,6 +5,7 @@ import { CameraRig } from "./CameraRig";
 import { Effects } from "./Effects";
 import { Fleet } from "./Fleet";
 import { clearWater } from "@/lib/sunk";
+import { Spyglass } from "./Spyglass";
 import { REVEAL_END, sunkShips } from "./grid";
 import { Labels } from "./Labels";
 import { preloadModels } from "./models";
@@ -130,6 +131,7 @@ function World(props: SeaSceneProps) {
       <Shaker>
         <Sea aiming={props.aiming} />
         <Labels enemy={props.enemyLabel ?? "The Nauarch"} />
+        {props.spyglass && props.spyglass.length > 0 && <Spyglass cells={props.spyglass} reducedMotion={runtime.reduced} />}
         <Picker marks={props.enemyMarks} aiming={props.aiming} canFire={props.canFire} onFire={props.onFire} blocked={props.enemyClear ?? NO_CELLS} />
         <Suspense fallback={null}>
           <Effects />

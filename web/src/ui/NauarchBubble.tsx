@@ -24,7 +24,7 @@ export function NauarchBubble({ line, thinking, fallback, txHref, note = null, o
         <NauarchPortrait mood={thinking ? "thinking" : mood} className="size-[52px]" />
       </div>
       <div key={line?.at ?? "idle"} className="grid min-w-0 animate-rise gap-1 rounded-[14px_14px_14px_4px] border border-line bg-glass px-3 py-2.5 backdrop-blur-md">
-        <p className="m-0 break-words">{thinking ? "The Nauarch is studying the sea…" : line ? line.text : fallback}</p>
+        <p className="m-0 break-words">{thinking ? "The Nauarch sweeps your waters with his spyglass…" : line ? line.text : fallback}</p>
         {note && !thinking && <p className="m-0 text-[11px] text-muted">{note}</p>}
         {line && !thinking && (
           <Popover>

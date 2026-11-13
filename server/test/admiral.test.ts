@@ -133,6 +133,21 @@ describe("admiral", () => {
     expect(t.store.aiMoves(0)[0]?.tx).toBe("tx-answer");
   });
 
+  it("stores the proof of its answer before it asks the model, so the captain can see the result at once", async () => {
+    let seenEarly = false;
+    const model = new FakeModel({ model: "m", reply: () => '{"shot":"J10","line":"Aye."}' });
+    const t = setup({ model });
+    await t.settle();
+    const water = placeFleet(seededRng(3)).findIndex((c) => c === 0);
+    model.onComplete = () => {
+      seenEarly = t.store.answers(0).some((a) => a.idx === water && a.tx === null);
+    };
+    t.set({ status: "Playing", root_b: t.store.board(0)?.root as string, turn: ADM, pending_index: water, shots: 1 });
+    await t.settle();
+    expect(seenEarly).toBe(true);
+    expect(t.store.answers(0).find((a) => a.idx === water)?.tx).toBe("tx-answer");
+  });
+
   it("keeps the proof and does not resend when the RPC times out on a combined answer", async () => {
     const t = setup({ timeoutOn: (m) => m === "answer" });
     await t.settle();

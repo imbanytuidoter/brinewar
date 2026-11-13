@@ -1,6 +1,6 @@
 import { ed25519 } from "@noble/curves/ed25519.js";
 import { bytesToHex, utf8ToBytes } from "@noble/hashes/utils.js";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { decodeBoard } from "@/lib/board";
 import type { Caller, CallResult, Viewer } from "@/lib/chain";
 import type { GameView, PublicMove, ShotView } from "@/lib/contract";
@@ -8,7 +8,7 @@ import type { NauarchEvidence } from "@/lib/proofs";
 import { cellName } from "@/lib/utils";
 import { placeFleet, seededRng } from "@/lib/fleet";
 import { boardKey } from "@/lib/guest";
-import { fromHex, rootFromProof, sha256, toHex } from "@/lib/merkle";
+import { buildTree, fromHex, rootFromProof, sha256, toHex } from "@/lib/merkle";
 import { signedText } from "@/lib/nauarch";
 import { memoryStorage } from "@/lib/storage";
 import { GameSession, isNetworkError, isStale, rewardsBetween, verifiedFleet } from "./session";
@@ -35,6 +35,7 @@ class FakeContract implements Viewer, Caller {
   xp = 0;
   claims = 0;
   inviteHash: string | null = null;
+  slowAnswers = false;
 
   async view<T>(method: string, args: Record<string, unknown> = {}): Promise<T> {
     const out: Record<string, unknown> = {
@@ -107,6 +108,12 @@ class FakeContract implements Viewer, Caller {
         if (!g || g.turn !== ME || g.pending_index !== null) return { txHash: tx, ok: false, error: "not your turn" };
         const index = Number(args.index);
         const hit = this.enemy[index] === 1;
+        if (this.slowAnswers) {
+          this.history.push({ n: g.shots++, by: ME, index, result: "Pending", block: 2, source: "Player" });
+          g.pending_index = index;
+          g.turn = NAU;
+          return { txHash: tx, ok: true };
+        }
         this.history.push({ n: g.shots++, by: ME, index, result: hit ? "Hit" : "Miss", block: 2, source: "Player" });
         if (hit) g.hits_on_b++;
         g.turn = NAU;
@@ -461,6 +468,41 @@ describe("GameSession", () => {
     const fresh = new GameSession({ accountId: ME, viewer: chain, caller: chain, store, evidence: chain.evidence });
     await fresh.tick();
     expect(fresh.snapshot.step).toEqual({ kind: "lost-board" });
+  });
+});
+
+describe("instant result", () => {
+  function quick(lie: boolean) {
+    const chain = new FakeContract();
+    chain.slowAnswers = true;
+    const salts = Array.from({ length: 100 }, (_, i) => new Uint8Array(32).fill(i));
+    const tree = buildTree(chain.enemy, salts);
+    const quickAnswer = async (_id: number, index: number) => ({ idx: index, cell: lie ? 1 - (chain.enemy[index] as number) : (chain.enemy[index] as number), salt: toHex(salts[index] as Uint8Array), proof: tree.proof(index).map(toHex) });
+    const session = new GameSession({ accountId: ME, viewer: chain, caller: chain, store: memoryStorage(), evidence: chain.evidence, quickAnswer });
+    return { chain, session, root: toHex(tree.root) };
+  }
+
+  it("shows the result the moment the Nauarch's proof checks out against his committed root", async () => {
+    const { chain, session, root } = quick(false);
+    await session.start(placeFleet(seededRng(7)));
+    (chain.game as GameView).root_b = root;
+    await session.tick();
+    const target = chain.enemy.indexOf(1);
+    expect(await session.fire(target)).toBe(true);
+    await vi.waitFor(() => expect(session.snapshot.marks.enemy.get(target)).toBe("hit"));
+    expect(chain.history.at(-1)?.result).toBe("Pending");
+  });
+
+  it("ignores an answer whose proof does not match the root", async () => {
+    const { chain, session, root } = quick(true);
+    await session.start(placeFleet(seededRng(7)));
+    (chain.game as GameView).root_b = root;
+    await session.tick();
+    const target = chain.enemy.indexOf(1);
+    await session.fire(target);
+    await new Promise((r) => setTimeout(r, 50));
+    expect(session.snapshot.marks.enemy.has(target)).toBe(false);
+    expect(session.snapshot.marks.aiming).toBe(target);
   });
 });
 

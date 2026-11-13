@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { fetchEvidence, parseEvidence } from "./proofs";
+import { fetchEvidence, fetchQuickAnswer, parseEvidence } from "./proofs";
 
 const good = {
   game: { id: 3 },
@@ -35,5 +35,14 @@ describe("evidence from the harbour", () => {
     expect(await fetchEvidence("", 3, ok as unknown as typeof fetch)).not.toBeNull();
     const bad = vi.fn(async () => new Response("{}", { status: 500 }));
     expect(await fetchEvidence("", 3, bad as unknown as typeof fetch)).toBeNull();
+  });
+});
+
+describe("fetchQuickAnswer", () => {
+  it("reads a well-formed answer and refuses anything else", async () => {
+    const reply = (status: number, body: unknown) => (async () => ({ ok: status === 200, json: async () => body })) as unknown as typeof fetch;
+    expect(await fetchQuickAnswer("", 3, 5, reply(200, { idx: 5, cell: 1, salt: "aa", proof: ["bb"] }))).toEqual({ idx: 5, cell: 1, salt: "aa", proof: ["bb"] });
+    expect(await fetchQuickAnswer("", 3, 5, reply(404, { error: "not answered yet" }))).toBeNull();
+    expect(await fetchQuickAnswer("", 3, 5, reply(200, { idx: 5, cell: 1, salt: "aa", proof: [1] }))).toBeNull();
   });
 });

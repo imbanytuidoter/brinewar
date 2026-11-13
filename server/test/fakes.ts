@@ -39,6 +39,7 @@ export class FakeModel implements ModelProviderPort {
   readonly #keys = generateKeyPairSync("ed25519");
   readonly #replies = new Map<string, { request: string; response: string }>();
   readonly requests: string[] = [];
+  onComplete: (() => void) | null = null;
   #n = 0;
   constructor(private readonly o: FakeModelOptions) {}
 
@@ -50,6 +51,7 @@ export class FakeModel implements ModelProviderPort {
   async complete(request: string): Promise<ModelReply> {
     if (this.o.delayMs) await new Promise((r) => setTimeout(r, this.o.delayMs));
     if (this.o.failComplete) throw new Error("model unavailable");
+    this.onComplete?.();
     this.requests.push(request);
     const chatId = `chatcmpl-${++this.#n}`;
     const content = this.o.reply(request);

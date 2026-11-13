@@ -145,6 +145,15 @@ export async function buildApp(o: AppOptions) {
     return reply.code(out.status).send(out.body);
   });
 
+  app.get("/api/game/:id/answer/:index", { config: { rateLimit: { max: 400, timeWindow: "1 minute" } } }, async (req, reply) => {
+    const { id, index } = req.params as { id: string; index: string };
+    if (!/^\d{1,15}$/.test(id) || !/^\d{1,2}$/.test(index)) return reply.code(400).send({ error: "bad game or cell" });
+    const idx = Number(index);
+    const row = o.store.answers(Number(id)).find((a) => a.idx === idx);
+    if (!row) return reply.code(404).send({ error: "not answered yet" });
+    return { idx: row.idx, cell: row.cell, salt: row.salt, proof: row.proof };
+  });
+
   app.get("/api/game/:id/proofs", { config: { rateLimit: { max: 60, timeWindow: "1 minute" } } }, async (req, reply) => {
     const raw = (req.params as { id: string }).id;
     if (!/^\d{1,15}$/.test(raw)) return reply.code(400).send({ error: "bad game id" });
