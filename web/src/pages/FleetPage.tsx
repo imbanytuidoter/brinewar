@@ -79,11 +79,11 @@ function FleetView({ cfg, session }: { readonly cfg: AppConfig; readonly session
   useEffect(() => {
     if (!flagship) return;
     let alive = true;
-    viewer.view<string | null>("ship_svg", { token_id: flagship }).then((s) => alive && setSvg(s)).catch(() => undefined);
+    viewer.view<string | null>("ship_svg", { token_id: flagship, skin: equipped }).then((s) => alive && setSvg(s)).catch(() => undefined);
     return () => {
       alive = false;
     };
-  }, [viewer, flagship, captain?.ship?.xp]);
+  }, [viewer, flagship, captain?.ship?.xp, equipped]);
 
   useEffect(() => {
     let alive = true;
@@ -140,7 +140,7 @@ function FleetView({ cfg, session }: { readonly cfg: AppConfig; readonly session
           {svg && (
             <figure className="absolute right-2 bottom-2 m-0 grid w-16 gap-0.5 sm:w-24 rounded-md border border-line bg-black/40 p-1 backdrop-blur-sm">
               <img src={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`} alt={`On-chain image of ${flagship}`} className="block w-full rounded-sm" />
-              <figcaption className="text-center text-[9px] text-muted">token image</figcaption>
+              <figcaption className="text-center text-[9px] text-muted">token image · {skinLook(equipped ?? DEFAULT_SKIN).title}</figcaption>
             </figure>
           )}
         </div>
