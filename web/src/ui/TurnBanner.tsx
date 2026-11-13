@@ -52,7 +52,7 @@ const TONE: Readonly<Record<Side, string>> = {
 
 export function TurnBanner({ turn, busy, deadlineAt }: { readonly turn: Turn; readonly busy: boolean; readonly deadlineAt: number | null }) {
   return (
-    <div role="status" aria-live="polite" className="pointer-events-none fixed top-[calc(64px+env(safe-area-inset-top))] left-1/2 z-10 grid -translate-x-1/2 justify-items-center gap-1 max-sm:top-[calc(124px+env(safe-area-inset-top))]">
+    <div role="status" aria-live="polite" className="pointer-events-none fixed top-[calc(64px+env(safe-area-inset-top))] left-1/2 z-10 grid -translate-x-1/2 justify-items-center gap-1 max-md:top-[calc(124px+env(safe-area-inset-top))]">
       <p key={turn.title} className={cn("m-0 inline-flex max-w-[calc(100vw-32px)] animate-rise items-center gap-2 rounded-xl border px-4 py-1.5 shadow-[0_8px_24px_rgb(0_0_0/0.25)]", TONE[turn.side])}>
         {busy && <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden />}
         <span className="truncate font-display text-[clamp(18px,2.4vw,24px)] leading-none font-bold tracking-[0.02em] uppercase">{turn.title}</span>

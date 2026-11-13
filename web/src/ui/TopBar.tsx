@@ -17,10 +17,10 @@ export function TopBar({ myHits, enemyHits, showScore, verifyHref, enemyLabel = 
       tools={
         <>
           {showScore && (
-            <>
+            <span className="flex flex-wrap items-center justify-center gap-2 md:hidden">
               <Chip label="Your fleet" value={SHIP_CELLS - myHits} />
               <Chip label={enemyLabel} value={SHIP_CELLS - enemyHits} />
-            </>
+            </span>
           )}
           {verifyHref && (
             <a href={verifyHref} className="inline-flex items-center gap-1.5 rounded-full border border-line bg-glass px-3 py-1.5 text-xs font-semibold backdrop-blur-md hover:border-brass">

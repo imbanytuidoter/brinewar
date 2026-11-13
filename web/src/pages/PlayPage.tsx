@@ -200,7 +200,7 @@ export function PlayPage({ cfg, session, stats, landing, onEnter }: PlayPageProp
 
       {turn && <TurnBanner turn={turn} busy={snap.busy !== null} deadlineAt={snap.deadlineAt} />}
       {!turn && snap.busy && (
-        <div role="status" className="pointer-events-none fixed top-[calc(68px+env(safe-area-inset-top))] max-sm:top-[calc(106px+env(safe-area-inset-top))] left-1/2 z-10 flex -translate-x-1/2 items-center gap-2 rounded-full border border-line bg-glass px-3.5 py-1.5 text-xs whitespace-nowrap backdrop-blur-md">
+        <div role="status" className="pointer-events-none fixed top-[calc(68px+env(safe-area-inset-top))] max-md:top-[calc(106px+env(safe-area-inset-top))] left-1/2 z-10 flex -translate-x-1/2 items-center gap-2 rounded-full border border-line bg-glass px-3.5 py-1.5 text-xs whitespace-nowrap backdrop-blur-md">
           <Loader2 className="size-3.5 animate-spin" aria-hidden />
           {snap.busy}…
         </div>
