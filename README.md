@@ -21,7 +21,7 @@ Track: **Games**. Network: **NEAR testnet only**.
 | Press **Duel a friend instead**, then **Create the duel link**, and send it | Your friend opens it in any browser, also with no wallet, accepts, and you duel: same Merkle proofs, a one-minute move clock, a chat between the two captains, no gold at stake, XP for both flagships. |
 | Open **Admiralty** | The heat map of where captains hide ships, built only from boards the contract verified (one per captain per day). A day slider appears once more than one day is recorded. The Nauarch fires at the hot cells first. |
 | Open **Treasury**, press **Simulate 50 battles** | Live treasury, entry fee and bounty, then a fast-forward of 50 battles using the contract's own formulas (labelled as a simulation). |
-| Open **For judges**, then **Watch a finished battle** | A finished battle the Nauarch won by sinking a whole fleet, replayed from the chain with his signed lines, ending with his fleet rising from the root he sealed. |
+| Open **Fair play**, then **Watch a finished battle** | A finished battle the Nauarch won by sinking a whole fleet, replayed from the chain with his signed lines, ending with his fleet rising from the root he sealed. |
 | Open **Fleet** | Your flagship token, rank and XP. Every new rank mints a skin (Lieutenant, Captain, Commodore, Admiral) as a NEP-245 token. |
 
 ## How it works

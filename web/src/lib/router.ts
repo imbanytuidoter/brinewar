@@ -38,10 +38,16 @@ export function routeOf(link: LinkLike, click: ClickLike, here: Here): string | 
   return `${url.pathname}${url.search}${url.hash}`;
 }
 
-const PAGES = /^\/(admiralty|treasury|fleet|judges|captains|docs|verify\/\d+|replay(?:\/\d+)?)\/?$/;
+const PAGES = /^\/(admiralty|treasury|fleet|fair-play|captains|docs|verify\/\d+|replay(?:\/\d+)?)$/;
+const ALIASES: Readonly<Record<string, string>> = { "/judges": "/fair-play" };
+
+export function canonicalPath(pathname: string): string {
+  const path = pathname.replace(/\/+$/, "") || "/";
+  return ALIASES[path] ?? path;
+}
 
 export function pageKey(route: string): string {
-  const path = route.split(/[?#]/)[0] ?? "/";
+  const path = canonicalPath(route.split(/[?#]/)[0] ?? "/");
   const page = PAGES.exec(path);
   if (page) return page[1] as string;
   return /^\/duel\//.test(path) || /[?&]duel=/.test(route) ? `play:${route}` : "play";

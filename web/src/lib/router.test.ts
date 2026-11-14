@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { pageKey, routeOf } from "./router";
+import { canonicalPath, pageKey, routeOf } from "./router";
 
 const here = { origin: "https://brinewar.example", pathname: "/fleet", search: "" };
 const click = { button: 0, metaKey: false, ctrlKey: false, shiftKey: false, altKey: false, defaultPrevented: false };
@@ -32,6 +32,13 @@ describe("router", () => {
     expect(pageKey("/")).toBe("play");
     expect(pageKey("/?from=x")).toBe("play");
     expect(pageKey("/fleet")).toBe("fleet");
+    expect(pageKey("/fair-play")).toBe("fair-play");
+    expect(pageKey("/judges")).toBe("fair-play");
+    expect(pageKey("/judges/")).toBe("fair-play");
+    expect(pageKey("/fleet/")).toBe("fleet");
+    expect(canonicalPath("/judges")).toBe("/fair-play");
+    expect(canonicalPath("/")).toBe("/");
+    expect(canonicalPath("/docs/")).toBe("/docs");
     expect(pageKey("/verify/12")).toBe("verify/12");
     expect(pageKey("/replay/3")).toBe("replay/3");
   });

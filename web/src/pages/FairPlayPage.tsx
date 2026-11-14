@@ -39,7 +39,7 @@ const LIMITS = [
   "Our server keeps the Nauarch's board and salts. It cannot change them after the commit, but it can see them. Moving that into a TEE is future work.",
   "The admin pins the model key after checking its attestation; the contract does not verify a TDX quote itself.",
   "The game contract funds guest accounts and their gas; a sponsor account signs the sign-ups.",
-  "To protect testnet funds the harbour signs on at most 6 new guests per network address per hour and 12 per day (300 in all per day); judges sharing one address may see \"too many new captains from this address\".",
+  "To protect testnet funds the harbour signs on at most 6 new guests per network address per hour and 12 per day (300 in all per day); people sharing one address may see \"too many new captains from this address\".",
   "The Admiralty map was seeded with scripted battles by Seed_NN captains so it was not empty on day one, and most of its boards so far come from them; the live count is shown on the landing and the Admiralty page.",
   "The replay shows only battles the Nauarch won by sinking the whole fleet, because it rebuilds the captain's fleet from his hits.",
 ] as const;
@@ -149,13 +149,13 @@ function ProvenBattle({ id }: { readonly id: number }) {
   );
 }
 
-export function JudgesPage({ cfg }: { readonly cfg: AppConfig }) {
+export function FairPlayPage({ cfg }: { readonly cfg: AppConfig }) {
   const proven = useProvenBattle(cfg);
   const chapters = useChapters();
   const contractHref = accountLink(cfg, cfg.contractId);
   return (
     <PageShell
-      title="Brinewar for judges"
+      title="Fair play, proven"
       lede={
         <div className="grid gap-3">
           <p className="m-0 inline-flex items-center gap-2 justify-self-start rounded-full border border-ok/40 bg-ok/10 px-3 py-1 text-xs font-semibold tracking-[0.12em] text-ok uppercase">

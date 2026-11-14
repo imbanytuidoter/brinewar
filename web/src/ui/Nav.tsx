@@ -1,6 +1,7 @@
-import { Anchor, BookOpen, Coins, Gavel, Map as MapIcon, Ship, Swords, Trophy } from "lucide-react";
+import { Anchor, BookOpen, Coins, Map as MapIcon, ShieldCheck, Ship, Swords, Trophy } from "lucide-react";
 import { useEffect, useState } from "react";
 import { openBattle } from "@/game/resume";
+import { canonicalPath } from "@/lib/router";
 import { browserStorage } from "@/lib/storage";
 import { cn } from "@/lib/utils";
 
@@ -11,7 +12,7 @@ const LINKS = [
   { href: "/captains", label: "Captains", icon: Trophy },
   { href: "/treasury", label: "Treasury", icon: Coins },
   { href: "/docs", label: "Docs", icon: BookOpen },
-  { href: "/judges", label: "For judges", icon: Gavel },
+  { href: "/fair-play", label: "Fair play", icon: ShieldCheck },
 ] as const;
 
 const warmBattle = (): void => {
@@ -19,7 +20,7 @@ const warmBattle = (): void => {
 };
 
 function BattleReturn() {
-  const here = window.location.pathname.replace(/\/+$/, "") || "/";
+  const here = canonicalPath(window.location.pathname);
   const [id] = useState(() => (here === "/" ? null : openBattle(browserStorage())));
   useEffect(() => {
     if (id === null) return;
@@ -40,7 +41,7 @@ function BattleReturn() {
 }
 
 export function Nav({ className, compact = false }: { readonly className?: string; readonly compact?: boolean }) {
-  const here = window.location.pathname.replace(/\/+$/, "") || "/";
+  const here = canonicalPath(window.location.pathname);
   return (
     <nav aria-label="Main" className={cn("flex items-center gap-1 rounded-full border border-line bg-glass p-1 backdrop-blur-md", className)}>
       {LINKS.map(({ href, label, icon: Icon }) => {

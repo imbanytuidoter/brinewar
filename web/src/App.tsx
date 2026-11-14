@@ -4,14 +4,14 @@ import { Button } from "@/components/ui/button";
 import { Shipwreck } from "@/ui/Shipwreck";
 import { Shell } from "@/ui/Shell";
 import "@/lib/musicBox";
-import { captureLinks, currentRoute, pageKey, subscribeRoute } from "@/lib/router";
+import { canonicalPath, captureLinks, currentRoute, pageKey, subscribeRoute } from "@/lib/router";
 import { readConfig, type AppConfig } from "@/lib/config";
 
 const AdmiraltyPage = lazy(() => import("@/pages/AdmiraltyPage").then((m) => ({ default: m.AdmiraltyPage })));
 const FleetPage = lazy(() => import("@/pages/FleetPage").then((m) => ({ default: m.FleetPage })));
 const CaptainsPage = lazy(() => import("@/pages/CaptainsPage").then((m) => ({ default: m.CaptainsPage })));
 const DocsPage = lazy(() => import("@/pages/docs/DocsPage").then((m) => ({ default: m.DocsPage })));
-const JudgesPage = lazy(() => import("@/pages/JudgesPage").then((m) => ({ default: m.JudgesPage })));
+const FairPlayPage = lazy(() => import("@/pages/FairPlayPage").then((m) => ({ default: m.FairPlayPage })));
 const ReplayPage = lazy(() => import("@/pages/ReplayPage").then((m) => ({ default: m.ReplayPage })));
 const TreasuryPage = lazy(() => import("@/pages/TreasuryPage").then((m) => ({ default: m.TreasuryPage })));
 const PlayRoute = lazy(() => import("@/pages/PlayRoute").then((m) => ({ default: m.Play })));
@@ -21,7 +21,7 @@ const TITLES: Record<string, string> = {
   admiralty: "Admiralty map",
   treasury: "Treasury",
   fleet: "Your fleet",
-  judges: "For judges",
+  "fair-play": "Fair play",
   captains: "Captains",
   docs: "How it works",
 };
@@ -73,11 +73,11 @@ function Routes() {
   if (cfg instanceof Error) return <Shell title="Harbour closed" text={`Configuration error: ${cfg.message}`} />;
   const verify = /^\/verify\/(\d{1,15})\/?$/.exec(window.location.pathname);
   if (verify) return <VerifyPage cfg={cfg} gameId={Number(verify[1])} />;
-  const path = window.location.pathname.replace(/\/+$/, "");
+  const path = canonicalPath(window.location.pathname);
   if (path === "/admiralty") return <AdmiraltyPage cfg={cfg} />;
   if (path === "/treasury") return <TreasuryPage cfg={cfg} />;
   if (path === "/fleet") return <FleetPage cfg={cfg} />;
-  if (path === "/judges") return <JudgesPage cfg={cfg} />;
+  if (path === "/fair-play") return <FairPlayPage cfg={cfg} />;
   if (path === "/captains") return <CaptainsPage cfg={cfg} />;
   if (path === "/docs") return <DocsPage cfg={cfg} />;
   const replay = /^\/replay(?:\/(\d{1,15}))?$/.exec(path);

@@ -71,8 +71,8 @@ export function ReplayPage({ cfg, gameId }: { readonly cfg: AppConfig; readonly 
         <h1 className="m-0 font-display text-4xl font-bold">Replay</h1>
         {load.kind === "loading" && <Loader2 className="size-5 animate-spin text-brass" aria-hidden />}
         <p className="m-0 max-w-sm text-muted">{text}</p>
-        <a href="/judges" className="text-xs text-brass underline-offset-2 hover:underline">
-          Back to the judges' page
+        <a href="/fair-play" className="text-xs text-brass underline-offset-2 hover:underline">
+          Back to Fair play
         </a>
       </div>
     </main>

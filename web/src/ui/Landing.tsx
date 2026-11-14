@@ -46,7 +46,7 @@ export function Landing({ stats, ready, onEnter }: LandingProps) {
             {ready ? <Anchor aria-hidden /> : <Loader2 className="animate-spin" aria-hidden />}
             {ready ? "Take command" : "Signing you on…"}
           </Button>
-          <a href="/judges" className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-muted underline-offset-4 hover:text-ink hover:underline">
+          <a href="/fair-play" className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-muted underline-offset-4 hover:text-ink hover:underline">
             <ShieldCheck className="size-4 text-ok" aria-hidden />
             How to check it is fair
           </a>
