@@ -3,9 +3,9 @@ import * as THREE from "three";
 import type { Wave } from "./gerstner";
 import { BOARD_ORIGIN } from "./grid";
 
-const SEA_FOG = "#cfeeff";
-export const FOG_NEAR = 38;
-export const FOG_FAR = 95;
+const SEA_FOG = "#bfe9ff";
+export const FOG_NEAR = 54;
+export const FOG_FAR = 100;
 export const OFF_BOARD = 999;
 
 export type SeaUniforms = {
@@ -41,8 +41,8 @@ export function createSeaUniforms(waves: readonly Wave[]): SeaUniforms {
     uHover: { value: new THREE.Vector2(OFF_BOARD, OFF_BOARD) },
     uWaves: { value: waves.map((w) => new THREE.Vector4(w.dx, w.dz, w.k, w.a)) },
     uSpeeds: { value: waves.map((w) => w.c) },
-    uDeep: { value: new THREE.Color("#0f5f86") },
-    uShallow: { value: new THREE.Color("#3fb6c9") },
+    uDeep: { value: new THREE.Color("#0a5c94") },
+    uShallow: { value: new THREE.Color("#2ec3d6") },
     uFoam: { value: new THREE.Color("#f2fbff") },
     uFogColor: { value: new THREE.Color(SEA_FOG) },
     uCam: { value: new THREE.Vector3() },
@@ -101,7 +101,7 @@ void main() {
   vec3 v = normalize(uCam - vPos);
   float fres = pow(1. - max(dot(n, v), 0.), 3.);
   vec3 col = mix(uShallow, uDeep, clamp(0.55 - vCrest * 2.2 + 0.25 * fres, 0., 1.));
-  col = mix(col, vec3(0.86, 0.95, 1.0), fres * 0.55);
+  col = mix(col, mix(uFogColor, vec3(1.), 0.2), fres * 0.4);
   float sparkle = pow(max(dot(reflect(-v, n), normalize(vec3(-0.5, 0.8, 0.4))), 0.), 160.);
   col += sparkle * 0.9;
   float n1 = 0.65 * noise(vPos.xz * 1.3 + vec2(uTime * 0.18, uTime * 0.11)) + 0.35 * noise(vPos.xz * 3.7 - uTime * 0.22);

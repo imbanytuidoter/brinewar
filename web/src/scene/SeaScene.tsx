@@ -1,4 +1,4 @@
-import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import { Canvas, useFrame } from "@react-three/fiber";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { CameraRig } from "./CameraRig";
@@ -12,6 +12,7 @@ import { preloadModels } from "./models";
 import { Picker } from "./Picker";
 import { createRuntime, RuntimeContext, useRuntime, type SceneRuntime } from "./runtime";
 import { Sea } from "./Sea";
+import { SkyDome } from "./SkyDome";
 import { layoutFor } from "./layouts";
 import { Scenery, Wrecks } from "./Scenery";
 import { Gulls } from "./Gulls";
@@ -27,40 +28,20 @@ const EXPOSURE = 1.05;
 const NO_SHIPS: readonly (readonly number[])[] = [];
 const NO_CELLS: ReadonlySet<number> = new Set();
 
-function skyTexture(colors: readonly [string, string, string]): THREE.Texture {
-  const c = document.createElement("canvas");
-  c.width = 2;
-  c.height = 256;
-  const g = c.getContext("2d");
-  if (g) {
-    const grad = g.createLinearGradient(0, 0, 0, 256);
-    grad.addColorStop(0, colors[0]);
-    grad.addColorStop(0.55, colors[1]);
-    grad.addColorStop(1, colors[2]);
-    g.fillStyle = grad;
-    g.fillRect(0, 0, 2, 256);
-  }
-  const t = new THREE.CanvasTexture(c);
-  t.colorSpace = THREE.SRGBColorSpace;
-  return t;
-}
-
 function Sky({ mood }: { readonly mood: Mood }) {
-  const scene = useThree((s) => s.scene);
   const { uniforms } = useRuntime();
   useEffect(() => {
-    const tex = skyTexture(mood.sky);
-    scene.background = tex;
     uniforms.uDeep.value.set(mood.deep);
     uniforms.uShallow.value.set(mood.shallow);
     uniforms.uFoam.value.set(mood.foam);
     uniforms.uFogColor.value.set(mood.fog);
-    return () => {
-      scene.background = null;
-      tex.dispose();
-    };
-  }, [scene, mood, uniforms]);
-  return <fog attach="fog" args={[mood.fog, FOG_NEAR, FOG_FAR]} />;
+  }, [mood, uniforms]);
+  return (
+    <>
+      <fog attach="fog" args={[mood.fog, FOG_NEAR, FOG_FAR]} />
+      <SkyDome mood={mood} />
+    </>
+  );
 }
 
 interface BoardProps {
@@ -175,6 +156,7 @@ export function SeaScene(props: SeaSceneProps) {
       gl={{ antialias: true, powerPreference: "high-performance" }}
       camera={{ fov: 42, near: 0.1, far: 300, position: [0, 17, 19] }}
       onCreated={({ gl }) => {
+        gl.toneMapping = THREE.NeutralToneMapping;
         gl.toneMappingExposure = EXPOSURE;
       }}
       style={{ position: "absolute", inset: 0, touchAction: "none" }}
