@@ -1,4 +1,4 @@
-Music by lavenderJunction, supplied by the Brinewar team for this game.
+Music generated with AI by the Brinewar team for this game.
 
 harbour.mp3  - "Calm Nautical Adventure (Alt)", re-encoded at 64 kbps
 battle.mp3   - "Tactical Waters", re-encoded at 64 kbps
