@@ -78,7 +78,7 @@ Not built yet; these build on what is already on chain.
 
 ## Run it locally
 
-Requirements: Rust with `wasm32-unknown-unknown` and `cargo-near`, Node 22.13+, Docker (only if your glibc is older than 2.38, for `near-sandbox`).
+Requirements: Rust 1.96.0 with `wasm32-unknown-unknown` (pinned in `contracts/game/rust-toolchain.toml`, the compiler the deployed contract was built with) and `cargo-near`, Node 22.13+, Docker (only if your glibc is older than 2.38, for `near-sandbox`).
 
 ```bash
 cd contracts/game && cargo test
