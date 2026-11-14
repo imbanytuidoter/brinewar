@@ -54,7 +54,7 @@ Track: **Games**. Network: **NEAR testnet only**.
 | `admiral.brinewar.testnet` | the Nauarch: holds the treasury, plays through a function-call key |
 | `sponsor.brinewar.testnet` | registrar: signs guest sign-ups; the game contract creates and funds the accounts |
 
-Example transactions are linked from the Verify page of any battle. Deployment steps: [`docs/runbook.md`](docs/runbook.md).
+Example transactions are linked from the Verify page of any battle.
 
 ## Honest limits
 

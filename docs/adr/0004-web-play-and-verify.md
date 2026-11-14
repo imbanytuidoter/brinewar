@@ -4,7 +4,7 @@
 
 ## Стек
 - Vite 8 + React 19 + TypeScript, Tailwind 4, компоненти в стилі shadcn/ui (Button, Popover на radix-ui), іконки Lucide, шрифти Fontshare (Archivo, Bespoke Stencil) self-hosted у `web/public/fonts`.
-- 3D: three r186 через React Three Fiber 9 + drei 10, сцена в `web/src/scene` перенесена з концепту `docs/design/sea3d.src.html`. Кораблі Kenney Pirate Kit 2.1 (CC0, `web/public/models/LICENSE-kenney.txt`). Сцена вантажиться ліниво окремим чанком.
+- 3D: three r186 через React Three Fiber 9 + drei 10, сцена в `web/src/scene` перенесена з раннього концепту. Кораблі Kenney Pirate Kit 2.1 (CC0, `web/public/models/LICENSE-kenney.txt`). Сцена вантажиться ліниво окремим чанком.
 - near-api-js 7.4.0, як у сервері; хеші і ed25519 через @noble (без node:crypto).
 - Маршрути без зовнішнього роутера (власний `lib/router.ts`): `/` (Play), `/verify/:id`, `/replay`, `/judges`, `/docs`, `/admiralty`, `/treasury`, `/captains`, `/fleet`. Тема одна, денне море з концепту, без перемикача dark/light.
 
