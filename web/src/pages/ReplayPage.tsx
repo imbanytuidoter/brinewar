@@ -154,7 +154,7 @@ function Theatre({ replay }: { readonly replay: Replay }) {
           </a>
         }
       />
-      <p className="pointer-events-none fixed top-[calc(104px+env(safe-area-inset-top))] left-1/2 z-10 m-0 -translate-x-1/2 rounded-full border border-line bg-glass px-3 py-1.5 text-xs whitespace-nowrap backdrop-blur-md lg:top-[calc(60px+env(safe-area-inset-top))]">
+      <p className="pointer-events-none fixed top-[calc(142px+env(safe-area-inset-top))] left-1/2 z-10 m-0 -translate-x-1/2 rounded-full border border-line bg-glass px-3 py-1.5 text-xs whitespace-nowrap backdrop-blur-md md:top-[calc(60px+env(safe-area-inset-top))]">
         Replay of battle #{game.id} from the chain · shot {Math.min(step, history.length)} of {history.length}
       </p>
 
@@ -163,7 +163,7 @@ function Theatre({ replay }: { readonly replay: Replay }) {
       </div>
 
       {done && (
-        <div className="fixed top-[calc(72px+env(safe-area-inset-top))] left-1/2 z-10 grid w-[min(440px,calc(100vw-32px))] -translate-x-1/2 animate-rise gap-1.5 rounded-2xl border border-line bg-glass p-4 text-center backdrop-blur-md">
+        <div className="fixed top-[calc(184px+env(safe-area-inset-top))] left-1/2 z-10 grid w-[min(440px,calc(100vw-32px))] -translate-x-1/2 animate-rise gap-1.5 rounded-2xl border border-line bg-glass p-4 text-center backdrop-blur-md md:top-[calc(104px+env(safe-area-inset-top))]">
           <p className="m-0 font-display text-2xl font-bold">The Nauarch wins battle #{game.id}</p>
           <p className="m-0 text-[13px] text-muted">
             {history.length} shots, each answered with a Merkle proof against a sealed board. {replay.lines.size} of his lines were signed by the model on NEAR AI. His fleet above was rebuilt from the root he sealed before the first shot.

@@ -2,7 +2,7 @@
 
 A naval battle on NEAR where the blockchain stays out of sight. You open the site and play: no wallet, no seed phrase, no popup. Every shot is a NEAR transaction, every answer comes with a Merkle proof the contract checks, and your opponent, **the Nauarch**, is an AI admiral: every move his model makes is produced by NEAR AI Cloud inside a TEE, signed there, and verified by the contract before it counts (if the model is late or wrong, the contract plays a deterministic shot, labelled as such). He learns where all captains hide their ships from an on-chain map, keeps a treasury that pays bounties and grows poor when he loses, and reads your record against him before every move.
 
-Play: **https://brinewar.imbanytui.xyz** · For judges: **https://brinewar.imbanytui.xyz/judges**
+Play: **https://brinewar.imbanytui.xyz** · For judges: **https://brinewar.imbanytui.xyz/judges** · Trailer (45 s): **https://brinewar.imbanytui.xyz/demo/brinewar.mp4**
 
 Track: **Games**. Network: **NEAR testnet only**.
 
