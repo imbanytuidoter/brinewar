@@ -116,7 +116,7 @@ export function equipSkin(store: KeyValue, accountId: string, name: string | nul
   }
 }
 
-export const BALANCE_BATCH = 16;
+const BALANCE_BATCH = 16;
 
 export async function ownedSkins(viewer: Viewer, accountId: string): Promise<{ readonly all: string[]; readonly owned: string[] }> {
   const all = [...new Set(await viewer.view<string[]>("skins"))];

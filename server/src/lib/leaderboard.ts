@@ -60,7 +60,7 @@ function entryOf(ship: ShipRow, player: PlayerRow): CaptainEntry {
   return { account: ship.captain, name: player.display_name, rank: ship.rank, class: ship.class, xp: ship.xp, wins: player.wins, losses: player.losses, sunk: ship.sunk, gold: player.gold, seed: SEED_NAME.test(player.display_name) };
 }
 
-export interface RankedBoard extends Leaderboard {
+interface RankedBoard extends Leaderboard {
   readonly all: readonly CaptainEntry[];
   readonly topSeeds: number;
 }
@@ -96,7 +96,7 @@ interface GameRow {
   readonly status: string;
 }
 
-export const WATCH_BACK = 100;
+const WATCH_BACK = 100;
 const FORGET_AFTER = 500;
 
 export class LiveLeaderboard {

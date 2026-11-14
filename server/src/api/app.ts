@@ -32,7 +32,7 @@ export function limitKey(ip: string): string {
   return `${groups.slice(0, 4).join(":")}::/64`;
 }
 
-export interface PublicMove {
+interface PublicMove {
   kind: string;
   source: string;
   chat_id: string | null;
@@ -45,7 +45,7 @@ export interface PublicMove {
   at: number;
 }
 
-export interface AppOptions {
+interface AppOptions {
   readonly viewer: Viewer;
   readonly sponsor: Caller;
   readonly store: Store;

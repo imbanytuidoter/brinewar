@@ -1,6 +1,6 @@
 import type { Island, Vec } from "./world";
 
-export interface Bounds {
+interface Bounds {
   readonly x0: number;
   readonly y0: number;
   readonly x1: number;

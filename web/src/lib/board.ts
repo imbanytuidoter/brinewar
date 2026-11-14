@@ -7,7 +7,7 @@ export interface Board {
   readonly tree: Tree;
 }
 
-export function freshSalts(): Hash[] {
+function freshSalts(): Hash[] {
   return Array.from({ length: CELLS }, () => crypto.getRandomValues(new Uint8Array(32)));
 }
 
@@ -19,7 +19,7 @@ export function rootHex(board: Board): string {
   return toHex(board.tree.root);
 }
 
-export interface AnswerArgs {
+interface AnswerArgs {
   readonly game_id: number;
   readonly index: number;
   readonly cell: number;

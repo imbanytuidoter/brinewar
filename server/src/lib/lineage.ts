@@ -17,12 +17,12 @@ export async function bindLineage(store: Store, viewer: Viewer, contract: string
   if (known !== lineage) throw new LineageError(`this database belongs to ${known}, not ${lineage}; boards and answers would leak into new games`);
 }
 
-export interface LineageLog {
+interface LineageLog {
   warn(obj: object, msg: string): void;
 }
 
-export const LINEAGE_TRIES = 5;
-export const LINEAGE_PAUSE_MS = 2000;
+const LINEAGE_TRIES = 5;
+const LINEAGE_PAUSE_MS = 2000;
 
 export async function bindLineageSoon(store: Store, viewer: Viewer, contract: string, log: LineageLog, pauseMs = LINEAGE_PAUSE_MS): Promise<boolean> {
   for (let i = 1; i <= LINEAGE_TRIES; i++) {

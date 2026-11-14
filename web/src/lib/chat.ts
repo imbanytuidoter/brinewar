@@ -16,7 +16,7 @@ export function chatPayload(kind: "say" | "read", gameId: number, account: strin
   return enc.encode(kind === "say" ? `brinewar-chat\n${gameId}\n${account}\n${signedAt}\n${text}` : `brinewar-chat-read\n${gameId}\n${account}\n${signedAt}`);
 }
 
-export interface ChatClient {
+interface ChatClient {
   send(gameId: number, text: string): Promise<boolean>;
   read(gameId: number, after: number): Promise<ChatMessage[] | null>;
 }

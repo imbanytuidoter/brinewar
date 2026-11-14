@@ -8,7 +8,7 @@ const BALL = "cannon-ball";
 const PARTS = ["cannon", "flag-pennant", "flag-high-pennant"] as const;
 const WRECK = "ship-wreck";
 
-export const HULLSETS: Readonly<Record<Hullset, Readonly<Record<number, string>>>> = {
+const HULLSETS: Readonly<Record<Hullset, Readonly<Record<number, string>>>> = {
   brine: { 4: "ship-large", 3: "ship-medium", 2: "ship-small", 1: "boat-row-large" },
   pirate: { 4: "ship-pirate-large", 3: "ship-pirate-medium", 2: "ship-pirate-small", 1: "boat-row-small" },
 };

@@ -1,7 +1,7 @@
 import { useId, useMemo, useState, type PointerEvent } from "react";
 import { CHART_SURFACE, GRID } from "./palette";
 
-export interface Series {
+interface Series {
   readonly key: string;
   readonly label: string;
   readonly color: string;

@@ -63,7 +63,7 @@ export function seaHeight(waves: readonly Wave[], x: number, z: number, t: numbe
   return y * calm(x, z);
 }
 
-export interface Tilt {
+interface Tilt {
   readonly pitch: number;
   readonly roll: number;
 }

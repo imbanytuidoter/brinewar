@@ -18,7 +18,7 @@ const warmBattle = (): void => {
   void import("@/scene/SeaScene").catch(() => undefined);
 };
 
-export function BattleReturn() {
+function BattleReturn() {
   const here = window.location.pathname.replace(/\/+$/, "") || "/";
   const [id] = useState(() => (here === "/" ? null : openBattle(browserStorage())));
   useEffect(() => {

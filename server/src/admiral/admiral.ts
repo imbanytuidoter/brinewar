@@ -12,7 +12,7 @@ import { ModelProviderError } from "../lib/nearai.js";
 import type { Vault } from "../lib/vault.js";
 import { decide, type Action } from "./decide.js";
 
-export interface AdmiralOptions {
+interface AdmiralOptions {
   readonly viewer: Viewer;
   readonly caller: Caller;
   readonly store: Store;

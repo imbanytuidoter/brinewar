@@ -12,7 +12,7 @@ export type Step =
   | { readonly kind: "invite" }
   | { readonly kind: "done" };
 
-export type SideName = "a" | "b";
+type SideName = "a" | "b";
 
 export function sideOf(g: GameView, me: string): SideName {
   return g.a === me ? "a" : "b";

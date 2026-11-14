@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 
 export const LOCK_MS = 1700;
 export const LOCK_AFTER_LAND_MS = 450;
-export const LOCK_MAX_MS = 12_000;
+const LOCK_MAX_MS = 12_000;
 
 export function useLockOn(gameId: number | null, shotN: number | null, cell: number | null, enabled: boolean, airborne = false): number | null {
   const lockedAt = useRef(0);

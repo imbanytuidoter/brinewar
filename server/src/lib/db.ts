@@ -16,7 +16,7 @@ CREATE INDEX IF NOT EXISTS guests_ip_at ON guests (ip, at);
 CREATE INDEX IF NOT EXISTS samples_kind_at ON samples (kind, at);
 `;
 
-export interface AnswerRow {
+interface AnswerRow {
   idx: number;
   cell: number;
   salt: string;
@@ -24,7 +24,7 @@ export interface AnswerRow {
   tx: string | null;
 }
 
-export interface AiMoveRow {
+interface AiMoveRow {
   kind: string;
   source: string;
   chat_id: string | null;
@@ -37,7 +37,7 @@ export interface AiMoveRow {
   at: number;
 }
 
-export interface AiMoveInput {
+interface AiMoveInput {
   gameId: number;
   kind: string;
   source: string;
@@ -161,10 +161,6 @@ export class Store {
 
   finishGuest(id: number, tx: string | null, ok: boolean): void {
     this.db.prepare("UPDATE guests SET tx = ?, status = ? WHERE id = ?").run(tx, ok ? "ok" : "failed", id);
-  }
-
-  recordGuest(ip: string, account: string, tx: string | null): void {
-    this.db.prepare("INSERT INTO guests (ip, account, tx, at) VALUES (?, ?, ?, ?)").run(ip, account, tx, this.now());
   }
 
   guestsSince(sinceMs: number, ip?: string): number {

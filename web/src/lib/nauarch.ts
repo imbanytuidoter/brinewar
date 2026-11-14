@@ -3,7 +3,7 @@ import { utf8ToBytes } from "@noble/hashes/utils.js";
 import type { ModelView, PublicMove, ShotView } from "./contract";
 import { fromHex, sha256, toHex } from "./merkle";
 
-export const MAX_LINE_CHARS = 140;
+const MAX_LINE_CHARS = 140;
 
 export function extractContent(responseBody: string): string | null {
   try {
@@ -15,7 +15,7 @@ export function extractContent(responseBody: string): string | null {
   }
 }
 
-export interface Reply {
+interface Reply {
   readonly shot: string | null;
   readonly line: string | null;
 }
@@ -43,7 +43,7 @@ export function sanitizeLine(raw: string): string | null {
   return line ? line : null;
 }
 
-export function lineOf(responseBody: string | null): string | null {
+function lineOf(responseBody: string | null): string | null {
   if (!responseBody) return null;
   const content = extractContent(responseBody);
   const raw = content ? parseReply(content).line : null;
@@ -54,7 +54,7 @@ export function signedText(model: string, request: string, response: string): st
   return `${model}:${toHex(sha256(utf8ToBytes(request)))}:${toHex(sha256(utf8ToBytes(response)))}`;
 }
 
-export interface SignedMove {
+interface SignedMove {
   readonly model: string;
   readonly publicKeyHex: string;
   readonly request: string;
@@ -75,7 +75,7 @@ export function verifyMove(m: SignedMove): boolean {
 
 export type Check = "ok" | "bad" | "chain";
 
-export interface BoundMove {
+interface BoundMove {
   readonly move: PublicMove;
   readonly line: string | null;
   readonly check: Check;

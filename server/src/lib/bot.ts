@@ -5,7 +5,7 @@ import { playerGas } from "./contract.js";
 import { placeFleet, type Rng } from "./fleet.js";
 import { resultFromResponse, withTimeout, type CallResult, type Viewer } from "./near.js";
 
-export interface BotOptions {
+interface BotOptions {
   readonly accountId: string;
   readonly secretKey: string;
   readonly provider: Provider;

@@ -5,13 +5,13 @@ import type { KeyValue } from "./storage";
 const SIGNER_SLOT = "brinewar.signer.v1";
 const ACCOUNT = "brinewar.account.v1";
 
-export interface Guest {
+interface Guest {
   readonly accountId: string;
   readonly secretKey: string;
   readonly publicKey: string;
 }
 
-export type Fetch = (input: string, init?: RequestInit) => Promise<Response>;
+type Fetch = (input: string, init?: RequestInit) => Promise<Response>;
 
 export function loadOrCreateKey(store: KeyValue): { secretKey: string; publicKey: string } {
   const saved = store.get(SIGNER_SLOT);

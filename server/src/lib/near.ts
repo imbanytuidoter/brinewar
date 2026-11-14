@@ -126,7 +126,7 @@ export class NearCaller implements Caller {
   }
 }
 
-export const RPC_RETRY = { retries: 2, wait: 200, backoff: 1.5 } as const;
+const RPC_RETRY = { retries: 2, wait: 200, backoff: 1.5 } as const;
 
 const endpoint = (url: string): JsonRpcProvider => new JsonRpcProvider({ url }, RPC_RETRY);
 

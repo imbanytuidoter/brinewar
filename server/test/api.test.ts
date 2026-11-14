@@ -83,7 +83,7 @@ describe("POST /api/guest", () => {
     const codes: number[] = [];
     for (let i = 0; i < 3; i++) codes.push((await t.app.inject({ method: "POST", url: "/api/guest", payload: { publicKey: key() } })).statusCode);
     expect(codes).toEqual([200, 200, 429]);
-    t.store.recordGuest("10.0.0.9", "x", null);
+    t.store.reserveGuest("10.0.0.9", "x", { perIpHour: 0, perIpDay: 0, perDay: 100, hourAgo: 0, dayAgo: 0 });
     const day = await t.app.inject({ method: "POST", url: "/api/guest", payload: { publicKey: key() }, remoteAddress: "10.0.0.8" });
     expect(day.statusCode).toBe(429);
   });

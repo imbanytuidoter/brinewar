@@ -12,7 +12,7 @@ const SAIL_H = 63;
 const FLAG_W = 9;
 const FLAG_H = 33;
 
-export type ShipState = "intact" | "damaged" | "sunk";
+type ShipState = "intact" | "damaged" | "sunk";
 
 interface SpriteShipProps {
   readonly length: number;

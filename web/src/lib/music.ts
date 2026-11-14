@@ -1,7 +1,7 @@
 import type { KeyValue } from "./storage";
 
-export type Theme = "harbour" | "battle";
-export type Sting = "victory" | "defeat";
+type Theme = "harbour" | "battle";
+type Sting = "victory" | "defeat";
 
 export interface AudioLike {
   volume: number;
@@ -28,7 +28,7 @@ const STING_PEAK = 1.4;
 const FADE_STEP_MS = 50;
 const THEMES = ["harbour", "battle"] as const;
 
-export interface MusicBox {
+interface MusicBox {
   readonly volume: number;
   readonly blocked: boolean;
   setVolume(volume: number): void;

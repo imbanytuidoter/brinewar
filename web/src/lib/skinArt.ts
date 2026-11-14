@@ -57,7 +57,7 @@ async function paint(look: SkinLook, sail: Rgb, flag: Rgb, hull: Rgb | null): Pr
   };
 }
 
-export function skinArt(look: SkinLook): Promise<SkinArt | null> {
+function skinArt(look: SkinLook): Promise<SkinArt | null> {
   const sail = parseHex(look.sail);
   const flag = parseHex(look.flag);
   if (!sail || !flag) return Promise.resolve(null);

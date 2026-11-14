@@ -2,7 +2,7 @@ import type { GameView, ShotView } from "@/lib/contract";
 import { storedAccount } from "@/lib/guest";
 import type { KeyValue } from "@/lib/storage";
 
-export interface SavedBattle {
+interface SavedBattle {
   readonly game: GameView;
   readonly history: readonly ShotView[];
 }

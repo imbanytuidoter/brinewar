@@ -2,8 +2,8 @@ import { sha256 as nobleSha256 } from "@noble/hashes/sha2.js";
 import { bytesToHex, hexToBytes } from "@noble/hashes/utils.js";
 
 export const CELLS = 100;
-export const DEPTH = 7;
-export const LEAVES = 1 << DEPTH;
+const DEPTH = 7;
+const LEAVES = 1 << DEPTH;
 
 export type Hash = Uint8Array;
 
@@ -20,7 +20,7 @@ export function sha256(...parts: Uint8Array[]): Hash {
   return nobleSha256(buf);
 }
 
-export function leafHash(index: number, cell: number, salt: Hash): Hash {
+function leafHash(index: number, cell: number, salt: Hash): Hash {
   return sha256(Uint8Array.of(index, cell), salt);
 }
 

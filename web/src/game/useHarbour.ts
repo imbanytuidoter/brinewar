@@ -36,7 +36,7 @@ export function useHarbourStats(cfg: AppConfig): HarbourStats {
   return stats;
 }
 
-export interface Skins {
+interface Skins {
   readonly all: readonly string[];
   readonly owned: readonly string[];
   readonly equipped: string | null;

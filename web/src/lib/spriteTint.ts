@@ -48,7 +48,7 @@ export function markColor(sail: Rgb, flag: Rgb): Rgb {
   return contrast(sail, LIGHT_MARK) >= contrast(sail, DARK_MARK) ? LIGHT_MARK : DARK_MARK;
 }
 
-export function dominant(px: Pixels, keep: (r: number, g: number, b: number) => boolean = () => true): Rgb {
+function dominant(px: Pixels, keep: (r: number, g: number, b: number) => boolean = () => true): Rgb {
   const counts = new Map<number, number>();
   const d = px.data;
   for (let i = 0; i < d.length; i += 4) {

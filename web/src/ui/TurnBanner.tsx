@@ -10,7 +10,7 @@ export interface Turn {
   readonly sub: string | null;
 }
 
-export interface TurnInput {
+interface TurnInput {
   readonly step: string | null;
   readonly busy: string | null;
   readonly aiming: number | null;

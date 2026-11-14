@@ -1,19 +1,19 @@
 export const WORLD_W = 3600;
 export const WORLD_H = 2400;
-export const SHIP_SPEED = 170;
-export const TURN_RATE = 3.2;
-export const ARRIVE = 8;
+const SHIP_SPEED = 170;
+const TURN_RATE = 3.2;
+const ARRIVE = 8;
 export const ENCOUNTER = 95;
-export const PATROL_SPEED = 0.22;
+const PATROL_SPEED = 0.22;
 
 export interface Vec {
   readonly x: number;
   readonly y: number;
 }
 
-export type Sprite = "isle-green" | "isle-sand" | "palm-a" | "palm-b" | "palm-c" | "rock-a" | "rock-b" | "rock-d" | "rock-e" | "tower" | "tower-b" | "wall-h" | "dock-h";
+type Sprite = "isle-green" | "isle-sand" | "palm-a" | "palm-b" | "palm-c" | "rock-a" | "rock-b" | "rock-d" | "rock-e" | "tower" | "tower-b" | "wall-h" | "dock-h";
 
-export interface Decor {
+interface Decor {
   readonly sprite: Sprite;
   readonly x: number;
   readonly y: number;
@@ -39,7 +39,7 @@ export interface Place {
   readonly reach: number;
 }
 
-export interface Patrol {
+interface Patrol {
   readonly id: number;
   readonly cx: number;
   readonly cy: number;
@@ -152,7 +152,7 @@ export function patrolAt(p: Patrol, t: number): { pos: Vec; heading: number } {
   return { pos: { x: p.cx + Math.cos(a) * p.r, y: p.cy + Math.sin(a) * p.r }, heading: a + Math.PI / 2 };
 }
 
-export function clampToWorld(v: Vec, margin = 30): Vec {
+function clampToWorld(v: Vec, margin = 30): Vec {
   return { x: Math.min(WORLD_W - margin, Math.max(margin, v.x)), y: Math.min(WORLD_H - margin, Math.max(margin, v.y)) };
 }
 

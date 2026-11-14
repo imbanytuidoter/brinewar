@@ -22,13 +22,13 @@ const MUZZLE_HEIGHT = 1.6;
 const CLEAR_COLOR = "#dbe7ec";
 const TRAIL_COLOR = "#c9d2d6";
 
-export interface Afloat {
+interface Afloat {
   readonly y: number;
   readonly visible: boolean;
   readonly gone: boolean;
 }
 
-export type ShipLookup = (side: Side, cell: number) => Afloat | null;
+type ShipLookup = (side: Side, cell: number) => Afloat | null;
 
 interface Ring {
   readonly m: THREE.Mesh<THREE.RingGeometry, THREE.MeshBasicMaterial>;

@@ -23,7 +23,7 @@ export interface TreasuryPoint {
   readonly bounty: string;
 }
 
-export function asTreasuryPoint(v: unknown): TreasuryPoint | null {
+function asTreasuryPoint(v: unknown): TreasuryPoint | null {
   if (!isObj(v) || !isAmount(v.balance) || !isAmount(v.entry) || !isAmount(v.bounty)) return null;
   return { balance: v.balance, entry: v.entry, bounty: v.bounty };
 }

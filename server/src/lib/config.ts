@@ -4,13 +4,13 @@ export class ConfigError extends Error {
 
 type Env = Record<string, string | undefined>;
 
-export function required(env: Env, key: string): string {
+function required(env: Env, key: string): string {
   const v = env[key]?.trim();
   if (!v) throw new ConfigError(`${key} is required`);
   return v;
 }
 
-export function optional(env: Env, key: string): string | undefined {
+function optional(env: Env, key: string): string | undefined {
   const v = env[key]?.trim();
   return v ? v : undefined;
 }
@@ -29,7 +29,7 @@ export function accountId(env: Env, key: string): string {
   return v;
 }
 
-export function secretKey(env: Env, key: string): string {
+function secretKey(env: Env, key: string): string {
   const v = required(env, key);
   if (!/^ed25519:[1-9A-HJ-NP-Za-km-z]{64,90}$/.test(v)) throw new ConfigError(`${key} must be an ed25519 secret key`);
   return v;
@@ -67,7 +67,7 @@ export function rpcUrls(env: Env): string {
   return [...listed, ...spares].join(",");
 }
 
-export interface AdmiralConfig {
+interface AdmiralConfig {
   rpcUrl: string;
   contract: string;
   admiral: string;
@@ -97,7 +97,7 @@ export function admiralConfig(env: Env): AdmiralConfig {
   };
 }
 
-export interface ApiConfig {
+interface ApiConfig {
   rpcUrl: string;
   contract: string;
   sponsor: string;

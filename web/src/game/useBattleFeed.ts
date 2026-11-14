@@ -16,7 +16,7 @@ export interface Callout {
   readonly tone: CalloutTone;
 }
 
-export interface FeedContext {
+interface FeedContext {
   readonly myShips: readonly (readonly number[])[];
   readonly myMarks: ReadonlyMap<number, Mark>;
   readonly enemyMarks: ReadonlyMap<number, Mark>;

@@ -1,7 +1,6 @@
 import { OrbitControls } from "@react-three/drei";
-import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import { useFrame, useThree } from "@react-three/fiber";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ComponentRef } from "react";
 import * as THREE from "three";
 
 const TARGET = new THREE.Vector3(0, 0, 0.5);
@@ -18,7 +17,7 @@ const BOARD_CENTRE: Readonly<Record<CameraFocus, THREE.Vector3>> = {
   enemy: new THREE.Vector3(4.8, 0, 0),
 };
 
-export type CameraFocus = "mine" | "enemy";
+type CameraFocus = "mine" | "enemy";
 
 interface CameraRigProps {
   readonly reduced: boolean;
@@ -33,16 +32,16 @@ interface Glide {
   start: number | null;
 }
 
-export function focusView(focus: CameraFocus): { readonly target: THREE.Vector3; readonly position: THREE.Vector3 } {
+function focusView(focus: CameraFocus): { readonly target: THREE.Vector3; readonly position: THREE.Vector3 } {
   const target = BOARD_CENTRE[focus].clone();
   return { target, position: target.clone().add(FOCUS_OFFSET) };
 }
 
-export function targetFor(portrait: boolean): THREE.Vector3 {
+function targetFor(portrait: boolean): THREE.Vector3 {
   return portrait ? PORTRAIT_TARGET : TARGET;
 }
 
-export function homeFor(portrait: boolean): THREE.Vector3 {
+function homeFor(portrait: boolean): THREE.Vector3 {
   return portrait ? new THREE.Vector3(-23.5, 24, 0.5) : new THREE.Vector3(0, 17, 19);
 }
 
@@ -60,7 +59,7 @@ function FramedRig({ reduced, focus = null }: CameraRigProps) {
   const done = useRef(reduced);
   const offset = useRef(new THREE.Vector3());
   const [target] = useState(() => targetFor(height > 0 && width / height < PORTRAIT_RATIO));
-  const controls = useRef<OrbitControlsImpl | null>(null);
+  const controls = useRef<ComponentRef<typeof OrbitControls> | null>(null);
   const glide = useRef<Glide | null>(null);
 
   const lastFocus = useRef<CameraFocus | null>(null);

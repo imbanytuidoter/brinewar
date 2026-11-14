@@ -1,7 +1,7 @@
 import { Account, actions, baseDecode, createTransaction, FailoverRpcProvider, JsonRpcProvider, KeyPairSigner, teraToGas, type KeyPairString, type Provider } from "near-api-js";
 
-export const PLAYER_GAS_TGAS = 10;
-export const PLAYER_REVEAL_GAS_TGAS = 30;
+const PLAYER_GAS_TGAS = 10;
+const PLAYER_REVEAL_GAS_TGAS = 30;
 
 export function playerGas(method: string): number {
   return method === "reveal" ? PLAYER_REVEAL_GAS_TGAS : PLAYER_GAS_TGAS;
@@ -11,7 +11,7 @@ const CALL_TIMEOUT_MS = 60_000;
 const BLOCK_HASH_TTL_MS = 10 * 60_000;
 const STALE_KEY = /nonce|expired|InvalidTransaction|InvalidAccessKey/i;
 
-export function withTimeout<T>(promise: Promise<T>, ms: number, what: string): Promise<T> {
+function withTimeout<T>(promise: Promise<T>, ms: number, what: string): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<never>((_, reject) => {
     timer = setTimeout(() => reject(new Error(`${what} timed out`)), ms);
@@ -30,7 +30,7 @@ export interface CallResult {
   readonly error?: string;
 }
 
-export function failureText(failure: unknown): string {
+function failureText(failure: unknown): string {
   const kind = field(field(failure, "ActionError"), "kind");
   const exec = field(field(kind, "FunctionCallError"), "ExecutionError");
   return typeof exec === "string" ? exec : JSON.stringify(failure);
@@ -85,13 +85,13 @@ export function rotate<T extends object>(items: readonly T[]): T {
   });
 }
 
-export const RPC_RETRY = { retries: 2, wait: 200, backoff: 1.5 } as const;
+const RPC_RETRY = { retries: 2, wait: 200, backoff: 1.5 } as const;
 
 function endpoints(rpcUrl: string): JsonRpcProvider[] {
   return rpcUrl.split(",").map((u) => u.trim()).filter(Boolean).map((url) => new JsonRpcProvider({ url }, RPC_RETRY));
 }
 
-export function readRpc(rpcUrl: string): Provider {
+function readRpc(rpcUrl: string): Provider {
   const list = endpoints(rpcUrl);
   if (list.length <= 1) return list[0] ?? new JsonRpcProvider({ url: rpcUrl }, RPC_RETRY);
   return rotate(list.map((_, i) => new FailoverRpcProvider([...list.slice(i), ...list.slice(0, i)])));
@@ -102,7 +102,7 @@ export function makeHeight(rpcUrl: string): () => Promise<number> {
   return async () => Number((await withTimeout(provider.viewBlock({ finality: "optimistic" }), VIEW_TIMEOUT_MS, "block")).header.height);
 }
 
-export function writeRpc(rpcUrl: string): Provider {
+function writeRpc(rpcUrl: string): Provider {
   const list = endpoints(rpcUrl);
   if (list.length <= 1) return list[0] ?? new JsonRpcProvider({ url: rpcUrl }, RPC_RETRY);
   return new FailoverRpcProvider(list);

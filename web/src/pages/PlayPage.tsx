@@ -19,7 +19,6 @@ import { layoutForBattle, randomLayout } from "@/scene/layoutChoice";
 import { loadOrCreateKey } from "@/lib/guest";
 import { browserStorage } from "@/lib/storage";
 import { FleetTray } from "@/ui/FleetTray";
-import { lookout } from "@/lib/heat";
 import { useLockOn } from "@/game/useLockOn";
 import { useNauarchAim } from "@/game/useNauarchAim";
 import { clearWater, confirmedSunk, mergeSunk } from "@/lib/sunk";
@@ -42,6 +41,7 @@ const SeaScene = lazy(() => import("@/scene/SeaScene").then((m) => ({ default: m
 
 const GREETING = "The sea is calm, Captain. It will not stay that way.";
 const AIM_DELAY_MS = 600;
+const NO_AIM: readonly number[] = [];
 
 interface PlayPageProps {
   readonly cfg: AppConfig;
@@ -83,10 +83,9 @@ export function PlayPage({ cfg, session, stats, landing, onEnter }: PlayPageProp
   const lastMine = useMemo(() => [...snap.history].reverse().find((s) => s.by === snap.accountId) ?? null, [snap.history, snap.accountId]);
   const watching = !duel && inBattle && result === null && (step === "thinking" || (step === "wait" && lastMine?.result === "Miss"));
   const theirLast = useMemo(() => [...snap.history].reverse().find((s) => s.by !== snap.accountId) ?? null, [snap.history, snap.accountId]);
-  const reckoned = useMemo(() => lookout(snap.marks.mine, heat), [snap.marks.mine, heat]);
   const theirShots = useMemo(() => snap.history.filter((s) => s.by !== snap.accountId).length, [snap.history, snap.accountId]);
   const offered = useNauarchAim(session, duel ? null : snap.gameId, theirShots);
-  const sweep = offered ?? reckoned;
+  const sweep = offered ?? NO_AIM;
   const feed = useBattleFeed({ myShips, myMarks: snap.marks.mine, enemyMarks: snap.marks.enemy, sunkTheirs, heat, boards: stats.admiralty?.boards_counted ?? 0, rival: duel ? (rival ?? "Your friend") : null, gameId: snap.gameId });
   const shotsInAir = feed.flight !== null || feed.settling;
   const lock = useLockOn(snap.gameId, theirLast?.n ?? null, theirLast?.index ?? null, !duel, feed.flight?.side === "mine");

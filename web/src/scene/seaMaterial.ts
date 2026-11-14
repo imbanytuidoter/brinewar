@@ -3,7 +3,7 @@ import * as THREE from "three";
 import type { Wave } from "./gerstner";
 import { BOARD_ORIGIN } from "./grid";
 
-export const SEA_FOG = "#cfeeff";
+const SEA_FOG = "#cfeeff";
 export const FOG_NEAR = 38;
 export const FOG_FAR = 95;
 export const OFF_BOARD = 999;

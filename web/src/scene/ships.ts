@@ -17,7 +17,7 @@ interface Sail {
   readonly phase: number;
 }
 
-export interface ShipFrame {
+interface ShipFrame {
   readonly t: number;
   readonly dt: number;
   readonly waves: readonly Wave[];

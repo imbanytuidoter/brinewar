@@ -9,7 +9,7 @@ export interface RevealState {
   progress: number;
 }
 
-export type ShotHook = (side: Side, cell: number, hit: boolean) => void;
+type ShotHook = (side: Side, cell: number, hit: boolean) => void;
 
 export interface ShotHooks {
   launch: ShotHook | null;

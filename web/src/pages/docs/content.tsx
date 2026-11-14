@@ -22,7 +22,7 @@ export interface Live {
   readonly bountyNow: string | null;
 }
 
-export interface Section {
+interface Section {
   readonly id: string;
   readonly title: string;
   readonly short: string;

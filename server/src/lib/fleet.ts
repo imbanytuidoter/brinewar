@@ -1,7 +1,7 @@
 import { CELLS } from "./merkle.js";
 
 const SIZE = 10;
-export const FLEET: ReadonlyArray<readonly [length: number, count: number]> = [
+const FLEET: ReadonlyArray<readonly [length: number, count: number]> = [
   [4, 1],
   [3, 2],
   [2, 3],

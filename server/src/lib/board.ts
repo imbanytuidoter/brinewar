@@ -19,7 +19,7 @@ export function rootHex(board: Board): string {
   return toHex(board.tree.root);
 }
 
-export interface AnswerArgs {
+interface AnswerArgs {
   game_id: number;
   index: number;
   cell: number;

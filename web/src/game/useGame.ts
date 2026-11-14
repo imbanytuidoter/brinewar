@@ -12,7 +12,7 @@ const HARBOUR_POLL_MS = 8000;
 const OFFLINE_POLL_MS = 5000;
 const HIDDEN_POLL_MS = 4000;
 
-export type Boot =
+type Boot =
   | { readonly kind: "boarding" }
   | { readonly kind: "error"; readonly message: string; readonly retryable: boolean }
   | { readonly kind: "ready"; readonly session: GameSession };

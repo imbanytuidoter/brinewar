@@ -21,7 +21,7 @@ const SIGNING_ALGO = "ed25519";
 const ERROR_SNIPPET = 300;
 const MAX_RESPONSE_BYTES = 64 * 1024;
 
-export type ModelErrorKind = "transient" | "auth" | "permanent";
+type ModelErrorKind = "transient" | "auth" | "permanent";
 
 export class ModelProviderError extends Error {
   override readonly name = "ModelProviderError";
@@ -47,7 +47,7 @@ async function guarded(call: () => Promise<Response>, what: string): Promise<Res
   }
 }
 
-export interface NearAiOptions {
+interface NearAiOptions {
   readonly baseUrl: string;
   readonly apiKey: string;
   readonly fetch: typeof fetch;

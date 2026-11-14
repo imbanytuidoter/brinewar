@@ -10,7 +10,7 @@ export const FLEET: ReadonlyArray<readonly [length: number, count: number]> = [
 
 export type Rng = () => number;
 
-export function neighbours8(i: number): number[] {
+function neighbours8(i: number): number[] {
   const x = i % SIZE;
   const y = Math.floor(i / SIZE);
   const out: number[] = [];

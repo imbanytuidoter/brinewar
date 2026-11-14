@@ -1,12 +1,12 @@
 const NAVIGATED = "brinewar:navigate";
 
-export interface LinkLike {
+interface LinkLike {
   readonly href: string;
   readonly target: string;
   readonly download: boolean;
 }
 
-export interface ClickLike {
+interface ClickLike {
   readonly button: number;
   readonly metaKey: boolean;
   readonly ctrlKey: boolean;
@@ -15,7 +15,7 @@ export interface ClickLike {
   readonly defaultPrevented: boolean;
 }
 
-export interface Here {
+interface Here {
   readonly origin: string;
   readonly pathname: string;
   readonly search: string;
@@ -60,7 +60,7 @@ export function subscribeRoute(fn: () => void): () => void {
   };
 }
 
-export function navigate(to: string): void {
+function navigate(to: string): void {
   if (to !== `${currentRoute()}${window.location.hash}`) window.history.pushState(null, "", to);
   window.scrollTo(0, 0);
   window.dispatchEvent(new Event(NAVIGATED));

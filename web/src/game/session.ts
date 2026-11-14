@@ -83,7 +83,7 @@ export function rewardsBetween(before: Captain, after: Captain): Rewards {
   };
 }
 
-export interface SessionDeps {
+interface SessionDeps {
   readonly accountId: string;
   readonly viewer: Viewer;
   readonly caller: Caller;
@@ -114,11 +114,11 @@ function unionShips(...lists: ReadonlyArray<readonly (readonly number[])[]>): (r
   return [...seen.values()];
 }
 
-export const BLOCK_MS = 587;
+const BLOCK_MS = 587;
 const QUICK_POLL_MS = 60;
 const QUICK_TRIES = 40;
 
-export function provenResult(a: QuickAnswer, index: number, root: string | null): "Hit" | "Miss" | null {
+function provenResult(a: QuickAnswer, index: number, root: string | null): "Hit" | "Miss" | null {
   if (!root || a.idx !== index || (a.cell !== 0 && a.cell !== 1)) return null;
   try {
     const computed = toHex(rootFromProof(index, a.cell, fromHex(a.salt), a.proof.map(fromHex)));
@@ -130,7 +130,7 @@ export function provenResult(a: QuickAnswer, index: number, root: string | null)
 }
 const SUNK_RETRIES = 2;
 
-export function inviteKey(accountId: string, gameId: number): string {
+function inviteKey(accountId: string, gameId: number): string {
   return `brinewar.invite.${accountId}.${gameId}`;
 }
 

@@ -36,7 +36,7 @@ export interface Report {
   readonly signedOk: number;
 }
 
-export function answerCheck(a: AnswerRow | undefined, root: string | null, result: ShotView["result"]): Check {
+function answerCheck(a: AnswerRow | undefined, root: string | null, result: ShotView["result"]): Check {
   if (!a || !root || result === "Pending") return "chain";
   try {
     const computed = toHex(rootFromProof(a.idx, a.cell, fromHex(a.salt), a.proof.map(fromHex)));

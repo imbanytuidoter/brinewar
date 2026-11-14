@@ -2,7 +2,7 @@ import type { Mark, Side } from "./types";
 
 export const SIZE = 10;
 export const REVEAL_END = 1.2;
-export const REVEAL_SPAN = 12;
+const REVEAL_SPAN = 12;
 
 export interface Point2 {
   readonly x: number;

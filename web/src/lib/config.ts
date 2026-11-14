@@ -30,7 +30,7 @@ export function checkUrl(name: string, raw: string | undefined, allowEmpty: bool
   return value;
 }
 
-export function checkUrls(name: string, raw: string | undefined): string {
+function checkUrls(name: string, raw: string | undefined): string {
   const list = (raw ?? "").split(",").map((u) => u.trim()).filter(Boolean);
   if (list.length === 0) throw new Error(`${name} is not set`);
   return list.map((u) => checkUrl(name, u, false)).join(",");
