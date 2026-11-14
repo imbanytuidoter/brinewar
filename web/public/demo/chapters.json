@@ -1,1 +1,8 @@
-[]
+[
+  { "at": 0, "title": "An admiral is waiting", "line": "Two fleets at dusk. Your opponent is an AI." },
+  { "at": 4, "title": "He studies every captain", "line": "His flagship, then his spyglass over your board: the Admiralty map is learned from every sealed board." },
+  { "at": 13, "title": "Brinewar", "line": "Naval battle against an AI admiral. Hide your fleet, hunt his." },
+  { "at": 20, "title": "Every shot is a transaction", "line": "Sealed boards and a Merkle proof for each answer. He can't cheat, and neither can you." },
+  { "at": 30, "title": "No wallet", "line": "No download and no sign-up: open the link and fire." },
+  { "at": 36, "title": "Victory", "line": "Sink him and his treasury pays the bounty." }
+]
